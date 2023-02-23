@@ -1,5 +1,8 @@
 version: v1
 name: buf.build/skip-mev/pob
+
+# TODO: Update once an official tag of v0.47.x has been released.
+# Ref: https://github.com/skip-mev/pob/issues/4
 deps:
   - buf.build/cosmos/cosmos-proto:1935555c206d4afb9e94615dfd0fad31
   - buf.build/cosmos/cosmos-sdk:8c515ebc07ee4514aabcaf3a584a1d1a
