@@ -297,8 +297,6 @@ type MsgClient interface {
 	AuctionBid(ctx context.Context, in *MsgAuctionBid, opts ...grpc.CallOption) (*MsgAuctionBidResponse, error)
 	// UpdateParams defines a governance operation for updating the x/auction
 	// module parameters. The authority is hard-coded to the x/gov module account.
-	//
-	// Since: cosmos-sdk v0.47
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
 }
 
@@ -334,8 +332,6 @@ type MsgServer interface {
 	AuctionBid(context.Context, *MsgAuctionBid) (*MsgAuctionBidResponse, error)
 	// UpdateParams defines a governance operation for updating the x/auction
 	// module parameters. The authority is hard-coded to the x/gov module account.
-	//
-	// Since: cosmos-sdk v0.47
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
 }
 
