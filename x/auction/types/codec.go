@@ -2,7 +2,6 @@ package types
 
 import (
 	"github.com/cosmos/cosmos-sdk/codec"
-	"github.com/cosmos/cosmos-sdk/codec/legacy"
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -15,6 +14,12 @@ import (
 var (
 	amino     = codec.NewLegacyAmino()
 	ModuleCdc = codec.NewAminoCodec(amino)
+)
+
+const (
+	// msgs
+	msgAuctionBid   = "pob/MsgAuctionBid"
+	msgUpdateParams = "pob/MsgUpdateParams"
 )
 
 func init() {
