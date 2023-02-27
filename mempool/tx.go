@@ -4,18 +4,20 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// PriorityTx defines a wrapper around an sd.Tx with a corresponding priority.
-type PriorityTx struct {
-	priority int64
-	tx       sdk.Tx
-}
+type (
+	// WrappedTx defines a wrapper around an sdk.Tx with additional metadata.
+	WrappedTx struct {
+		sdk.Tx
 
-func NewPriorityTx(tx sdk.Tx, priority int64) PriorityTx {
-	return PriorityTx{
-		priority: priority,
-		tx:       tx,
+		hash [32]byte
 	}
-}
 
-func (ptx PriorityTx) GetPriority() int64 { return ptx.priority }
-func (ptx PriorityTx) GetTx() sdk.Tx      { return ptx.tx }
+	// WrappedBidTx defines a wrapper around an sdk.Tx that contains a single
+	// MsgAuctionBid message with additional metadata.
+	WrappedBidTx struct {
+		sdk.Tx
+
+		hash [32]byte
+		bid  sdk.Coins
+	}
+)
