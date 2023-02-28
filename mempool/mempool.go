@@ -28,8 +28,6 @@ func NewAuctionMempool(txEncoder sdk.TxEncoder, opts ...sdkmempool.PriorityNonce
 }
 
 func (am *AuctionMempool) Insert(ctx context.Context, tx sdk.Tx) error {
-	sdkContext := sdk.UnwrapSDKContext(ctx)
-
 	bz, err := am.txEncoder(tx)
 	if err != nil {
 		return fmt.Errorf("failed to encode tx: %w", err)
