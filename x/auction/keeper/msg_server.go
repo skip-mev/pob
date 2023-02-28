@@ -38,6 +38,7 @@ func (m MsgServer) AuctionBid(goCtx context.Context, msg *types.MsgAuctionBid) (
 	}
 
 	// TODO: figure out how to handle payments to the escrow address.
+	// Ref: https://github.com/skip-mev/pob/issues/11
 
 	return &types.MsgAuctionBidResponse{}, nil
 }
@@ -48,7 +49,7 @@ func (m MsgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParam
 
 	// Ensure that the message signer is the authority.
 	if msg.Authority != m.Keeper.GetAuthority() {
-		return nil, fmt.Errorf("This message can only be executed by the authority. Expected %s, got %s", m.Keeper.GetAuthority(), msg.Authority)
+		return nil, fmt.Errorf("this message can only be executed by the authority; expected %s, got %s", m.Keeper.GetAuthority(), msg.Authority)
 	}
 
 	// Update the parameters.

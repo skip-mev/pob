@@ -1,6 +1,8 @@
 package types
 
 import (
+	fmt "fmt"
+
 	"cosmossdk.io/errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -48,28 +50,25 @@ func (m MsgAuctionBid) GetSigners() []sdk.AccAddress {
 
 // ValidateBasic does a sanity check on the provided data.
 func (m MsgAuctionBid) ValidateBasic() error {
-	// TODO: Implement validation.
-	//
-	// Ref: https://github.com/skip-mev/pob/issues/8
-	if _, err := sdk.AccAddressFromBech32(msg.Bidder); err != nil {
-		return fmt.Errorf("invalid bidder address (%s)", err)
+	if _, err := sdk.AccAddressFromBech32(m.Bidder); err != nil {
+		return errors.Wrap(err, "invalid bidder address")
 	}
 
 	// Validate the bid.
-	if len(msg.Bid) == 0 {
+	if len(m.Bid) == 0 {
 		return fmt.Errorf("no bid included")
 	}
 
-	if err := msg.Bid.Validate(); err != nil {
-		return fmt.Errorf("invalid bid (%s)", err)
+	if err := m.Bid.Validate(); err != nil {
+		return errors.Wrap(err, "invalid bid")
 	}
 
 	// Validate the transactions.
-	if len(msg.Transactions) == 0 {
+	if len(m.Transactions) == 0 {
 		return fmt.Errorf("no transactions included")
 	}
 
-	for _, tx := range msg.Transactions {
+	for _, tx := range m.Transactions {
 		if len(tx) == 0 {
 			return fmt.Errorf("empty transaction included")
 		}

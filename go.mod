@@ -3,6 +3,7 @@ module github.com/skip-mev/pob
 go 1.20
 
 require (
+	cosmossdk.io/api v0.3.0
 	cosmossdk.io/errors v1.0.0-beta.7
 	github.com/cosmos/cosmos-proto v1.0.0-beta.2
 	github.com/cosmos/cosmos-sdk v0.47.0-rc2.0.20230228000043-54240ec9ab19

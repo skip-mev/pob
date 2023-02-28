@@ -16,7 +16,10 @@ func (k Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) {
 // ExportGenesis returns a GenesisState for a given context.
 func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 	// Get the auction module's parameters.
-	params := k.GetParams(ctx)
+	params, err := k.GetParams(ctx)
+	if err != nil {
+		panic(err)
+	}
 
 	return types.NewGenesisState(params)
 }

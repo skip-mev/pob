@@ -13,3 +13,12 @@ const (
 	// QuerierRoute is the querier route for the auction module
 	QuerierRoute = ModuleName
 )
+
+const (
+	prefixParams = iota + 1
+)
+
+var (
+	// KeyPrefixParams is the store key for the auction module's parameters.
+	KeyPrefixParams = []byte{prefixParams}
+)
