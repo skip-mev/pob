@@ -44,12 +44,21 @@ func (am *AuctionMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 		hash: hash,
 	}
 
-	am.txIndex[hashStr] = wrappedTx
+	msg, err := GetMsgAuctionBidFromTx(tx)
+	if err != nil {
+		return err
+	}
+
+	if msg != nil {
+		// TODO: Insert into auctionIndex and update wrappedTx to reflect the index
+		// pointer.
+	}
 
 	if err := am.globalIndex.Insert(ctx, wrappedTx); err != nil {
-		// TODO: Remove from txIndex and auctionIndex.
 		return fmt.Errorf("failed to insert tx into global index: %w", err)
 	}
+
+	am.txIndex[hashStr] = wrappedTx
 
 	return nil
 }
