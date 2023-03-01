@@ -30,7 +30,6 @@ type AuctionMempool struct {
 	txEncoder sdk.TxEncoder
 
 	// auctionIndex *heap.Heap[PriorityTx]
-
 }
 
 func NewAuctionMempool(txEncoder sdk.TxEncoder, opts ...sdkmempool.PriorityNonceMempoolOption) *AuctionMempool {
