@@ -12,11 +12,25 @@ import (
 
 var _ sdkmempool.Mempool = (*AuctionMempool)(nil)
 
+// AuctionMempool defines an auction mempool. It can be seen as an extension of
+// an SDK PriorityNonceMempool, i.e. a mempool that supports <sender, nonce>
+// two-dimensional priority ordering, with the additional support of prioritizing
+// and indexing auction bids.
 type AuctionMempool struct {
+	// globalIndex defines the index of all transactions in the mempool. It uses
+	// the SDK's builtin PriorityNonceMempool. Once a bid if selected for top-of-block,
+	// all subsequent transactions in the mempool will be selected from this index.
 	globalIndex sdkmempool.PriorityNonceMempool
-	// auctionIndex *heap.Heap[PriorityTx]
-	txIndex   map[string]*WrappedTx
+
+	// txIndex defines an index of all transactions in the mempool by hash.
+	txIndex map[string]*WrappedTx
+
+	// txEncoder defines the sdk.Tx encoder that allows us to encode transactions
+	// and construct their hashes.
 	txEncoder sdk.TxEncoder
+
+	// auctionIndex *heap.Heap[PriorityTx]
+
 }
 
 func NewAuctionMempool(txEncoder sdk.TxEncoder, opts ...sdkmempool.PriorityNonceMempoolOption) *AuctionMempool {
