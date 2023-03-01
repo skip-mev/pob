@@ -25,6 +25,17 @@ type (
 	}
 )
 
+func NewWrappedBidTx(tx sdk.Tx, hash [32]byte, bid sdk.Coins) *WrappedBidTx {
+	return &WrappedBidTx{
+		Tx:   tx,
+		hash: hash,
+		bid:  bid,
+	}
+}
+
+func (wbtx *WrappedBidTx) GetHash() [32]byte { return wbtx.hash }
+func (wbtx *WrappedBidTx) GetBid() sdk.Coins { return wbtx.bid }
+
 // GetMsgAuctionBidFromTx attempts to retrieve a MsgAuctionBid from an sdk.Tx if
 // one exists. If a MsgAuctionBid does exist and other messages are also present,
 // an error is returned. If no MsgAuctionBid is present, <nil, nil> is returned.
