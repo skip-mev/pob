@@ -12,7 +12,7 @@ import (
 
 var emptyHash = [32]byte{}
 
-func TestAuctionBidList_Insert(t *testing.T) {
+func TestAuctionBidList(t *testing.T) {
 	abl := mempool.NewAuctionBidList()
 
 	require.Nil(t, abl.TopBid())
@@ -22,27 +22,24 @@ func TestAuctionBidList_Insert(t *testing.T) {
 	abl.Insert(mempool.NewWrappedBidTx(nil, emptyHash, bid1))
 	require.Equal(t, bid1, abl.TopBid().GetBid())
 
-	// insert a bid which should be the new head, where tail is the highest bid
-	bid2 := sdk.NewCoins(sdk.NewInt64Coin("foo", 50))
-	abl.Insert(mempool.NewWrappedBidTx(nil, emptyHash, bid2))
-	require.Equal(t, bid1, abl.TopBid().GetBid())
-
-	// insert a bid which should be the new tail, thus the highest bid
-	bid3 := sdk.NewCoins(sdk.NewInt64Coin("foo", 200))
-	abl.Insert(mempool.NewWrappedBidTx(nil, emptyHash, bid3))
-	require.Equal(t, bid3, abl.TopBid().GetBid())
-
-	// insert 500 random bids between [1, 1000)
+	// insert 500 random bids between [100, 1000)
+	var currTopBid sdk.Coins
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	for i := 0; i < 500; i++ {
-		randomBid := rng.Int63n(1000-1) + 1
+		randomBid := rng.Int63n(1000-100) + 100
 
 		bid := sdk.NewCoins(sdk.NewInt64Coin("foo", randomBid))
 		abl.Insert(mempool.NewWrappedBidTx(nil, emptyHash, bid))
+
+		currTopBid = abl.TopBid().GetBid()
 	}
 
 	// insert a bid which should be the new tail, thus the highest bid
-	bid4 := sdk.NewCoins(sdk.NewInt64Coin("foo", 1000))
-	abl.Insert(mempool.NewWrappedBidTx(nil, emptyHash, bid4))
-	require.Equal(t, bid4, abl.TopBid().GetBid())
+	bid2 := sdk.NewCoins(sdk.NewInt64Coin("foo", 1000))
+	abl.Insert(mempool.NewWrappedBidTx(nil, emptyHash, bid2))
+	require.Equal(t, bid2, abl.TopBid().GetBid())
+
+	// remove the top bid and ensure the new top bid is the previous top bid
+	abl.Remove(mempool.NewWrappedBidTx(nil, emptyHash, bid2))
+	require.Equal(t, currTopBid, abl.TopBid().GetBid())
 }

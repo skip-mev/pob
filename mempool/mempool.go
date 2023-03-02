@@ -22,21 +22,23 @@ type AuctionMempool struct {
 	// all subsequent transactions in the mempool will be selected from this index.
 	globalIndex sdkmempool.PriorityNonceMempool
 
+	// auctionIndex defines an index of auction bids.
+	auctionIndex *AuctionBidList
+
 	// txIndex defines an index of all transactions in the mempool by hash.
-	txIndex map[string]*WrappedTx
+	txIndex map[string]struct{}
 
 	// txEncoder defines the sdk.Tx encoder that allows us to encode transactions
 	// and construct their hashes.
 	txEncoder sdk.TxEncoder
-
-	// auctionIndex *heap.Heap[PriorityTx]
 }
 
 func NewAuctionMempool(txEncoder sdk.TxEncoder, opts ...sdkmempool.PriorityNonceMempoolOption) *AuctionMempool {
 	return &AuctionMempool{
-		globalIndex: *sdkmempool.NewPriorityMempool(opts...),
-		txIndex:     make(map[string]*WrappedTx),
-		txEncoder:   txEncoder,
+		globalIndex:  *sdkmempool.NewPriorityMempool(opts...),
+		auctionIndex: NewAuctionBidList(),
+		txIndex:      make(map[string]struct{}),
+		txEncoder:    txEncoder,
 	}
 }
 
@@ -52,9 +54,8 @@ func (am *AuctionMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 		return fmt.Errorf("tx already exists: %s", hashStr)
 	}
 
-	wrappedTx := &WrappedTx{
-		Tx:   tx,
-		hash: hash,
+	if err := am.globalIndex.Insert(ctx, tx); err != nil {
+		return fmt.Errorf("failed to insert tx into global index: %w", err)
 	}
 
 	msg, err := GetMsgAuctionBidFromTx(tx)
@@ -63,15 +64,10 @@ func (am *AuctionMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 	}
 
 	if msg != nil {
-		// TODO: Insert into auctionIndex and update wrappedTx to reflect the index
-		// pointer.
+		am.auctionIndex.Insert(NewWrappedBidTx(tx, hash, msg.GetBid()))
 	}
 
-	if err := am.globalIndex.Insert(ctx, wrappedTx); err != nil {
-		return fmt.Errorf("failed to insert tx into global index: %w", err)
-	}
-
-	am.txIndex[hashStr] = wrappedTx
+	am.txIndex[hashStr] = struct{}{}
 
 	return nil
 }
