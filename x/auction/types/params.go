@@ -7,7 +7,9 @@ import (
 )
 
 var (
-	// Default auction module parameters
+	// TODO: Choose reasonable default values.
+	//
+	// Ref: https://github.com/skip-mev/pob/issues/7
 	DefaultMaxBundleSize        uint32 = 0
 	DefaultEscrowAccountAddress        = ""
 	DefaultReserveFee                  = sdk.Coins{}
@@ -61,10 +63,8 @@ func (p Params) Validate() error {
 // validateEscrowAccountAddress ensures the escrow account address is a valid address (if set).
 func validateEscrowAccountAddress(account string) error {
 	// If the escrow account address is set, ensure it is a valid address.
-	if len(account) != 0 {
-		if _, err := sdk.AccAddressFromBech32(account); err != nil {
-			return fmt.Errorf("invalid escrow account address (%s)", err)
-		}
+	if _, err := sdk.AccAddressFromBech32(account); err != nil {
+		return fmt.Errorf("invalid escrow account address (%s)", err)
 	}
 
 	return nil
