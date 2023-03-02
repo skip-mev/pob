@@ -26,7 +26,7 @@ type AuctionMempool struct {
 	auctionIndex *AuctionBidList
 
 	// txIndex defines an index of all transactions in the mempool by hash.
-	txIndex map[string]struct{}
+	txIndex map[string]sdk.Tx
 
 	// txEncoder defines the sdk.Tx encoder that allows us to encode transactions
 	// and construct their hashes.
@@ -37,19 +37,17 @@ func NewAuctionMempool(txEncoder sdk.TxEncoder, opts ...sdkmempool.PriorityNonce
 	return &AuctionMempool{
 		globalIndex:  *sdkmempool.NewPriorityMempool(opts...),
 		auctionIndex: NewAuctionBidList(),
-		txIndex:      make(map[string]struct{}),
+		txIndex:      make(map[string]sdk.Tx),
 		txEncoder:    txEncoder,
 	}
 }
 
 func (am *AuctionMempool) Insert(ctx context.Context, tx sdk.Tx) error {
-	bz, err := am.txEncoder(tx)
+	hash, hashStr, err := am.getTxHash(tx)
 	if err != nil {
-		return fmt.Errorf("failed to encode tx: %w", err)
+		return err
 	}
 
-	hash := sha256.Sum256(bz)
-	hashStr := base64.StdEncoding.EncodeToString(hash[:])
 	if _, ok := am.txIndex[hashStr]; ok {
 		return fmt.Errorf("tx already exists: %s", hashStr)
 	}
@@ -67,13 +65,51 @@ func (am *AuctionMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 		am.auctionIndex.Insert(NewWrappedBidTx(tx, hash, msg.GetBid()))
 	}
 
-	am.txIndex[hashStr] = struct{}{}
+	am.txIndex[hashStr] = tx
 
 	return nil
 }
 
 func (am *AuctionMempool) Remove(tx sdk.Tx) error {
-	panic("not implemented")
+	hash, hashStr, err := am.getTxHash(tx)
+	if err != nil {
+		return err
+	}
+
+	// 1. Remove the tx from the global index
+	if err := am.globalIndex.Remove(tx); err != nil {
+		return fmt.Errorf("failed to remove tx from global index: %w", err)
+	}
+
+	// 2. Remove from the transaction index
+	delete(am.txIndex, hashStr)
+
+	msg, err := GetMsgAuctionBidFromTx(tx)
+	if err != nil {
+		return err
+	}
+
+	// 3. Remove the bid from the auction index (if applicable). In addition, we
+	// remove all referenced transactions from the global and transaction indices.
+	if msg != nil {
+		am.auctionIndex.Remove(NewWrappedBidTx(tx, hash, msg.GetBid()))
+
+		for _, refTxRaw := range msg.GetTransactions() {
+			refHash := sha256.Sum256(refTxRaw)
+			refHashStr := base64.StdEncoding.EncodeToString(refHash[:])
+
+			// check if we have the referenced transaction first
+			if refTx, ok := am.txIndex[refHashStr]; ok {
+				if err := am.globalIndex.Remove(refTx); err != nil {
+					return fmt.Errorf("failed to remove bid referenced tx from global index: %w", err)
+				}
+			}
+
+			delete(am.txIndex, refHashStr)
+		}
+	}
+
+	return nil
 }
 
 func (am *AuctionMempool) Select(ctx context.Context, txs [][]byte) sdkmempool.Iterator {
@@ -82,4 +118,19 @@ func (am *AuctionMempool) Select(ctx context.Context, txs [][]byte) sdkmempool.I
 
 func (am *AuctionMempool) CountTx() int {
 	return am.globalIndex.CountTx()
+}
+
+func (am *AuctionMempool) getTxHash(tx sdk.Tx) ([32]byte, string, error) {
+	bz, err := am.txEncoder(tx)
+	if err != nil {
+		return [32]byte{}, "", fmt.Errorf("failed to encode tx: %w", err)
+	}
+
+	hash := sha256.Sum256(bz)
+	hashStr := base64.StdEncoding.EncodeToString(hash[:])
+	if _, ok := am.txIndex[hashStr]; ok {
+		return [32]byte{}, "", fmt.Errorf("tx already exists: %s", hashStr)
+	}
+
+	return hash, hashStr, nil
 }
