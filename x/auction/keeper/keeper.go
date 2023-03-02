@@ -56,7 +56,7 @@ func (k Keeper) GetAuthority() string {
 func (k Keeper) GetParams(ctx sdk.Context) (types.Params, error) {
 	store := ctx.KVStore(k.storeKey)
 
-	key := types.KeyPrefixParams
+	key := types.KeyParams
 	bz := store.Get(key)
 
 	if len(bz) == 0 {
@@ -75,13 +75,12 @@ func (k Keeper) GetParams(ctx sdk.Context) (types.Params, error) {
 func (k Keeper) SetParams(ctx sdk.Context, params types.Params) error {
 	store := ctx.KVStore(k.storeKey)
 
-	key := types.KeyPrefixParams
 	bz, err := params.Marshal()
 	if err != nil {
 		return err
 	}
 
-	store.Set(key, bz)
+	store.Set(types.KeyParams, bz)
 
 	return nil
 }

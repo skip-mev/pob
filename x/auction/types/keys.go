@@ -20,5 +20,5 @@ const (
 
 var (
 	// KeyPrefixParams is the store key for the auction module's parameters.
-	KeyPrefixParams = []byte{prefixParams}
+	KeyParams = []byte{prefixParams}
 )

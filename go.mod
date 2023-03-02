@@ -3,7 +3,7 @@ module github.com/skip-mev/pob
 go 1.20
 
 require (
-	cosmossdk.io/api v0.3.0
+	cosmossdk.io/api v0.3.1
 	cosmossdk.io/errors v1.0.0-beta.7
 	github.com/cosmos/cosmos-proto v1.0.0-beta.2
 	github.com/cosmos/cosmos-sdk v0.47.0-rc2.0.20230228000043-54240ec9ab19
@@ -113,30 +113,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	pgregory.net/rapid v0.5.5 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
-)
-
-// TODO update/remove after v0.37.x tag of CometBFT
-replace github.com/cometbft/cometbft => github.com/cometbft/cometbft v0.0.0-20230203130311-387422ac220d
-
-replace (
-	// use cosmos fork of keyring
-	github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0
-	// dgrijalva/jwt-go is deprecated and doesn't receive security updates.
-	// TODO: remove it: https://github.com/cosmos/cosmos-sdk/issues/13134
-	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.4.2
-	// Fix upstream GHSA-h395-qcrw-5vmq vulnerability.
-	// TODO Remove it: https://github.com/cosmos/cosmos-sdk/issues/10409
-	github.com/gin-gonic/gin => github.com/gin-gonic/gin v1.8.1
-)
-
-retract (
-	// subject to a bug in the group module and gov module migration
-	[v0.46.5, v0.46.6]
-	// subject to the dragonberry vulnerability
-	// and/or the bank coin metadata migration issue
-	[v0.46.0, v0.46.4]
-	// subject to the dragonberry vulnerability
-	[v0.45.0, v0.45.8]
-	// do not use
-	v0.43.0
 )
