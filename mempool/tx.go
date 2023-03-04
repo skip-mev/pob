@@ -7,16 +7,14 @@ import (
 	auctiontypes "github.com/skip-mev/pob/x/auction/types"
 )
 
-type (
-	// WrappedBidTx defines a wrapper around an sdk.Tx that contains a single
-	// MsgAuctionBid message with additional metadata.
-	WrappedBidTx struct {
-		sdk.Tx
+// WrappedBidTx defines a wrapper around an sdk.Tx that contains a single
+// MsgAuctionBid message with additional metadata.
+type WrappedBidTx struct {
+	sdk.Tx
 
-		hash [32]byte
-		bid  sdk.Coins
-	}
-)
+	hash [32]byte
+	bid  sdk.Coins
+}
 
 func NewWrappedBidTx(tx sdk.Tx, hash [32]byte, bid sdk.Coins) *WrappedBidTx {
 	return &WrappedBidTx{
@@ -51,8 +49,7 @@ func GetMsgAuctionBidFromTx(tx sdk.Tx) (*auctiontypes.MsgAuctionBid, error) {
 		return auctionBidMsgs[0], nil
 
 	default:
-		// A transaction with at at least one MsgAuctionBid message and some other
-		// message.
+		// a transaction with at at least one MsgAuctionBid message
 		return nil, errors.New("invalid MsgAuctionBid transaction")
 	}
 }

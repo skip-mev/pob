@@ -20,7 +20,7 @@ type AuctionMempool struct {
 	// globalIndex defines the index of all transactions in the mempool. It uses
 	// the SDK's builtin PriorityNonceMempool. Once a bid if selected for top-of-block,
 	// all subsequent transactions in the mempool will be selected from this index.
-	globalIndex sdkmempool.PriorityNonceMempool
+	globalIndex *sdkmempool.PriorityNonceMempool
 
 	// auctionIndex defines an index of auction bids.
 	auctionIndex *AuctionBidList
@@ -35,7 +35,7 @@ type AuctionMempool struct {
 
 func NewAuctionMempool(txEncoder sdk.TxEncoder, opts ...sdkmempool.PriorityNonceMempoolOption) *AuctionMempool {
 	return &AuctionMempool{
-		globalIndex:  *sdkmempool.NewPriorityMempool(opts...),
+		globalIndex:  sdkmempool.NewPriorityMempool(opts...),
 		auctionIndex: NewAuctionBidList(),
 		txIndex:      make(map[string]sdk.Tx),
 		txEncoder:    txEncoder,
@@ -110,6 +110,17 @@ func (am *AuctionMempool) Remove(tx sdk.Tx) error {
 	}
 
 	return nil
+}
+
+// SelectTopAuctionBidTx returns the top auction bid tx in the mempool if one
+// exists.
+func (am *AuctionMempool) SelectTopAuctionBidTx() sdk.Tx {
+	wBidTx := am.auctionIndex.TopBid()
+	if wBidTx == nil {
+		return nil
+	}
+
+	return wBidTx.Tx
 }
 
 func (am *AuctionMempool) Select(ctx context.Context, txs [][]byte) sdkmempool.Iterator {

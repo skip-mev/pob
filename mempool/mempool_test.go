@@ -61,12 +61,20 @@ func TestAuctionMempool(t *testing.T) {
 	}
 
 	// insert bid transactions
+	var highestBid sdk.Coins
 	biddingAccs := RandomAccounts(rng, 100)
+
 	for _, acc := range biddingAccs {
 		p := rng.Int63n(500-1) + 1
 		txBuilder := encCfg.TxConfig.NewTxBuilder()
 
-		bidMsg, err := createMsgAuctionBid(encCfg.TxConfig, acc, sdk.NewCoins(sdk.NewInt64Coin("foo", p)))
+		// keep track of highest bid
+		bid := sdk.NewCoins(sdk.NewInt64Coin("foo", p))
+		if bid.IsAllGT(highestBid) {
+			highestBid = bid
+		}
+
+		bidMsg, err := createMsgAuctionBid(encCfg.TxConfig, acc, bid)
 		require.NoError(t, err)
 
 		msgs := []sdk.Msg{bidMsg}
@@ -95,9 +103,13 @@ func TestAuctionMempool(t *testing.T) {
 		}
 	}
 
-	require.Equal(t, 1000+100+200, amp.CountTx())
+	expectedCount := 1000 + 100 + 200
+	require.Equal(t, expectedCount, amp.CountTx())
 
 	// select the top bid and misc txs
+	bidTx := amp.SelectTopAuctionBidTx()
+	require.Len(t, bidTx.GetMsgs(), 1)
+	require.Equal(t, highestBid, bidTx.GetMsgs()[0].(*auctiontypes.MsgAuctionBid).Bid)
 
 	// remove bid tx, which should also removed the single referenced tx
 }
