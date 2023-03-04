@@ -60,6 +60,8 @@ func TestAuctionMempool(t *testing.T) {
 		require.NoError(t, amp.Insert(ctx.WithPriority(p), txBuilder.GetTx()))
 	}
 
+	require.Nil(t, amp.SelectTopAuctionBidTx())
+
 	// insert bid transactions
 	var highestBid sdk.Coins
 	biddingAccs := RandomAccounts(rng, 100)
