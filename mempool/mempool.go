@@ -139,9 +139,6 @@ func (am *AuctionMempool) getTxHash(tx sdk.Tx) ([32]byte, string, error) {
 
 	hash := sha256.Sum256(bz)
 	hashStr := base64.StdEncoding.EncodeToString(hash[:])
-	if _, ok := am.txIndex[hashStr]; ok {
-		return [32]byte{}, "", fmt.Errorf("tx already exists: %s", hashStr)
-	}
 
 	return hash, hashStr, nil
 }

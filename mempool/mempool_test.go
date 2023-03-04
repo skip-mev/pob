@@ -111,7 +111,9 @@ func TestAuctionMempool(t *testing.T) {
 	require.Len(t, bidTx.GetMsgs(), 1)
 	require.Equal(t, highestBid, bidTx.GetMsgs()[0].(*auctiontypes.MsgAuctionBid).Bid)
 
-	// remove bid tx, which should also removed the single referenced tx
+	// remove bid tx, which should also removed the referenced txs
+	require.NoError(t, amp.Remove(bidTx))
+	require.Equal(t, expectedCount-3, amp.CountTx())
 }
 
 func createMsgAuctionBid(txCfg client.TxConfig, bidder Account, bid sdk.Coins) (*auctiontypes.MsgAuctionBid, error) {
