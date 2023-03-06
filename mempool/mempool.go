@@ -18,7 +18,7 @@ var _ sdkmempool.Mempool = (*AuctionMempool)(nil)
 // and indexing auction bids.
 type AuctionMempool struct {
 	// globalIndex defines the index of all transactions in the mempool. It uses
-	// the SDK's builtin PriorityNonceMempool. Once a bid if selected for top-of-block,
+	// the SDK's builtin PriorityNonceMempool. Once a bid is selected for top-of-block,
 	// all subsequent transactions in the mempool will be selected from this index.
 	globalIndex *sdkmempool.PriorityNonceMempool
 
