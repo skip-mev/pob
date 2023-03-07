@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"fmt"
+	"sort"
 
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -11,6 +12,7 @@ import (
 
 type AuctionDecorator struct {
 	AuctionKeeper Keeper
+	sdk.TxDecoder
 }
 
 func NewAuctionDecorator(ak Keeper) AuctionDecorator {
@@ -60,13 +62,12 @@ func (ad AuctionDecorator) ValidateAuctionTx(ctx sdk.Context, msg *types.MsgAuct
 		return fmt.Errorf("bundle size (%d) exceeds max bundle size (%d)", len(msg.Transactions), maxBundleSize)
 	}
 
-	// Validate the bidder address.
+	// Validate the bid.
 	bidder, err := sdk.AccAddressFromBech32(msg.Bidder)
 	if err != nil {
 		return errors.Wrapf(err, "invalid bidder address (%s)", msg.Bidder)
 	}
 
-	// Validate the bid.
 	balances := ad.AuctionKeeper.bankkeeper.GetAllBalances(ctx, bidder)
 	if !balances.IsAllGTE(msg.Bid) {
 		return fmt.Errorf("insufficient funds to bid %s", msg.Bid)
@@ -80,7 +81,53 @@ func (ad AuctionDecorator) ValidateAuctionTx(ctx sdk.Context, msg *types.MsgAuct
 	return nil
 }
 
-// ValidateBundle validates the referenced transactions
+// ValidateBundle validates the ordering of the referenced transactions. Bundles are valid if
+// 1. all of the transactions are signed by the same bidder.
+// 2. the first transactions are signed by the same party (not sender), and the subsequent txs are signed by the bidder.
 func (ad AuctionDecorator) ValidateBundle(ctx sdk.Context, transactions [][]byte, bidder sdk.AccAddress) error {
+	// Get the signers for each transaction.
+	signers := make([][]sdk.AccAddress, len(transactions))
+	for i, txBytes := range transactions {
+		tx, err := ad.DecodeTx(txBytes)
+		if err != nil {
+			return err
+		}
+
+		signers[i] = getTxSigners(tx)
+	}
+
 	return nil
+}
+
+// getTxSigners returns the signers of a transaction sorted by address.
+func getTxSigners(tx sdk.Tx) []sdk.AccAddress {
+	signers := make([]sdk.AccAddress, 0)
+	msgs := tx.GetMsgs()
+	for _, msg := range msgs {
+		for _, signer := range msg.GetSigners() {
+			signers = append(signers, signer)
+		}
+	}
+
+	sort.SliceStable(signers, func(i, j int) bool {
+		return signers[i].String() < signers[j].String()
+	})
+
+	return signers
+}
+
+// Checks if there is any overlap between the transaction and bundle signers. Used to check whether a
+// transaction was also signed by the bundle sender.
+func checkTransactionHasBundleSigner(transactionSigners, bundleSigners map[string][]byte) bool {
+	for signer := range bundleSigners {
+		if _, isTxFromSender := transactionSigners[signer]; isTxFromSender {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (ad AuctionDecorator) DecodeTx(txBytes []byte) (sdk.Tx, error) {
+	return ad.TxDecoder(txBytes)
 }
