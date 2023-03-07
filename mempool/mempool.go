@@ -23,35 +23,26 @@ type AuctionMempool struct {
 	globalIndex *sdkmempool.PriorityNonceMempool
 
 	// auctionIndex defines an index of auction bids.
-	auctionIndex *AuctionBidList
-
-	// txIndex defines an index of all transactions in the mempool by hash.
-	txIndex map[string]sdk.Tx
+	auctionIndex *sdkmempool.PriorityNonceMempool
 
 	// txEncoder defines the sdk.Tx encoder that allows us to encode transactions
 	// and construct their hashes.
 	txEncoder sdk.TxEncoder
+
+	// txDecoder defines the sdk.Tx decoder that allows us to decode transactions
+	// from their hashes.
+	txDecoder sdk.TxDecoder
 }
 
 func NewAuctionMempool(txEncoder sdk.TxEncoder, opts ...sdkmempool.PriorityNonceMempoolOption) *AuctionMempool {
 	return &AuctionMempool{
 		globalIndex:  sdkmempool.NewPriorityMempool(opts...),
-		auctionIndex: NewAuctionBidList(),
-		txIndex:      make(map[string]sdk.Tx),
+		auctionIndex: sdkmempool.NewPriorityMempool(opts...),
 		txEncoder:    txEncoder,
 	}
 }
 
 func (am *AuctionMempool) Insert(ctx context.Context, tx sdk.Tx) error {
-	hash, hashStr, err := am.getTxHash(tx)
-	if err != nil {
-		return err
-	}
-
-	if _, ok := am.txIndex[hashStr]; ok {
-		return fmt.Errorf("tx already exists: %s", hashStr)
-	}
-
 	if err := am.globalIndex.Insert(ctx, tx); err != nil {
 		return fmt.Errorf("failed to insert tx into global index: %w", err)
 	}
@@ -62,50 +53,44 @@ func (am *AuctionMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 	}
 
 	if msg != nil {
-		am.auctionIndex.Insert(NewWrappedBidTx(tx, hash, msg.GetBid()))
+		if err := am.auctionIndex.Insert(ctx, tx); err != nil {
+			return fmt.Errorf("failed to insert tx into auction index: %w", err)
+		}
 	}
-
-	am.txIndex[hashStr] = tx
 
 	return nil
 }
 
 func (am *AuctionMempool) Remove(tx sdk.Tx) error {
-	hash, hashStr, err := am.getTxHash(tx)
-	if err != nil {
-		return err
-	}
-
 	// 1. Remove the tx from the global index
 	if err := am.globalIndex.Remove(tx); err != nil {
 		return fmt.Errorf("failed to remove tx from global index: %w", err)
 	}
-
-	// 2. Remove from the transaction index
-	delete(am.txIndex, hashStr)
 
 	msg, err := GetMsgAuctionBidFromTx(tx)
 	if err != nil {
 		return err
 	}
 
-	// 3. Remove the bid from the auction index (if applicable). In addition, we
+	// 2. Remove the bid from the auction index (if applicable). In addition, we
 	// remove all referenced transactions from the global and transaction indices.
 	if msg != nil {
-		am.auctionIndex.Remove(NewWrappedBidTx(tx, hash, msg.GetBid()))
+		if err := am.auctionIndex.Remove(tx); err != nil {
+			return fmt.Errorf("failed to remove tx from auction index: %w", err)
+		}
 
+		// Decode the referenced transaction and remove them from the global index.
 		for _, refTxRaw := range msg.GetTransactions() {
 			refHash := sha256.Sum256(refTxRaw)
-			refHashStr := base64.StdEncoding.EncodeToString(refHash[:])
-
-			// check if we have the referenced transaction first
-			if refTx, ok := am.txIndex[refHashStr]; ok {
-				if err := am.globalIndex.Remove(refTx); err != nil {
-					return fmt.Errorf("failed to remove bid referenced tx from global index: %w", err)
-				}
+			refTx, err := am.txDecoder(refHash[:])
+			if err != nil {
+				return fmt.Errorf("failed to decode referenced tx: %w", err)
 			}
 
-			delete(am.txIndex, refHashStr)
+			// Remove the referenced tx from the global index if it exists.
+			if err := am.globalIndex.Remove(refTx); err != sdkmempool.ErrTxNotFound {
+				return fmt.Errorf("failed to remove referenced tx from global index: %w", err)
+			}
 		}
 	}
 
@@ -115,7 +100,7 @@ func (am *AuctionMempool) Remove(tx sdk.Tx) error {
 // SelectTopAuctionBidTx returns the top auction bid tx in the mempool if one
 // exists.
 func (am *AuctionMempool) SelectTopAuctionBidTx() sdk.Tx {
-	wBidTx := am.auctionIndex.TopBid()
+	wBidTx := am.auctionIndex.Select(context.Background(), nil)
 	if wBidTx == nil {
 		return nil
 	}
