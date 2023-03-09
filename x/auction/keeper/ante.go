@@ -59,30 +59,71 @@ func (k Keeper) ValidateAuctionMsg(ctx sdk.Context, msg *types.MsgAuctionBid) er
 		return errors.Wrapf(err, "invalid bidder address (%s)", msg.Bidder)
 	}
 
-	balances := k.bankkeeper.GetAllBalances(ctx, bidder)
-	if !balances.IsAllGTE(msg.Bid) {
-		return fmt.Errorf("insufficient funds to bid %s", msg.Bid)
+	// Validate the bid amount.
+	if err := k.ValidateAuctionBid(ctx, msg.Bid, bidder); err != nil {
+		return err
 	}
 
 	// Validate the bundle of transactions.
-	if err := k.ValidateBundle(ctx, msg.Transactions, bidder); err != nil {
+	if err := k.ValidateAuctionBundle(ctx, msg.Transactions, bidder); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// ValidateBundle validates the ordering of the referenced transactions. Bundles are valid if
+// ValidateAuctionBid validates that the bidder has sufficient funds to participate in the auction
+// and distributes the enterance fee to the escrow account.
+func (k Keeper) ValidateAuctionBid(ctx sdk.Context, bid sdk.Coins, bidder sdk.AccAddress) error {
+	// Minimum bid amount the user must bid to participate in the auction.
+	reserveFee, err := k.GetReserveFee(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Auction bid floor.
+	minBuyInFee, err := k.GetMinBuyInFee(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Minimum amount the user must pay to participate in the auction.
+	minBidAmount := reserveFee.Add(minBuyInFee...)
+	balances := k.bankkeeper.GetAllBalances(ctx, bidder)
+	if !balances.IsAllGTE(minBidAmount) {
+		return fmt.Errorf("insufficient funds to bid %s with balance %s", minBidAmount, balances)
+	}
+
+	if !bid.IsAllGTE(minBidAmount) {
+		return fmt.Errorf("bid amount (%s) is less than the minimum bid amount (%s)", bid, minBidAmount)
+	}
+
+	// Send the enterance fee to the escrow account.
+	if !ctx.IsCheckTx() && !ctx.IsReCheckTx() {
+		escrowAccount, err := k.GetEscrowAccount(ctx)
+		if err != nil {
+			return err
+		}
+
+		if err := k.bankkeeper.SendCoins(ctx, bidder, escrowAccount, reserveFee); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ValidateAuctionBundle validates the ordering of the referenced transactions. Bundles are valid if
 //  1. all of the transactions are signed by the signer.
-//  2. some subset of contiguous transactions are signed by the signer (starting from the front), and all other tranasctions
+//  2. some subset of contiguous transactions starting from the first tx are signed by the signer, and all other tranasctions
 //     are signed by the bidder.
 //
 // example:
 //  1. valid: [tx1, tx2, tx3] where tx1 is signed by the signer 1 and tx2 and tx3 are signed by the bidder.
 //  2. valid: [tx1, tx2, tx3, tx4] where tx1 - tx4 are signed by the bidder.
-//  3. invalid: [tx1, tx2, tx3] where tx1 is signed by the signer 1 and tx2 is signed by the bidder, and tx3 is signed by the signer 2. (possible sandwich attack)
-//  4. invalid: [tx1, tx2, tx3] where tx1 is signed by the bidder, and tx2 - tx3 is signed by the signer 1. (possible front-running attack)
-func (k Keeper) ValidateBundle(ctx sdk.Context, transactions [][]byte, bidder sdk.AccAddress) error {
+//  3. invalid: [tx1, tx2, tx3] where tx1 and tx3 are signed by the signer 1 and tx2 is signed by the bidder. (possible sandwich attack)
+//  4. invalid: [tx1, tx2, tx3] where tx1 is signed by the bidder, and tx2 - tx3 are signed by the signer 1. (possible front-running attack)
+func (k Keeper) ValidateAuctionBundle(ctx sdk.Context, transactions [][]byte, bidder sdk.AccAddress) error {
 	if len(transactions) <= 1 {
 		return nil
 	}
@@ -110,14 +151,14 @@ func (k Keeper) ValidateBundle(ctx sdk.Context, transactions [][]byte, bidder sd
 		// as long as all subsequent transactions are signed by the bidder.
 		if len(prevSigners) == 0 {
 			if seenBidder {
-				return fmt.Errorf("bundle contains transactions signed by multiple parties. bundle must be signed by the same party.")
+				return fmt.Errorf("bundle contains transactions signed by multiple parties. possible front-running or sandwich attack.")
 			} else {
 				seenBidder = true
 				prevSigners = map[string]bool{bidder.String(): true}
 				filterSigners(prevSigners, txSigners)
 
 				if len(prevSigners) == 0 {
-					return fmt.Errorf("bundle contains transactions signed by multiple parties. bundle must be signed by the same party.")
+					return fmt.Errorf("bundle contains transactions signed by multiple parties. possible front-running or sandwich attack.")
 				}
 			}
 		}
