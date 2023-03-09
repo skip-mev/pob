@@ -129,6 +129,8 @@ func (am *AuctionMempool) Select(ctx context.Context, txs [][]byte) sdkmempool.I
 
 func (am *AuctionMempool) AuctionBidSelect(ctx context.Context) sdkmempool.Iterator {
 	// TODO: return am.auctionIndex.Select(ctx, nil)
+	//
+	// Ref: ENG-547
 	panic("not implemented")
 }
 
