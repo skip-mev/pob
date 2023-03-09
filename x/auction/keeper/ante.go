@@ -21,9 +21,9 @@ func NewAuctionDecorator(ak Keeper) AuctionDecorator {
 	}
 }
 
-// AnteHandle validates that the auction bid is valid if one exists.
+// AnteHandle validates that the auction bid is valid if one exists. If valid it will deduct the entrance fee from the
+// bidder's account.
 func (ad AuctionDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (sdk.Context, error) {
-	// Extract the auction bid from the transaction if one exists.
 	auctionMsg, err := mempool.GetMsgAuctionBidFromTx(tx)
 	if err != nil {
 		return ctx, err
@@ -39,7 +39,7 @@ func (ad AuctionDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 	return next(ctx, tx, simulate)
 }
 
-// ValidateAuctionTx validates that the MsgAuctionBid is valid. It checks that the bidder has sufficient funds to bid the
+// ValidateAuctionMsg validates that the MsgAuctionBid is valid. It checks that the bidder has sufficient funds to bid the
 // amount specified in the message, that the bundle size is not greater than the max bundle size, and that the bundle
 // transactions are valid.
 func (k Keeper) ValidateAuctionMsg(ctx sdk.Context, msg *types.MsgAuctionBid) error {
@@ -53,7 +53,6 @@ func (k Keeper) ValidateAuctionMsg(ctx sdk.Context, msg *types.MsgAuctionBid) er
 		return fmt.Errorf("bundle size (%d) exceeds max bundle size (%d)", len(msg.Transactions), maxBundleSize)
 	}
 
-	// Validate the bid.
 	bidder, err := sdk.AccAddressFromBech32(msg.Bidder)
 	if err != nil {
 		return errors.Wrapf(err, "invalid bidder address (%s)", msg.Bidder)
@@ -73,7 +72,7 @@ func (k Keeper) ValidateAuctionMsg(ctx sdk.Context, msg *types.MsgAuctionBid) er
 }
 
 // ValidateAuctionBid validates that the bidder has sufficient funds to participate in the auction
-// and distributes the enterance fee to the escrow account.
+// and distributes the entrance fee to the escrow account.
 func (k Keeper) ValidateAuctionBid(ctx sdk.Context, bid sdk.Coins, bidder sdk.AccAddress) error {
 	// Minimum bid amount the user must bid to participate in the auction.
 	reserveFee, err := k.GetReserveFee(ctx)
@@ -98,16 +97,14 @@ func (k Keeper) ValidateAuctionBid(ctx sdk.Context, bid sdk.Coins, bidder sdk.Ac
 		return fmt.Errorf("bid amount (%s) is less than the minimum bid amount (%s)", bid, minBidAmount)
 	}
 
-	// Send the enterance fee to the escrow account.
-	if !ctx.IsCheckTx() && !ctx.IsReCheckTx() {
-		escrowAccount, err := k.GetEscrowAccount(ctx)
-		if err != nil {
-			return err
-		}
+	// Send the entrance fee to the escrow account.
+	escrowAccount, err := k.GetEscrowAccount(ctx)
+	if err != nil {
+		return err
+	}
 
-		if err := k.bankkeeper.SendCoins(ctx, bidder, escrowAccount, reserveFee); err != nil {
-			return err
-		}
+	if err := k.bankkeeper.SendCoins(ctx, bidder, escrowAccount, reserveFee); err != nil {
+		return err
 	}
 
 	return nil
@@ -115,14 +112,14 @@ func (k Keeper) ValidateAuctionBid(ctx sdk.Context, bid sdk.Coins, bidder sdk.Ac
 
 // ValidateAuctionBundle validates the ordering of the referenced transactions. Bundles are valid if
 //  1. all of the transactions are signed by the signer.
-//  2. some subset of contiguous transactions starting from the first tx are signed by the signer, and all other tranasctions
+//  2. some subset of contiguous transactions starting from the first tx are signed by the same signer, and all other tranasctions
 //     are signed by the bidder.
 //
 // example:
 //  1. valid: [tx1, tx2, tx3] where tx1 is signed by the signer 1 and tx2 and tx3 are signed by the bidder.
 //  2. valid: [tx1, tx2, tx3, tx4] where tx1 - tx4 are signed by the bidder.
-//  3. invalid: [tx1, tx2, tx3] where tx1 and tx3 are signed by the signer 1 and tx2 is signed by the bidder. (possible sandwich attack)
-//  4. invalid: [tx1, tx2, tx3] where tx1 is signed by the bidder, and tx2 - tx3 are signed by the signer 1. (possible front-running attack)
+//  3. invalid: [tx1, tx2, tx3] where tx1 and tx3 are signed by the bidder and tx2 is signed by some other signer. (possible sandwich attack)
+//  4. invalid: [tx1, tx2, tx3] where tx1 is signed by the bidder, and tx2 - tx3 are signed by some other signer. (possible front-running attack)
 func (k Keeper) ValidateAuctionBundle(ctx sdk.Context, transactions [][]byte, bidder sdk.AccAddress) error {
 	if len(transactions) <= 1 {
 		return nil
@@ -147,7 +144,7 @@ func (k Keeper) ValidateAuctionBundle(ctx sdk.Context, transactions [][]byte, bi
 		// Filter the signers to only those that signed the current transaction.
 		filterSigners(prevSigners, txSigners)
 
-		// If there are no current signers and the bidder address has not been seen, then the bundle can still be valid
+		// If there are no overlapping signers from the previous tx and the bidder address has not been seen, then the bundle can still be valid
 		// as long as all subsequent transactions are signed by the bidder.
 		if len(prevSigners) == 0 {
 			if seenBidder {
@@ -186,12 +183,11 @@ func (k Keeper) getTxSigners(txBytes []byte) (map[string]bool, error) {
 	return signers, nil
 }
 
-// filterSigners removes any signers from the authorizedSigners map that are not in the txSigners map.
-// This is used to check that all transactions in a bundle are signed by the correct party.
-func filterSigners(authorizedSigners, txSigners map[string]bool) {
-	for signer := range authorizedSigners {
+// filterSigners removes any signers from the currentSigners map that are not in the txSigners map.
+func filterSigners(currentSigners, txSigners map[string]bool) {
+	for signer := range currentSigners {
 		if _, ok := txSigners[signer]; !ok {
-			delete(authorizedSigners, signer)
+			delete(currentSigners, signer)
 		}
 	}
 }

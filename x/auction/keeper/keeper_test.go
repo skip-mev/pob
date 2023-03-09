@@ -38,13 +38,6 @@ type IntegrationTestSuite struct {
 	authorityAccount sdk.AccAddress
 }
 
-type encodingConfig struct {
-	InterfaceRegistry codectypes.InterfaceRegistry
-	Codec             codec.Codec
-	TxConfig          client.TxConfig
-	Amino             *codec.LegacyAmino
-}
-
 func TestKeeperTestSuite(t *testing.T) {
 	suite.Run(t, new(IntegrationTestSuite))
 }
@@ -68,6 +61,13 @@ func (suite *IntegrationTestSuite) SetupTest() {
 
 	suite.AuctionDecorator = keeper.NewAuctionDecorator(suite.auctionKeeper)
 	suite.msgServer = keeper.NewMsgServerImpl(suite.auctionKeeper)
+}
+
+type encodingConfig struct {
+	InterfaceRegistry codectypes.InterfaceRegistry
+	Codec             codec.Codec
+	TxConfig          client.TxConfig
+	Amino             *codec.LegacyAmino
 }
 
 func createTestEncodingConfig() encodingConfig {
@@ -98,6 +98,7 @@ func (acc Account) Equals(acc2 Account) bool {
 	return acc.Address.Equals(acc2.Address)
 }
 
+// RandomAccounts returns a slice of n random accounts.
 func RandomAccounts(r *rand.Rand, n int) []Account {
 	accs := make([]Account, n)
 

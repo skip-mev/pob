@@ -253,7 +253,7 @@ func (suite *IntegrationTestSuite) TestValidateBundle() {
 			// Malleate the test case
 			tc.malleate()
 
-			// Track the bundle that will be create for this test case as well as the nonces
+			// Create the bundle of transactions ordered by accounts
 			bundle := make([]sdk.Tx, 0)
 			for _, acc := range accounts {
 				// Create a random tx
@@ -278,7 +278,7 @@ func (suite *IntegrationTestSuite) TestValidateBundle() {
 	}
 }
 
-// createRandomTx creates a random transaction with the given number of messages and signer.
+// createRandomTx creates a random transaction with a given account, nonce, and number of messages.
 func createRandomTx(txCfg client.TxConfig, account Account, nonce, numberMsgs uint64) (authsigning.Tx, error) {
 	msgs := make([]sdk.Msg, numberMsgs)
 	for i := 0; i < int(numberMsgs); i++ {
@@ -297,33 +297,6 @@ func createRandomTx(txCfg client.TxConfig, account Account, nonce, numberMsgs ui
 		PubKey: account.PrivKey.PubKey(),
 		Data: &signing.SingleSignatureData{
 			SignMode:  txCfg.SignModeHandler().DefaultMode(),
-			Signature: nil,
-		},
-		Sequence: nonce,
-	}
-	if err := txBuilder.SetSignatures(sigV2); err != nil {
-		return nil, err
-	}
-
-	return txBuilder.GetTx(), nil
-}
-
-// createMsgAuctionBid wraps around createMsgAuctionBid to create a MsgAuctionBid and a valid transaction.
-func createMsgAuctionBidTx(txConfig client.TxConfig, account Account, bid sdk.Coins, nonce uint64, txs []sdk.Tx) (authsigning.Tx, error) {
-	bidMsg, err := createMsgAuctionBid(txConfig, account, bid, txs)
-	if err != nil {
-		return nil, err
-	}
-
-	txBuilder := txConfig.NewTxBuilder()
-	if err := txBuilder.SetMsgs(bidMsg); err != nil {
-		return nil, err
-	}
-
-	sigV2 := signing.SignatureV2{
-		PubKey: account.PrivKey.PubKey(),
-		Data: &signing.SingleSignatureData{
-			SignMode:  txConfig.SignModeHandler().DefaultMode(),
 			Signature: nil,
 		},
 		Sequence: nonce,
