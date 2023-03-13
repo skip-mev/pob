@@ -18,7 +18,7 @@ func (suite *IntegrationTestSuite) TestValidateAuctionMsg() {
 		// Tx building variables
 		accounts []Account = []Account{} // tracks the order of signers in the bundle
 		balance  sdk.Coins = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(10000)))
-		bid      sdk.Coins = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(2000)))
+		bid      sdk.Coins = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
 
 		// Auction params
 		maxBundleSize uint32         = 10
@@ -45,21 +45,25 @@ func (suite *IntegrationTestSuite) TestValidateAuctionMsg() {
 		{
 			"insufficient balance",
 			func() {
+				bid = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
 				balance = sdk.NewCoins()
 			},
 			false,
 		},
 		{
-			"bid amount equals the balance", // this is expected to pass because we only deduct the reserve fee in the ante handler
+			"bid amount equals the balance (not accounting for the reserve fee)",
 			func() {
 				balance = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(2000)))
 				bid = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(2000)))
 			},
-			true,
+			false,
 		},
 		{
 			"too many transactions in the bundle",
 			func() {
+				// reset the balance and bid to their original values
+				bid = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
+				balance = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(10000)))
 				accounts = RandomAccounts(rnd, int(maxBundleSize+1))
 			},
 			false,
@@ -128,7 +132,6 @@ func (suite *IntegrationTestSuite) TestValidateAuctionMsg() {
 				suite.accountKeeper,
 				suite.bankKeeper,
 				suite.authorityAccount.String(),
-				suite.encCfg.TxConfig.TxDecoder(),
 			)
 			params := auctiontypes.Params{
 				MaxBundleSize:        maxBundleSize,
@@ -146,11 +149,7 @@ func (suite *IntegrationTestSuite) TestValidateAuctionMsg() {
 				bundle = append(bundle, tx)
 			}
 
-			// Create the auction msg
-			auctionMsg, err := createMsgAuctionBid(suite.encCfg.TxConfig, bidder, bid, bundle)
-			suite.Require().NoError(err)
-
-			err = suite.auctionKeeper.ValidateAuctionMsg(suite.ctx, auctionMsg)
+			err := suite.auctionKeeper.ValidateAuctionMsg(suite.ctx, bidder.Address, bid, bundle)
 			if tc.pass {
 				suite.Require().NoError(err)
 			} else {
@@ -262,13 +261,8 @@ func (suite *IntegrationTestSuite) TestValidateBundle() {
 				bundle = append(bundle, tx)
 			}
 
-			// Create the bundle
-			bid := sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100)))
-			auctionMsg, err := createMsgAuctionBid(suite.encCfg.TxConfig, bidder, bid, bundle)
-			suite.Require().NoError(err)
-
 			// Validate the bundle
-			err = suite.auctionKeeper.ValidateAuctionBundle(suite.ctx, auctionMsg.Transactions, bidder.Address)
+			err := suite.auctionKeeper.ValidateAuctionBundle(suite.ctx, bidder.Address, bundle)
 			if tc.pass {
 				suite.Require().NoError(err)
 			} else {
@@ -306,24 +300,4 @@ func createRandomTx(txCfg client.TxConfig, account Account, nonce, numberMsgs ui
 	}
 
 	return txBuilder.GetTx(), nil
-}
-
-// createMsgAuctionBid is a helper function to create a new MsgAuctionBid given the required params.
-func createMsgAuctionBid(txCfg client.TxConfig, bidder Account, bid sdk.Coins, txs []sdk.Tx) (*auctiontypes.MsgAuctionBid, error) {
-	bidMsg := &auctiontypes.MsgAuctionBid{
-		Bidder:       bidder.Address.String(),
-		Bid:          bid,
-		Transactions: make([][]byte, len(txs)),
-	}
-
-	for i, tx := range txs {
-		bz, err := txCfg.TxEncoder()(tx)
-		if err != nil {
-			return nil, err
-		}
-
-		bidMsg.Transactions[i] = bz
-	}
-
-	return bidMsg, nil
 }

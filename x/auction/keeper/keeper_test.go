@@ -55,12 +55,12 @@ func (suite *IntegrationTestSuite) SetupTest() {
 	suite.accountKeeper.EXPECT().GetModuleAddress(types.ModuleName).Return(sdk.AccAddress{}).AnyTimes()
 	suite.bankKeeper = NewMockBankKeeper(ctrl)
 	suite.authorityAccount = sdk.AccAddress([]byte("authority"))
-	suite.auctionKeeper = keeper.NewKeeper(suite.encCfg.Codec, suite.key, suite.accountKeeper, suite.bankKeeper, suite.authorityAccount.String(), suite.encCfg.TxConfig.TxDecoder())
+	suite.auctionKeeper = keeper.NewKeeper(suite.encCfg.Codec, suite.key, suite.accountKeeper, suite.bankKeeper, suite.authorityAccount.String())
 
 	err := suite.auctionKeeper.SetParams(suite.ctx, types.DefaultParams())
 	suite.Require().NoError(err)
 
-	suite.AuctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper)
+	suite.AuctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encCfg.TxConfig.TxDecoder())
 	suite.msgServer = keeper.NewMsgServerImpl(suite.auctionKeeper)
 }
 

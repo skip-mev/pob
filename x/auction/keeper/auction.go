@@ -3,67 +3,59 @@ package keeper
 import (
 	"fmt"
 
-	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/skip-mev/pob/x/auction/types"
 )
 
 // ValidateAuctionMsg validates that the MsgAuctionBid is valid. It checks that the bidder has sufficient funds to bid the
 // amount specified in the message, that the bundle size is not greater than the max bundle size, and that the bundle
 // transactions are valid.
-func (k Keeper) ValidateAuctionMsg(ctx sdk.Context, msg *types.MsgAuctionBid) error {
+func (k Keeper) ValidateAuctionMsg(ctx sdk.Context, bidder sdk.AccAddress, bid sdk.Coins, transactions []sdk.Tx) error {
 	// Validate the bundle size.
 	maxBundleSize, err := k.GetMaxBundleSize(ctx)
 	if err != nil {
 		return err
 	}
 
-	if uint32(len(msg.Transactions)) > maxBundleSize {
-		return fmt.Errorf("bundle size (%d) exceeds max bundle size (%d)", len(msg.Transactions), maxBundleSize)
-	}
-
-	bidder, err := sdk.AccAddressFromBech32(msg.Bidder)
-	if err != nil {
-		return errors.Wrapf(err, "invalid bidder address (%s)", msg.Bidder)
+	if uint32(len(transactions)) > maxBundleSize {
+		return fmt.Errorf("bundle size (%d) exceeds max bundle size (%d)", len(transactions), maxBundleSize)
 	}
 
 	// Validate the bid amount.
-	if err := k.ValidateAuctionBid(ctx, msg.Bid, bidder); err != nil {
+	if err := k.ValidateAuctionBid(ctx, bidder, bid); err != nil {
 		return err
 	}
 
 	// Validate the bundle of transactions.
-	if err := k.ValidateAuctionBundle(ctx, msg.Transactions, bidder); err != nil {
+	if err := k.ValidateAuctionBundle(ctx, bidder, transactions); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// ValidateAuctionBid validates that the bidder has sufficient funds to participate in the auction
-// and distributes the entrance fee to the escrow account.
-func (k Keeper) ValidateAuctionBid(ctx sdk.Context, bid sdk.Coins, bidder sdk.AccAddress) error {
-	// Auction bid floor.
+// ValidateAuctionBid validates that the bidder has sufficient funds to participate in the auction.
+func (k Keeper) ValidateAuctionBid(ctx sdk.Context, bidder sdk.AccAddress, bid sdk.Coins) error {
+	// Get the pay-to-play fee.
 	minBuyInFee, err := k.GetMinBuyInFee(ctx)
 	if err != nil {
 		return err
 	}
 
 	if !bid.IsAllGTE(minBuyInFee) {
-		return fmt.Errorf("bid amount (%s) is less than the minimum bid amount (%s)", bid, minBuyInFee)
+		return fmt.Errorf("bid amount (%s) is less than the minimum buy-in fee (%s)", bid, minBuyInFee)
 	}
 
-	// Entrance fee.
+	// Get the bid floor.
 	reserveFee, err := k.GetReserveFee(ctx)
 	if err != nil {
 		return err
 	}
 
-	// Minimum balance required to participate in the auction.
-	minBalance := minBuyInFee.Add(reserveFee...)
+	// Ensure the bidder has enough funds to cover all the inclusion fees.
+	minBalance := bid.Add(reserveFee...)
 	balances := k.bankkeeper.GetAllBalances(ctx, bidder)
 	if !balances.IsAllGTE(minBalance) {
-		return fmt.Errorf("insufficient funds to bid %s (reserve fee + min buy in) with balance %s", minBalance, balances)
+		return fmt.Errorf("insufficient funds to bid %s (reserve fee + bid) with balance %s", minBalance, balances)
 	}
 
 	return nil
@@ -79,7 +71,7 @@ func (k Keeper) ValidateAuctionBid(ctx sdk.Context, bid sdk.Coins, bidder sdk.Ac
 //  2. valid: [tx1, tx2, tx3, tx4] where tx1 - tx4 are signed by the bidder.
 //  3. invalid: [tx1, tx2, tx3] where tx1 and tx3 are signed by the bidder and tx2 is signed by some other signer. (possible sandwich attack)
 //  4. invalid: [tx1, tx2, tx3] where tx1 is signed by the bidder, and tx2 - tx3 are signed by some other signer. (possible front-running attack)
-func (k Keeper) ValidateAuctionBundle(ctx sdk.Context, transactions [][]byte, bidder sdk.AccAddress) error {
+func (k Keeper) ValidateAuctionBundle(ctx sdk.Context, bidder sdk.AccAddress, transactions []sdk.Tx) error {
 	if len(transactions) <= 1 {
 		return nil
 	}
@@ -124,12 +116,7 @@ func (k Keeper) ValidateAuctionBundle(ctx sdk.Context, transactions [][]byte, bi
 }
 
 // getTxSigners returns the signers of a transaction.
-func (k Keeper) getTxSigners(txBytes []byte) (map[string]bool, error) {
-	tx, err := k.DecodeTx(txBytes)
-	if err != nil {
-		return nil, err
-	}
-
+func (k Keeper) getTxSigners(tx sdk.Tx) (map[string]bool, error) {
 	signers := make(map[string]bool, 0)
 	for _, msg := range tx.GetMsgs() {
 		for _, signer := range msg.GetSigners() {

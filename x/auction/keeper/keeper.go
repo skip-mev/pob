@@ -20,13 +20,10 @@ type Keeper struct {
 	// The address that is capable of executing a MsgUpdateParams message. Typically this will be the
 	// governance module's address.
 	authority string
-	// txEncoder defines the sdk.Tx encoder that allows us to encode transactions
-	// and construct their hashes.
-	txDecoder sdk.TxDecoder
 }
 
 // NewKeeper creates a new keeper instance.
-func NewKeeper(cdc codec.BinaryCodec, storeKey storetypes.StoreKey, accountKeeper types.AccountKeeper, bankkeeper types.BankKeeper, authority string, txDecoder sdk.TxDecoder) Keeper {
+func NewKeeper(cdc codec.BinaryCodec, storeKey storetypes.StoreKey, accountKeeper types.AccountKeeper, bankkeeper types.BankKeeper, authority string) Keeper {
 	// Ensure that the authority address is valid.
 	if _, err := sdk.AccAddressFromBech32(authority); err != nil {
 		panic(err)
@@ -42,7 +39,6 @@ func NewKeeper(cdc codec.BinaryCodec, storeKey storetypes.StoreKey, accountKeepe
 		storeKey:   storeKey,
 		bankkeeper: bankkeeper,
 		authority:  authority,
-		txDecoder:  txDecoder,
 	}
 }
 
@@ -54,11 +50,6 @@ func (k Keeper) Logger(ctx sdk.Context) log.Logger {
 // GetAuthority returns the address that is capable of executing a MsgUpdateParams message.
 func (k Keeper) GetAuthority() string {
 	return k.authority
-}
-
-// DecodeTx decodes a transaction.
-func (k Keeper) DecodeTx(txBytes []byte) (sdk.Tx, error) {
-	return k.txDecoder(txBytes)
 }
 
 // GetParams returns the auction module's parameters.
@@ -129,7 +120,7 @@ func (k Keeper) GetReserveFee(ctx sdk.Context) (sdk.Coins, error) {
 	return params.ReserveFee, nil
 }
 
-// GetMinBuyInFee returns the bid floor for an auction.
+// GetMinBuyInFee returns the fee that the bidder must pay to enter the auction.
 func (k Keeper) GetMinBuyInFee(ctx sdk.Context) (sdk.Coins, error) {
 	params, err := k.GetParams(ctx)
 	if err != nil {
