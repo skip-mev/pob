@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -20,10 +21,10 @@ type AuctionMempool struct {
 	// globalIndex defines the index of all transactions in the mempool. It uses
 	// the SDK's builtin PriorityNonceMempool. Once a bid is selected for top-of-block,
 	// all subsequent transactions in the mempool will be selected from this index.
-	globalIndex *sdkmempool.PriorityNonceMempool
+	globalIndex *PriorityNonceMempool
 
 	// auctionIndex defines an index of auction bids.
-	auctionIndex *AuctionBidList
+	auctionIndex *PriorityNonceMempool
 
 	// txIndex defines an index of all transactions in the mempool by hash.
 	txIndex map[string]sdk.Tx
@@ -33,12 +34,44 @@ type AuctionMempool struct {
 	txEncoder sdk.TxEncoder
 }
 
-func NewAuctionMempool(txEncoder sdk.TxEncoder, opts ...sdkmempool.PriorityNonceMempoolOption) *AuctionMempool {
+// AuctionTxPriority returns a TxPriority over auction bid transactions only. It
+// is to be used in the auction index only.
+func AuctionTxPriority() TxPriority {
+	return TxPriority{
+		GetTxPriority: func(goCtx context.Context, tx sdk.Tx) any {
+			panic("TODO: IMPLEMENT ME!")
+		},
+		CompareTxPriority: func(a, b any) int {
+			panic("TODO: IMPLEMENT ME!")
+			// switch {
+			// case a == nil && b == nil:
+			// 	return 0
+			// case a == nil:
+			// 	return -1
+			// case b == nil:
+			// 	return 1
+			// default:
+			// 	aPriority := a.(int64)
+			// 	bPriority := b.(int64)
+
+			// 	return skiplist.Int64.Compare(aPriority, bPriority)
+			// }
+		},
+	}
+}
+
+func NewAuctionMempool(txEncoder sdk.TxEncoder, opts ...PriorityNonceMempoolOption) *AuctionMempool {
 	return &AuctionMempool{
-		globalIndex:  sdkmempool.NewPriorityMempool(opts...),
-		auctionIndex: NewAuctionBidList(),
-		txIndex:      make(map[string]sdk.Tx),
-		txEncoder:    txEncoder,
+		globalIndex: NewPriorityMempool(
+			NewDefaultTxPriority(),
+			opts...,
+		),
+		auctionIndex: NewPriorityMempool(
+			AuctionTxPriority(),
+			opts...,
+		),
+		txIndex:   make(map[string]sdk.Tx),
+		txEncoder: txEncoder,
 	}
 }
 
@@ -62,7 +95,10 @@ func (am *AuctionMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 	}
 
 	if msg != nil {
-		am.auctionIndex.Insert(NewWrappedBidTx(tx, hash, msg.GetBid()))
+		if err := am.auctionIndex.Insert(ctx, NewWrappedBidTx(tx, hash, msg.GetBid())); err != nil {
+			removeTx(am.globalIndex, tx)
+			return fmt.Errorf("failed to insert tx into auction index: %w", err)
+		}
 	}
 
 	am.txIndex[hashStr] = tx
@@ -77,9 +113,7 @@ func (am *AuctionMempool) Remove(tx sdk.Tx) error {
 	}
 
 	// 1. Remove the tx from the global index
-	if err := am.globalIndex.Remove(tx); err != nil {
-		return fmt.Errorf("failed to remove tx from global index: %w", err)
-	}
+	removeTx(am.globalIndex, tx)
 
 	// 2. Remove from the transaction index
 	delete(am.txIndex, hashStr)
@@ -100,9 +134,7 @@ func (am *AuctionMempool) Remove(tx sdk.Tx) error {
 
 			// check if we have the referenced transaction first
 			if refTx, ok := am.txIndex[refHashStr]; ok {
-				if err := am.globalIndex.Remove(refTx); err != nil {
-					return fmt.Errorf("failed to remove bid referenced tx from global index: %w", err)
-				}
+				removeTx(am.globalIndex, refTx)
 			}
 
 			delete(am.txIndex, refHashStr)
@@ -112,15 +144,9 @@ func (am *AuctionMempool) Remove(tx sdk.Tx) error {
 	return nil
 }
 
-// SelectTopAuctionBidTx returns the top auction bid tx in the mempool if one
-// exists.
-func (am *AuctionMempool) SelectTopAuctionBidTx() sdk.Tx {
-	wBidTx := am.auctionIndex.TopBid()
-	if wBidTx == nil {
-		return nil
-	}
-
-	return wBidTx.Tx
+// AuctionBidSelect returns an iterator over auction bids transactions only.
+func (am *AuctionMempool) AuctionBidSelect(ctx context.Context, _ [][]byte) sdkmempool.Iterator {
+	return am.auctionIndex.Select(ctx, nil)
 }
 
 func (am *AuctionMempool) Select(ctx context.Context, txs [][]byte) sdkmempool.Iterator {
@@ -141,4 +167,11 @@ func (am *AuctionMempool) getTxHash(tx sdk.Tx) ([32]byte, string, error) {
 	hashStr := base64.StdEncoding.EncodeToString(hash[:])
 
 	return hash, hashStr, nil
+}
+
+func removeTx(mp sdkmempool.Mempool, tx sdk.Tx) {
+	err := mp.Remove(tx)
+	if err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
+		panic(fmt.Errorf("failed to remove invalid transaction from the mempool: %w", err))
+	}
 }
