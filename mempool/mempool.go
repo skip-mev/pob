@@ -3,7 +3,6 @@ package mempool
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/base64"
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -25,20 +24,16 @@ type AuctionMempool struct {
 	// auctionIndex defines an index of auction bids.
 	auctionIndex *sdkmempool.PriorityNonceMempool
 
-	// txEncoder defines the sdk.Tx encoder that allows us to encode transactions
-	// and construct their hashes.
-	txEncoder sdk.TxEncoder
-
 	// txDecoder defines the sdk.Tx decoder that allows us to decode transactions
 	// from their hashes.
 	txDecoder sdk.TxDecoder
 }
 
-func NewAuctionMempool(txEncoder sdk.TxEncoder, opts ...sdkmempool.PriorityNonceMempoolOption) *AuctionMempool {
+func NewAuctionMempool(txDecoder sdk.TxDecoder, opts ...sdkmempool.PriorityNonceMempoolOption) *AuctionMempool {
 	return &AuctionMempool{
 		globalIndex:  sdkmempool.NewPriorityMempool(opts...),
 		auctionIndex: sdkmempool.NewPriorityMempool(opts...),
-		txEncoder:    txEncoder,
+		txDecoder:    txDecoder,
 	}
 }
 
@@ -105,7 +100,7 @@ func (am *AuctionMempool) SelectTopAuctionBidTx() sdk.Tx {
 		return nil
 	}
 
-	return wBidTx.Tx
+	return wBidTx.Tx()
 }
 
 func (am *AuctionMempool) Select(ctx context.Context, txs [][]byte) sdkmempool.Iterator {
@@ -114,16 +109,4 @@ func (am *AuctionMempool) Select(ctx context.Context, txs [][]byte) sdkmempool.I
 
 func (am *AuctionMempool) CountTx() int {
 	return am.globalIndex.CountTx()
-}
-
-func (am *AuctionMempool) getTxHash(tx sdk.Tx) ([32]byte, string, error) {
-	bz, err := am.txEncoder(tx)
-	if err != nil {
-		return [32]byte{}, "", fmt.Errorf("failed to encode tx: %w", err)
-	}
-
-	hash := sha256.Sum256(bz)
-	hashStr := base64.StdEncoding.EncodeToString(hash[:])
-
-	return hash, hashStr, nil
 }

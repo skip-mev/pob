@@ -18,7 +18,7 @@ import (
 
 func TestAuctionMempool(t *testing.T) {
 	encCfg := createTestEncodingConfig()
-	amp := mempool.NewAuctionMempool(encCfg.TxConfig.TxEncoder())
+	amp := mempool.NewAuctionMempool(encCfg.TxConfig.TxDecoder())
 	ctx := sdk.NewContext(nil, cmtproto.Header{}, false, log.NewNopLogger())
 	rng := rand.New(rand.NewSource(time.Now().Unix()))
 	accounts := RandomAccounts(rng, 5)
