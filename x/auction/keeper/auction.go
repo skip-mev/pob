@@ -123,31 +123,6 @@ func (k Keeper) ValidateAuctionBundle(ctx sdk.Context, transactions [][]byte, bi
 	return nil
 }
 
-// SendReserveFee deducts the reserve fee from the bidder's account and sends it to the escrow account.
-func (k Keeper) SendReserveFee(ctx sdk.Context, bidder string) error {
-	bidderAccount, err := sdk.AccAddressFromBech32(bidder)
-	if err != nil {
-		return err
-	}
-
-	// Deduct the entrance fee from the bidder's account and send to the escrow account.
-	escrowAccount, err := k.GetEscrowAccount(ctx)
-	if err != nil {
-		return err
-	}
-
-	reserveFee, err := k.GetReserveFee(ctx)
-	if err != nil {
-		return err
-	}
-
-	if err := k.bankkeeper.SendCoins(ctx, bidderAccount, escrowAccount, reserveFee); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // getTxSigners returns the signers of a transaction.
 func (k Keeper) getTxSigners(txBytes []byte) (map[string]bool, error) {
 	tx, err := k.DecodeTx(txBytes)
