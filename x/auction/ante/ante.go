@@ -32,11 +32,6 @@ func (ad AuctionDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 		if err := ad.auctionKeeper.ValidateAuctionMsg(ctx, auctionMsg); err != nil {
 			return ctx, errors.Wrap(err, "failed to validate auction bid")
 		}
-
-		// Deduct the entrance fee from the bidder's account and send to the escrow account.
-		if err := ad.auctionKeeper.SendReserveFee(ctx, auctionMsg.Bidder); err != nil {
-			return ctx, err
-		}
 	}
 
 	return next(ctx, tx, simulate)
