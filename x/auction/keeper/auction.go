@@ -35,24 +35,24 @@ func (k Keeper) ValidateAuctionMsg(ctx sdk.Context, bidder sdk.AccAddress, bid s
 
 // ValidateAuctionBid validates that the bidder has sufficient funds to participate in the auction.
 func (k Keeper) ValidateAuctionBid(ctx sdk.Context, bidder sdk.AccAddress, bid sdk.Coins) error {
-	// Get the pay-to-play fee.
-	minBuyInFee, err := k.GetMinBuyInFee(ctx)
-	if err != nil {
-		return err
-	}
-
-	if !bid.IsAllGTE(minBuyInFee) {
-		return fmt.Errorf("bid amount (%s) is less than the minimum buy-in fee (%s)", bid, minBuyInFee)
-	}
-
 	// Get the bid floor.
 	reserveFee, err := k.GetReserveFee(ctx)
 	if err != nil {
 		return err
 	}
 
+	if !bid.IsAllGTE(reserveFee) {
+		return fmt.Errorf("bid amount (%s) is less than the reserve fee (%s)", bid, reserveFee)
+	}
+
+	// Get the pay-to-play fee.
+	minBuyInFee, err := k.GetMinBuyInFee(ctx)
+	if err != nil {
+		return err
+	}
+
 	// Ensure the bidder has enough funds to cover all the inclusion fees.
-	minBalance := bid.Add(reserveFee...)
+	minBalance := bid.Add(minBuyInFee...)
 	balances := k.bankkeeper.GetAllBalances(ctx, bidder)
 	if !balances.IsAllGTE(minBalance) {
 		return fmt.Errorf("insufficient funds to bid %s (reserve fee + bid) with balance %s", minBalance, balances)
