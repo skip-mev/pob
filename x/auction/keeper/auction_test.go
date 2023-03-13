@@ -50,7 +50,7 @@ func (suite *IntegrationTestSuite) TestValidateAuctionMsg() {
 			false,
 		},
 		{
-			"just enough to enter the auction",
+			"bid amount equals the balance", // this is expected to pass because we only deduct the reserve fee in the ante handler
 			func() {
 				balance = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(2000)))
 				bid = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(2000)))

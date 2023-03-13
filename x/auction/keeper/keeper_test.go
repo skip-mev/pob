@@ -18,6 +18,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/auth/tx"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/golang/mock/gomock"
+	"github.com/skip-mev/pob/x/auction/ante"
 	"github.com/skip-mev/pob/x/auction/keeper"
 	"github.com/skip-mev/pob/x/auction/types"
 
@@ -59,7 +60,7 @@ func (suite *IntegrationTestSuite) SetupTest() {
 	err := suite.auctionKeeper.SetParams(suite.ctx, types.DefaultParams())
 	suite.Require().NoError(err)
 
-	suite.AuctionDecorator = keeper.NewAuctionDecorator(suite.auctionKeeper)
+	suite.AuctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper)
 	suite.msgServer = keeper.NewMsgServerImpl(suite.auctionKeeper)
 }
 
