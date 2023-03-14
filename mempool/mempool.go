@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
@@ -20,10 +19,10 @@ type AuctionMempool struct {
 	// globalIndex defines the index of all transactions in the mempool. It uses
 	// the SDK's builtin PriorityNonceMempool. Once a bid is selected for top-of-block,
 	// all subsequent transactions in the mempool will be selected from this index.
-	globalIndex *PriorityNonceMempool
+	globalIndex *PriorityNonceMempool[int64]
 
 	// auctionIndex defines an index of auction bids.
-	auctionIndex *PriorityNonceMempool
+	auctionIndex *PriorityNonceMempool[string]
 
 	// txDecoder defines the sdk.Tx decoder that allows us to decode transactions
 	// and construct sdk.Txs from the bundled transactions.
@@ -32,53 +31,63 @@ type AuctionMempool struct {
 
 // AuctionTxPriority returns a TxPriority over auction bid transactions only. It
 // is to be used in the auction index only.
-func AuctionTxPriority() TxPriority {
-	return TxPriority{
-		GetTxPriority: func(goCtx context.Context, tx sdk.Tx) any {
-			return hashablePriorityForTx(tx)
+func AuctionTxPriority() TxPriority[string] {
+	return TxPriority[string]{
+		GetTxPriority: func(goCtx context.Context, tx sdk.Tx) string {
+			return tx.(*WrappedBidTx).GetBid().String()
 		},
-		CompareTxPriority: func(a, b any) int {
-			switch {
-			case a == nil && b == nil:
-				return 0
-			case a == nil:
-				return -1
-			case b == nil:
-				return 1
-			default:
-				aPriority := getPriorityFromHash(a)
-				bPriority := getPriorityFromHash(b)
+		Compare: func(a, b string) int {
+			aCoins, _ := sdk.ParseCoinsNormalized(a)
+			bCoins, _ := sdk.ParseCoinsNormalized(b)
 
+			switch {
+			case aCoins == nil && bCoins == nil:
+				return 0
+
+			case aCoins == nil:
+				return -1
+
+			case bCoins == nil:
+				return 1
+
+			default:
 				switch {
-				case aPriority.IsAllGT(bPriority):
+				case aCoins.IsAllGT(bCoins):
 					return 1
-				case aPriority.IsAllLT(bPriority):
+
+				case aCoins.IsAllLT(bCoins):
 					return -1
+
 				default:
 					return 0
 				}
 			}
 		},
+		MinValue: "",
 	}
 }
 
-func NewAuctionMempool(txDecoder sdk.TxDecoder, opts ...PriorityNonceMempoolOption) *AuctionMempool {
+func NewAuctionMempool(txDecoder sdk.TxDecoder, cfg PriorityNonceMempoolConfig[int64]) *AuctionMempool {
 	return &AuctionMempool{
 		globalIndex: NewPriorityMempool(
-			NewDefaultTxPriority(),
-			opts...,
+			PriorityNonceMempoolConfig[int64]{
+				TxPriority: NewDefaultTxPriority(),
+				MaxTx:      cfg.MaxTx,
+			},
 		),
 		auctionIndex: NewPriorityMempool(
-			AuctionTxPriority(),
-			opts...,
+			PriorityNonceMempoolConfig[string]{
+				TxPriority: AuctionTxPriority(),
+				MaxTx:      cfg.MaxTx,
+			},
 		),
 		txDecoder: txDecoder,
 	}
 }
 
-// Insert inserts a transaction into the mempool. If the transaction is a special auction tx (tx
-// that contains a single MsgAuctionBid), it will also insert the transaction into the auction
-// index.
+// Insert inserts a transaction into the mempool. If the transaction is a special
+// auction tx (tx that contains a single MsgAuctionBid), it will also insert the
+// transaction into the auction index.
 func (am *AuctionMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 	if err := am.globalIndex.Insert(ctx, tx); err != nil {
 		return fmt.Errorf("failed to insert tx into global index: %w", err)
@@ -99,8 +108,9 @@ func (am *AuctionMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 	return nil
 }
 
-// Remove removes a transaction from the mempool. If the transaction is a special auction tx (tx
-// that contains a single MsgAuctionBid), it will also remove all referenced transactions from the global mempool.
+// Remove removes a transaction from the mempool. If the transaction is a special
+// auction tx (tx that contains a single MsgAuctionBid), it will also remove all
+// referenced transactions from the global mempool.
 func (am *AuctionMempool) Remove(tx sdk.Tx) error {
 	// 1. Remove the tx from the global index
 	removeTx(am.globalIndex, tx)
@@ -115,25 +125,25 @@ func (am *AuctionMempool) Remove(tx sdk.Tx) error {
 	if msg != nil {
 		removeTx(am.auctionIndex, NewWrappedBidTx(tx, msg.GetBid()))
 
-		for _, refRx := range msg.GetTransactions() {
-			tx, err := am.txDecoder(refRx)
+		for _, refRawTx := range msg.GetTransactions() {
+			refTx, err := am.txDecoder(refRawTx)
 			if err != nil {
 				return fmt.Errorf("failed to decode referenced tx: %w", err)
 			}
 
-			removeTx(am.globalIndex, tx)
+			removeTx(am.globalIndex, refTx)
 		}
 	}
 
 	return nil
 }
 
-// RemoveWithoutRefTx removes a transaction from the mempool without removing any referenced
-// transactions. Referenced transactions only exist in special auction transactions (txs that only include
-// a single MsgAuctionBid). This API is used to ensure that searchers are unable to remove valid
-// transactions from the global mempool.
+// RemoveWithoutRefTx removes a transaction from the mempool without removing
+// any referenced transactions. Referenced transactions only exist in special
+// auction transactions (txs that only include a single MsgAuctionBid). This
+// API is used to ensure that searchers are unable to remove valid transactions
+// from the global mempool.
 func (am *AuctionMempool) RemoveWithoutRefTx(tx sdk.Tx) error {
-	// 1. Remove the tx from the global index
 	removeTx(am.globalIndex, tx)
 
 	msg, err := GetMsgAuctionBidFromTx(tx)
@@ -149,7 +159,7 @@ func (am *AuctionMempool) RemoveWithoutRefTx(tx sdk.Tx) error {
 }
 
 // AuctionBidSelect returns an iterator over auction bids transactions only.
-func (am *AuctionMempool) AuctionBidSelect(ctx context.Context, _ [][]byte) sdkmempool.Iterator {
+func (am *AuctionMempool) AuctionBidSelect(ctx context.Context) sdkmempool.Iterator {
 	return am.auctionIndex.Select(ctx, nil)
 }
 
@@ -170,43 +180,4 @@ func removeTx(mp sdkmempool.Mempool, tx sdk.Tx) {
 	if err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
 		panic(fmt.Errorf("failed to remove invalid transaction from the mempool: %w", err))
 	}
-}
-
-// hashablePriorityForTx returns a string representation of the bid coins i.e.
-// the priority. This is used to index auction bids in the auction index. This is
-// necessary because sdk.Coins are not hashable.
-func hashablePriorityForTx(tx sdk.Tx) string {
-	msg, err := GetMsgAuctionBidFromTx(tx)
-	if err != nil {
-		panic(err)
-	}
-
-	prioriy := make([]string, len(msg.GetBid()))
-	for i, coin := range msg.GetBid() {
-		prioriy[i] = fmt.Sprintf("%s:%s", coin.Denom, coin.Amount.String())
-	}
-
-	return strings.Join(prioriy, ",")
-}
-
-// getPriorityFromHash returns an sdk.Coins from a string representation of the
-// bid coins i.e. the priority.
-func getPriorityFromHash(priority any) sdk.Coins {
-	priorityStr := priority.(string)
-	formattedCoins := strings.Split(priorityStr, ",")
-
-	coins := make(sdk.Coins, len(formattedCoins))
-	for i, part := range formattedCoins {
-		metaData := strings.Split(part, ":")
-
-		denom := metaData[0]
-		amount, ok := sdk.NewIntFromString(metaData[1])
-		if !ok {
-			panic(fmt.Errorf("failed to parse amount %s", metaData[1]))
-		}
-
-		coins[i] = sdk.NewCoin(denom, amount)
-	}
-
-	return coins
 }
