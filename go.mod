@@ -6,7 +6,7 @@ require (
 	cosmossdk.io/api v0.3.1
 	cosmossdk.io/errors v1.0.0-beta.7
 	github.com/cometbft/cometbft v0.37.0
-	github.com/cosmos/cosmos-proto v1.0.0-beta.2
+	github.com/cosmos/cosmos-proto v1.0.0-beta.3
 	github.com/cosmos/cosmos-sdk v0.47.0-rc3.0.20230308212038-818f6a047eeb
 	github.com/cosmos/gogoproto v1.4.6
 	github.com/golang/mock v1.6.0
@@ -15,7 +15,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
 	github.com/huandu/skiplist v1.2.0
 	github.com/spf13/cobra v1.6.1
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.8.2
 	google.golang.org/genproto v0.0.0-20230216225411-c8e22ba71e44
 	google.golang.org/grpc v1.53.0
 )
