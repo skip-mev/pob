@@ -178,7 +178,6 @@ func (am *AuctionMempool) CountTx() int {
 
 func removeTx(mp sdkmempool.Mempool, tx sdk.Tx) {
 	err := mp.Remove(tx)
-	fmt.Println(err)
 	if err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
 		panic(fmt.Errorf("failed to remove invalid transaction from the mempool: %w", err))
 	}
