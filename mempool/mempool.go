@@ -67,18 +67,18 @@ func AuctionTxPriority() TxPriority[string] {
 	}
 }
 
-func NewAuctionMempool(txDecoder sdk.TxDecoder, cfg PriorityNonceMempoolConfig[int64]) *AuctionMempool {
+func NewAuctionMempool(txDecoder sdk.TxDecoder, maxTx int) *AuctionMempool {
 	return &AuctionMempool{
 		globalIndex: NewPriorityMempool(
 			PriorityNonceMempoolConfig[int64]{
 				TxPriority: NewDefaultTxPriority(),
-				MaxTx:      cfg.MaxTx,
+				MaxTx:      maxTx,
 			},
 		),
 		auctionIndex: NewPriorityMempool(
 			PriorityNonceMempoolConfig[string]{
 				TxPriority: AuctionTxPriority(),
-				MaxTx:      cfg.MaxTx,
+				MaxTx:      maxTx,
 			},
 		),
 		txDecoder: txDecoder,
