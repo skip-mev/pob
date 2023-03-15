@@ -41,6 +41,11 @@ func (m MsgServer) AuctionBid(goCtx context.Context, msg *types.MsgAuctionBid) (
 		return nil, fmt.Errorf("the number of transactions in the bid is greater than the maximum allowed; expected <= %d, got %d", maxBundleSize, len(msg.Transactions))
 	}
 
+	proposerFee, err := m.Keeper.GetProposerFee(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := m.Keeper.bankkeeper.SendCoinsFromAccountToModule(ctx, bidder, types.ModuleName, msg.Bid); err != nil {
 		return nil, err
 	}
