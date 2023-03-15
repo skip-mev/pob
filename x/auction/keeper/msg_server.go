@@ -32,7 +32,7 @@ func (m MsgServer) AuctionBid(goCtx context.Context, msg *types.MsgAuctionBid) (
 
 	// Ensure that the number of transactions is less than or equal to the maximum
 	// allowed.
-	maxBundleSize, err := m.Keeper.GetMaxBundleSize(ctx)
+	maxBundleSize, err := m.GetMaxBundleSize(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -41,13 +41,31 @@ func (m MsgServer) AuctionBid(goCtx context.Context, msg *types.MsgAuctionBid) (
 		return nil, fmt.Errorf("the number of transactions in the bid is greater than the maximum allowed; expected <= %d, got %d", maxBundleSize, len(msg.Transactions))
 	}
 
-	proposerFee, err := m.Keeper.GetProposerFee(ctx)
+	proposerFee, err := m.GetProposerFee(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := m.Keeper.bankkeeper.SendCoinsFromAccountToModule(ctx, bidder, types.ModuleName, msg.Bid); err != nil {
-		return nil, err
+	if proposerFee.IsZero() {
+		if err := m.bankkeeper.SendCoinsFromAccountToModule(ctx, bidder, types.ModuleName, msg.Bid); err != nil {
+			return nil, err
+		}
+	} else {
+		bid := sdk.NewDecCoinsFromCoins(msg.Bid...)
+		proposerReward, proposerRemainder := bid.MulDecTruncate(proposerFee).TruncateDecimal()
+
+		// TODO: Send proposerReward to proposer
+
+		escrowTotal := bid.Sub(sdk.NewDecCoinsFromCoins(proposerReward...)).Add(proposerRemainder...)
+		escrowReward, escrowRemainder := escrowTotal.TruncateDecimal()
+
+		if err := m.bankkeeper.SendCoinsFromAccountToModule(ctx, bidder, types.ModuleName, escrowReward); err != nil {
+			return nil, err
+		}
+
+		if !escrowRemainder.IsZero() {
+			// TODO: Send escrowRemainder to community pool
+		}
 	}
 
 	return &types.MsgAuctionBidResponse{}, nil
