@@ -11,8 +11,11 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/tx/signing"
+	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	"github.com/cosmos/cosmos-sdk/x/auth/tx"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	auctiontypes "github.com/skip-mev/pob/x/auction/types"
 )
 
 type encodingConfig struct {
@@ -65,4 +68,77 @@ func RandomAccounts(r *rand.Rand, n int) []Account {
 	}
 
 	return accs
+}
+
+// createRandomTx creates a random transaction with a given account, nonce, and number of messages.
+func createRandomTx(txCfg client.TxConfig, account Account, nonce, numberMsgs uint64) (authsigning.Tx, error) {
+	msgs := make([]sdk.Msg, numberMsgs)
+	for i := 0; i < int(numberMsgs); i++ {
+		msgs[i] = &banktypes.MsgSend{
+			FromAddress: account.Address.String(),
+			ToAddress:   account.Address.String(),
+		}
+	}
+
+	txBuilder := txCfg.NewTxBuilder()
+	if err := txBuilder.SetMsgs(msgs...); err != nil {
+		return nil, err
+	}
+
+	sigV2 := signing.SignatureV2{
+		PubKey: account.PrivKey.PubKey(),
+		Data: &signing.SingleSignatureData{
+			SignMode:  txCfg.SignModeHandler().DefaultMode(),
+			Signature: nil,
+		},
+		Sequence: nonce,
+	}
+	if err := txBuilder.SetSignatures(sigV2); err != nil {
+		return nil, err
+	}
+
+	return txBuilder.GetTx(), nil
+}
+
+func createMsgAuctionBid(txCfg client.TxConfig, bidder Account, bid sdk.Coins) (*auctiontypes.MsgAuctionBid, error) {
+	bidMsg := &auctiontypes.MsgAuctionBid{
+		Bidder:       bidder.Address.String(),
+		Bid:          bid,
+		Transactions: make([][]byte, 2),
+	}
+
+	for i := 0; i < 2; i++ {
+		txBuilder := txCfg.NewTxBuilder()
+
+		msgs := []sdk.Msg{
+			&banktypes.MsgSend{
+				FromAddress: bidder.Address.String(),
+				ToAddress:   bidder.Address.String(),
+			},
+		}
+		if err := txBuilder.SetMsgs(msgs...); err != nil {
+			return nil, err
+		}
+
+		sigV2 := signing.SignatureV2{
+			PubKey: bidder.PrivKey.PubKey(),
+			Data: &signing.SingleSignatureData{
+				SignMode:  txCfg.SignModeHandler().DefaultMode(),
+				Signature: nil,
+			},
+			Sequence: uint64(i + 1),
+		}
+		if err := txBuilder.SetSignatures(sigV2); err != nil {
+			return nil, err
+		}
+
+		bz, err := txCfg.TxEncoder()(txBuilder.GetTx())
+		if err != nil {
+			return nil, err
+		}
+
+		bidMsg.Transactions[i] = bz
+	}
+
+	return bidMsg, nil
 }
