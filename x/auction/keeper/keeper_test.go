@@ -17,6 +17,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth/tx"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/golang/mock/gomock"
 	"github.com/skip-mev/pob/x/auction/ante"
 	"github.com/skip-mev/pob/x/auction/keeper"
@@ -31,6 +32,8 @@ type IntegrationTestSuite struct {
 	auctionKeeper    keeper.Keeper
 	bankKeeper       *MockBankKeeper
 	accountKeeper    *MockAccountKeeper
+	distrKeeper      *MockDistributionKeeper
+	stakingKeeper    *MockStakingKeeper
 	encCfg           encodingConfig
 	AuctionDecorator sdk.AnteDecorator
 	ctx              sdk.Context
@@ -49,13 +52,25 @@ func (suite *IntegrationTestSuite) SetupTest() {
 	testCtx := testutil.DefaultContextWithDB(suite.T(), suite.key, sdk.NewTransientStoreKey("transient_test"))
 	suite.ctx = testCtx.Ctx
 
-	// Auction Keeper setup
 	ctrl := gomock.NewController(suite.T())
+
 	suite.accountKeeper = NewMockAccountKeeper(ctrl)
 	suite.accountKeeper.EXPECT().GetModuleAddress(types.ModuleName).Return(sdk.AccAddress{}).AnyTimes()
+
 	suite.bankKeeper = NewMockBankKeeper(ctrl)
 	suite.authorityAccount = sdk.AccAddress([]byte("authority"))
-	suite.auctionKeeper = keeper.NewKeeper(suite.encCfg.Codec, suite.key, suite.accountKeeper, suite.bankKeeper, suite.authorityAccount.String())
+	suite.auctionKeeper = keeper.NewKeeper(
+		suite.encCfg.Codec,
+		suite.key,
+		suite.accountKeeper,
+		suite.bankKeeper,
+		suite.distrKeeper,
+		suite.stakingKeeper,
+		suite.authorityAccount.String(),
+	)
+
+	suite.distrKeeper = NewMockDistributionKeeper(ctrl)
+	suite.stakingKeeper = NewMockStakingKeeper(ctrl)
 
 	err := suite.auctionKeeper.SetParams(suite.ctx, types.DefaultParams())
 	suite.Require().NoError(err)
@@ -216,4 +231,66 @@ func (m *MockBankKeeper) SendCoinsFromAccountToModule(ctx sdk.Context, senderAdd
 func (mr *MockBankKeeperMockRecorder) SendCoinsFromAccountToModule(ctx, senderAddr, recipientModule, amt interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCoinsFromAccountToModule", reflect.TypeOf((*MockBankKeeper)(nil).SendCoinsFromAccountToModule), ctx, senderAddr, recipientModule, amt)
+}
+
+type MockDistributionKeeperRecorder struct {
+	mock *MockDistributionKeeper
+}
+
+type MockDistributionKeeper struct {
+	ctrl     *gomock.Controller
+	recorder *MockDistributionKeeperRecorder
+}
+
+func NewMockDistributionKeeper(ctrl *gomock.Controller) *MockDistributionKeeper {
+	mock := &MockDistributionKeeper{ctrl: ctrl}
+	mock.recorder = &MockDistributionKeeperRecorder{mock}
+	return mock
+}
+
+func (m *MockDistributionKeeper) EXPECT() *MockDistributionKeeperRecorder {
+	return m.recorder
+}
+
+func (m *MockDistributionKeeper) GetPreviousProposerConsAddr(ctx sdk.Context) sdk.ConsAddress {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPreviousProposerConsAddr", ctx)
+	ret0 := ret[0].(sdk.ConsAddress)
+	return ret0
+}
+
+func (mr *MockDistributionKeeperRecorder) GetPreviousProposerConsAddr(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPreviousProposerConsAddr", reflect.TypeOf((*MockDistributionKeeper)(nil).GetPreviousProposerConsAddr), ctx)
+}
+
+type MockStakingKeeperRecorder struct {
+	mock *MockStakingKeeper
+}
+
+type MockStakingKeeper struct {
+	ctrl     *gomock.Controller
+	recorder *MockStakingKeeperRecorder
+}
+
+func NewMockStakingKeeper(ctrl *gomock.Controller) *MockStakingKeeper {
+	mock := &MockStakingKeeper{ctrl: ctrl}
+	mock.recorder = &MockStakingKeeperRecorder{mock}
+	return mock
+}
+
+func (m *MockStakingKeeper) EXPECT() *MockStakingKeeperRecorder {
+	return m.recorder
+}
+
+func (m *MockStakingKeeper) ValidatorByConsAddr(ctx sdk.Context, consAddr sdk.ConsAddress) stakingtypes.ValidatorI {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidatorByConsAddr", ctx, consAddr)
+	ret0 := ret[0].(stakingtypes.ValidatorI)
+	return ret0
+}
+
+func (mr *MockStakingKeeperRecorder) ValidatorByConsAddr(ctx, consAddr any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidatorByConsAddr", reflect.TypeOf((*MockStakingKeeper)(nil).ValidatorByConsAddr), ctx, consAddr)
 }

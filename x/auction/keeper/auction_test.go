@@ -131,6 +131,8 @@ func (suite *IntegrationTestSuite) TestValidateAuctionMsg() {
 				suite.key,
 				suite.accountKeeper,
 				suite.bankKeeper,
+				suite.distrKeeper,
+				suite.stakingKeeper,
 				suite.authorityAccount.String(),
 			)
 			params := auctiontypes.Params{
