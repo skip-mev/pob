@@ -25,9 +25,16 @@ func (k Keeper) ValidateAuctionMsg(ctx sdk.Context, bidder sdk.AccAddress, bid s
 		return err
 	}
 
-	// Validate the bundle of transactions.
-	if err := k.ValidateAuctionBundle(ctx, bidder, transactions); err != nil {
+	// Validate the bundle of transactions if front-running protection is enabled.
+	frontRunningEnabled, err := k.FrontRunningProtectionEnabled(ctx)
+	if err != nil {
 		return err
+	}
+
+	if frontRunningEnabled {
+		if err := k.ValidateAuctionBundle(ctx, bidder, transactions); err != nil {
+			return err
+		}
 	}
 
 	return nil
