@@ -71,15 +71,7 @@ func RandomAccounts(r *rand.Rand, n int) []Account {
 }
 
 // createRandomTx creates a random transaction with a given account, nonce, and number of messages.
-func createRandomTx(txCfg client.TxConfig, account Account, nonce, numberMsgs uint64) (authsigning.Tx, error) {
-	msgs := make([]sdk.Msg, numberMsgs)
-	for i := 0; i < int(numberMsgs); i++ {
-		msgs[i] = &banktypes.MsgSend{
-			FromAddress: account.Address.String(),
-			ToAddress:   account.Address.String(),
-		}
-	}
-
+func createTx(txCfg client.TxConfig, account Account, nonce uint64, msgs []sdk.Msg) (authsigning.Tx, error) {
 	txBuilder := txCfg.NewTxBuilder()
 	if err := txBuilder.SetMsgs(msgs...); err != nil {
 		return nil, err
@@ -100,14 +92,26 @@ func createRandomTx(txCfg client.TxConfig, account Account, nonce, numberMsgs ui
 	return txBuilder.GetTx(), nil
 }
 
-func createMsgAuctionBid(txCfg client.TxConfig, bidder Account, bid sdk.Coins) (*auctiontypes.MsgAuctionBid, error) {
+func createRandomMsgs(numberMsgs int) []sdk.Msg {
+	msgs := make([]sdk.Msg, numberMsgs)
+	for i := 0; i < numberMsgs; i++ {
+		msgs[i] = &banktypes.MsgSend{
+			FromAddress: "from",
+			ToAddress:   "to",
+		}
+	}
+
+	return msgs
+}
+
+func createMsgAuctionBid(txCfg client.TxConfig, bidder Account, bid sdk.Coins, nonce uint64, numberMsgs int) (*auctiontypes.MsgAuctionBid, error) {
 	bidMsg := &auctiontypes.MsgAuctionBid{
 		Bidder:       bidder.Address.String(),
 		Bid:          bid,
-		Transactions: make([][]byte, 2),
+		Transactions: make([][]byte, numberMsgs),
 	}
 
-	for i := 0; i < 2; i++ {
+	for i := 0; i < numberMsgs; i++ {
 		txBuilder := txCfg.NewTxBuilder()
 
 		msgs := []sdk.Msg{
@@ -126,7 +130,7 @@ func createMsgAuctionBid(txCfg client.TxConfig, bidder Account, bid sdk.Coins) (
 				SignMode:  txCfg.SignModeHandler().DefaultMode(),
 				Signature: nil,
 			},
-			Sequence: uint64(i + 1),
+			Sequence: nonce + uint64(i),
 		}
 		if err := txBuilder.SetSignatures(sigV2); err != nil {
 			return nil, err
