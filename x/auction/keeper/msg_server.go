@@ -47,24 +47,29 @@ func (m MsgServer) AuctionBid(goCtx context.Context, msg *types.MsgAuctionBid) (
 	}
 
 	if proposerFee.IsZero() {
-		if err := m.bankkeeper.SendCoinsFromAccountToModule(ctx, bidder, types.ModuleName, msg.Bid); err != nil {
+		if err := m.bankKeeper.SendCoinsFromAccountToModule(ctx, bidder, types.ModuleName, msg.Bid); err != nil {
 			return nil, err
 		}
 	} else {
+		// Determine the amount of the bid that goes to the (previous) proposer. If
+		// a remainder exists, it'll go to the escrow account.
 		bid := sdk.NewDecCoinsFromCoins(msg.Bid...)
 		proposerReward, proposerRemainder := bid.MulDecTruncate(proposerFee).TruncateDecimal()
 
-		// TODO: Send proposerReward to proposer
+		prevPropConsAddr := m.distrKeeper.GetPreviousProposerConsAddr(ctx)
+		prevProposer := m.stakingKeeper.ValidatorByConsAddr(ctx, prevPropConsAddr)
 
-		escrowTotal := bid.Sub(sdk.NewDecCoinsFromCoins(proposerReward...)).Add(proposerRemainder...)
-		escrowReward, escrowRemainder := escrowTotal.TruncateDecimal()
-
-		if err := m.bankkeeper.SendCoinsFromAccountToModule(ctx, bidder, types.ModuleName, escrowReward); err != nil {
+		if err := m.bankKeeper.SendCoins(ctx, bidder, sdk.AccAddress(prevProposer.GetOperator()), proposerReward); err != nil {
 			return nil, err
 		}
 
-		if !escrowRemainder.IsZero() {
-			// TODO: Send escrowRemainder to community pool
+		// Determine the amount of the remaining bid that goes to the escrow account.
+		// If a decimal remainder exists, it'll stay with the bidding account.
+		escrowTotal := bid.Sub(sdk.NewDecCoinsFromCoins(proposerReward...)).Add(proposerRemainder...)
+		escrowReward, _ := escrowTotal.TruncateDecimal()
+
+		if err := m.bankKeeper.SendCoinsFromAccountToModule(ctx, bidder, types.ModuleName, escrowReward); err != nil {
+			return nil, err
 		}
 	}
 
