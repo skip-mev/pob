@@ -451,11 +451,9 @@ func IsEmpty[C comparable](mempool sdkmempool.Mempool) error {
 		return fmt.Errorf("priorityIndex not empty")
 	}
 
-	countKeys := make([]C, len(mp.priorityCounts))
-	i := 0
+	countKeys := make([]C, 0, len(mp.priorityCounts))
 	for k := range mp.priorityCounts {
-		countKeys[i] = k
-		i++
+		countKeys = append(countKeys, k)
 	}
 
 	for _, k := range countKeys {
@@ -464,11 +462,9 @@ func IsEmpty[C comparable](mempool sdkmempool.Mempool) error {
 		}
 	}
 
-	senderKeys := make([]string, len(mp.senderIndices))
-	i = 0
+	senderKeys := make([]string, 0, len(mp.senderIndices))
 	for k := range mp.senderIndices {
-		senderKeys[i] = k
-		i++
+		senderKeys = append(senderKeys, k)
 	}
 
 	for _, k := range senderKeys {
