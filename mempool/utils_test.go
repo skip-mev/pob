@@ -70,7 +70,6 @@ func RandomAccounts(r *rand.Rand, n int) []Account {
 	return accs
 }
 
-// createRandomTx creates a transaction given the account, nonce, and messages.
 func createTx(txCfg client.TxConfig, account Account, nonce uint64, msgs []sdk.Msg) (authsigning.Tx, error) {
 	txBuilder := txCfg.NewTxBuilder()
 	if err := txBuilder.SetMsgs(msgs...); err != nil {
