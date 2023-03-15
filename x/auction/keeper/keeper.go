@@ -139,3 +139,13 @@ func (k Keeper) GetMinBidIncrement(ctx sdk.Context) (sdk.Coins, error) {
 
 	return params.MinBidIncrement, nil
 }
+
+// GetProposerFee returns the proposer fee for the auction module.
+func (k Keeper) GetProposerFee(ctx sdk.Context) (sdk.Dec, error) {
+	params, err := k.GetParams(ctx)
+	if err != nil {
+		return sdk.ZeroDec(), err
+	}
+
+	return params.ProposerFee, nil
+}
