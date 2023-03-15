@@ -44,6 +44,9 @@ func (suite *IntegrationTestSuite) SetupTest() {
 	}
 }
 
+// CreateFilledMempool creates a pre-filled mempool with numNormalTxs normal transactions, numAuctionTxs auction transactions, and numBundledTxs bundled
+// transactions per auction transaction. If insertRefTxs is true, it will also insert a the referenced transactions into the mempool. This returns
+// the total number of transactions inserted into the mempool.
 func (suite *IntegrationTestSuite) CreateFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs int, insertRefTxs bool) int {
 	// Insert a bunch of normal transactions into the global mempool
 	for i := 0; i < numNormalTxs; i++ {
@@ -67,7 +70,7 @@ func (suite *IntegrationTestSuite) CreateFilledMempool(numNormalTxs, numAuctionT
 
 	// Insert a bunch of auction transactions into the global mempool and auction mempool
 	for i := 0; i < numAuctionTxs; i++ {
-		// randomly select an bidder to create the tx
+		// randomly select a bidder to create the tx
 		acc := RandomAccounts(suite.random, 1)[0]
 
 		// create a new auction bid msg with numBundledTxs bundled transactions
@@ -96,14 +99,17 @@ func (suite *IntegrationTestSuite) CreateFilledMempool(numNormalTxs, numAuctionT
 		}
 	}
 
+	var totalNumTxs int
 	suite.Require().Equal(numAuctionTxs, suite.mempool.CountAuctionTx())
 	if insertRefTxs {
-		suite.Require().Equal(numNormalTxs+numAuctionTxs*(numBundledTxs+1), suite.mempool.CountTx())
+		totalNumTxs = numNormalTxs + numAuctionTxs*(numBundledTxs+1)
+		suite.Require().Equal(totalNumTxs, suite.mempool.CountTx())
 	} else {
-		suite.Require().Equal(numNormalTxs+numAuctionTxs, suite.mempool.CountTx())
+		totalNumTxs = numNormalTxs + numAuctionTxs
+		suite.Require().Equal(totalNumTxs, suite.mempool.CountTx())
 	}
 
-	return numNormalTxs + numAuctionTxs*(numBundledTxs+1)
+	return totalNumTxs
 }
 
 func (suite *IntegrationTestSuite) TestAuctionMempoolRemove() {

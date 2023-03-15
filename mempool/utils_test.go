@@ -70,7 +70,7 @@ func RandomAccounts(r *rand.Rand, n int) []Account {
 	return accs
 }
 
-// createRandomTx creates a random transaction with a given account, nonce, and number of messages.
+// createRandomTx creates a transaction given the account, nonce, and messages.
 func createTx(txCfg client.TxConfig, account Account, nonce uint64, msgs []sdk.Msg) (authsigning.Tx, error) {
 	txBuilder := txCfg.NewTxBuilder()
 	if err := txBuilder.SetMsgs(msgs...); err != nil {
@@ -92,6 +92,7 @@ func createTx(txCfg client.TxConfig, account Account, nonce uint64, msgs []sdk.M
 	return txBuilder.GetTx(), nil
 }
 
+// createRandomMsgs creates a slice of random messages.
 func createRandomMsgs(numberMsgs int) []sdk.Msg {
 	msgs := make([]sdk.Msg, numberMsgs)
 	for i := 0; i < numberMsgs; i++ {
@@ -104,6 +105,7 @@ func createRandomMsgs(numberMsgs int) []sdk.Msg {
 	return msgs
 }
 
+// createMsgAuctionBid creates a new MsgAuctionBid with numberMsgs of referenced transactions embedded into the message and the inputted bid/bidder.
 func createMsgAuctionBid(txCfg client.TxConfig, bidder Account, bid sdk.Coins, nonce uint64, numberMsgs int) (*auctiontypes.MsgAuctionBid, error) {
 	bidMsg := &auctiontypes.MsgAuctionBid{
 		Bidder:       bidder.Address.String(),
