@@ -47,17 +47,18 @@ func (m MsgServer) AuctionBid(goCtx context.Context, msg *types.MsgAuctionBid) (
 	}
 
 	if proposerFee.IsZero() {
+		// send the entire bid to the escrow account when no proposer fee is set
 		if err := m.bankKeeper.SendCoinsFromAccountToModule(ctx, bidder, types.ModuleName, msg.Bid); err != nil {
 			return nil, err
 		}
 	} else {
+		prevPropConsAddr := m.distrKeeper.GetPreviousProposerConsAddr(ctx)
+		prevProposer := m.stakingKeeper.ValidatorByConsAddr(ctx, prevPropConsAddr)
+
 		// Determine the amount of the bid that goes to the (previous) proposer. If
 		// a remainder exists, it'll go to the escrow account.
 		bid := sdk.NewDecCoinsFromCoins(msg.Bid...)
 		proposerReward, proposerRemainder := bid.MulDecTruncate(proposerFee).TruncateDecimal()
-
-		prevPropConsAddr := m.distrKeeper.GetPreviousProposerConsAddr(ctx)
-		prevProposer := m.stakingKeeper.ValidatorByConsAddr(ctx, prevPropConsAddr)
 
 		if err := m.bankKeeper.SendCoins(ctx, bidder, sdk.AccAddress(prevProposer.GetOperator()), proposerReward); err != nil {
 			return nil, err
