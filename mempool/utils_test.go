@@ -92,7 +92,6 @@ func createTx(txCfg client.TxConfig, account Account, nonce uint64, msgs []sdk.M
 	return txBuilder.GetTx(), nil
 }
 
-// createRandomMsgs creates a slice of random messages.
 func createRandomMsgs(numberMsgs int) []sdk.Msg {
 	msgs := make([]sdk.Msg, numberMsgs)
 	for i := 0; i < numberMsgs; i++ {
