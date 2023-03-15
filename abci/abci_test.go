@@ -50,7 +50,7 @@ type ABCITestSuite struct {
 	nonces   map[string]uint64
 }
 
-func TestPrepareProposalSuite(t *testing.T) {
+func TestABCISuite(t *testing.T) {
 	suite.Run(t, new(ABCITestSuite))
 }
 
