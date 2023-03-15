@@ -141,7 +141,7 @@ func (suite *IntegrationTestSuite) TestAuctionMempoolRemove() {
 	suite.Require().Equal(numMempoolTxs-numberBundledTxs-1, suite.mempool.CountTx())
 }
 
-func (suite IntegrationTestSuite) TestAuctionMempoolSelect() {
+func (suite *IntegrationTestSuite) TestAuctionMempoolSelect() {
 	numberTotalTxs := 100
 	numberAuctionTxs := 10
 	numberBundledTxs := 5
@@ -174,5 +174,4 @@ func (suite IntegrationTestSuite) TestAuctionMempoolSelect() {
 	}
 
 	suite.Require().Equal(numberAuctionTxs, numberTxsSeen)
-
 }
