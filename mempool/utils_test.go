@@ -95,8 +95,8 @@ func createRandomMsgs(numberMsgs int) []sdk.Msg {
 	msgs := make([]sdk.Msg, numberMsgs)
 	for i := 0; i < numberMsgs; i++ {
 		msgs[i] = &banktypes.MsgSend{
-			FromAddress: "from",
-			ToAddress:   "to",
+			FromAddress: sdk.AccAddress([]byte("addr1_______________")).String(),
+			ToAddress:   sdk.AccAddress([]byte("addr2_______________")).String(),
 		}
 	}
 
