@@ -77,7 +77,12 @@ func (suite *IntegrationTestSuite) SetupTest() {
 }
 
 func (suite *IntegrationTestSuite) PrepareProposalVerifyTx(tx sdk.Tx) ([]byte, error) {
-	return nil, nil
+	_, err := suite.auctionDecorator.AnteHandle(suite.ctx, tx, false, nil)
+	txBz := suite.encodingConfig.TxConfig.TxEncoder()(tx)
+
+	if err != nil {
+		return nil, err
+	}
 }
 
 func (suite *IntegrationTestSuite) ProcessProposalVerifyTx(txBz []byte) (sdk.Tx, error) {
