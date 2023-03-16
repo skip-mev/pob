@@ -8,23 +8,31 @@ import (
 )
 
 var (
-	DefaultMaxBundleSize        uint32 = 2
-	DefaultEscrowAccountAddress string
-	DefaultReserveFee           = sdk.Coins{}
-	DefaultMinBuyInFee          = sdk.Coins{}
-	DefaultMinBidIncrement      = sdk.Coins{}
-	DefaultProposerFee          = sdk.ZeroDec()
+	DefaultMaxBundleSize          uint32 = 2
+	DefaultEscrowAccountAddress   string
+	DefaultReserveFee             = sdk.Coins{}
+	DefaultMinBuyInFee            = sdk.Coins{}
+	DefaultMinBidIncrement        = sdk.Coins{}
+	DefaultFrontRunningProtection = true
+	DefaultProposerFee            = sdk.ZeroDec()
 )
 
 // NewParams returns a new Params instance with the provided values.
-func NewParams(maxBundleSize uint32, escrowAccountAddress string, reserveFee, minBuyInFee, minBidIncrement sdk.Coins, proposerFee sdk.Dec) Params {
+func NewParams(
+	maxBundleSize uint32,
+	escrowAccountAddress string,
+	reserveFee, minBuyInFee, minBidIncrement sdk.Coins,
+	frontRunningProtection bool,
+	proposerFee sdk.Dec,
+) Params {
 	return Params{
-		MaxBundleSize:        maxBundleSize,
-		EscrowAccountAddress: escrowAccountAddress,
-		ReserveFee:           reserveFee,
-		MinBuyInFee:          minBuyInFee,
-		MinBidIncrement:      minBidIncrement,
-		ProposerFee:          proposerFee,
+		MaxBundleSize:          maxBundleSize,
+		EscrowAccountAddress:   escrowAccountAddress,
+		ReserveFee:             reserveFee,
+		MinBuyInFee:            minBuyInFee,
+		MinBidIncrement:        minBidIncrement,
+		FrontRunningProtection: frontRunningProtection,
+		ProposerFee:            proposerFee,
 	}
 }
 
@@ -36,6 +44,7 @@ func DefaultParams() Params {
 		DefaultReserveFee,
 		DefaultMinBuyInFee,
 		DefaultMinBidIncrement,
+		DefaultFrontRunningProtection,
 		DefaultProposerFee,
 	)
 }
@@ -65,12 +74,7 @@ func (p Params) Validate() error {
 	return nil
 }
 
-func validateProposerFee(i interface{}) error {
-	v, ok := i.(sdk.Dec)
-	if !ok {
-		return fmt.Errorf("invalid parameter type: %T", i)
-	}
-
+func validateProposerFee(v sdk.Dec) error {
 	if v.IsNil() {
 		return fmt.Errorf("proposer fee cannot be nil: %s", v)
 	}

@@ -160,3 +160,13 @@ func (k Keeper) GetProposerFee(ctx sdk.Context) (sdk.Dec, error) {
 
 	return params.ProposerFee, nil
 }
+
+// FrontRunningProtectionEnabled returns true if front-running protection is enabled.
+func (k Keeper) FrontRunningProtectionEnabled(ctx sdk.Context) (bool, error) {
+	params, err := k.GetParams(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	return params.FrontRunningProtection, nil
+}
