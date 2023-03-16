@@ -5,12 +5,21 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/skip-mev/pob/x/auction/types"
 )
 
 func (suite *KeeperTestSuite) TestMsgAuctionBid() {
 	rng := rand.New(rand.NewSource(time.Now().Unix()))
-	bidder := RandomAccounts(rng, 1)[0]
+	accs := RandomAccounts(rng, 3)
+
+	bidder := accs[0]
+
+	proposerCons := accs[1]
+	proposerOperator := accs[2]
+	proposer := stakingtypes.Validator{
+		OperatorAddress: sdk.ValAddress(proposerOperator.Address).String(),
+	}
 
 	testCases := []struct {
 		name      string
@@ -51,12 +60,46 @@ func (suite *KeeperTestSuite) TestMsgAuctionBid() {
 				params.ProposerFee = sdk.ZeroDec()
 				suite.auctionKeeper.SetParams(suite.ctx, params)
 
-				suite.bankKeeper.EXPECT().SendCoinsFromAccountToModule(
-					suite.ctx,
-					bidder.Address,
-					types.ModuleName,
-					sdk.NewCoins(sdk.NewInt64Coin("foo", 1024)),
-				).Return(nil).AnyTimes()
+				suite.bankKeeper.EXPECT().
+					SendCoinsFromAccountToModule(
+						suite.ctx,
+						bidder.Address,
+						types.ModuleName,
+						sdk.NewCoins(sdk.NewInt64Coin("foo", 1024)),
+					).
+					Return(nil).
+					AnyTimes()
+			},
+			expectErr: false,
+		},
+		{
+			name: "valid bundle with proposer fee",
+			msg: &types.MsgAuctionBid{
+				Bidder:       bidder.Address.String(),
+				Bid:          sdk.NewCoins(sdk.NewInt64Coin("foo", 3416)),
+				Transactions: [][]byte{{0xFF}, {0xFF}},
+			},
+			malleate: func() {
+				params := types.DefaultParams()
+				params.ProposerFee = sdk.MustNewDecFromStr("0.30")
+				suite.auctionKeeper.SetParams(suite.ctx, params)
+
+				suite.distrKeeper.EXPECT().
+					GetPreviousProposerConsAddr(suite.ctx).
+					Return(proposerCons.ConsKey.PubKey().Address().Bytes())
+
+				suite.stakingKeeper.EXPECT().
+					ValidatorByConsAddr(suite.ctx, sdk.ConsAddress(proposerCons.ConsKey.PubKey().Address().Bytes())).
+					Return(proposer).
+					AnyTimes()
+
+				suite.bankKeeper.EXPECT().
+					SendCoins(suite.ctx, bidder.Address, proposerOperator.Address, sdk.NewCoins(sdk.NewInt64Coin("foo", 1024))).
+					Return(nil)
+
+				suite.bankKeeper.EXPECT().
+					SendCoinsFromAccountToModule(suite.ctx, bidder.Address, types.ModuleName, sdk.NewCoins(sdk.NewInt64Coin("foo", 2392))).
+					Return(nil)
 			},
 			expectErr: false,
 		},
@@ -74,4 +117,8 @@ func (suite *KeeperTestSuite) TestMsgAuctionBid() {
 			}
 		})
 	}
+}
+
+func (suite *KeeperTestSuite) TestMsgUpdateParams() {
+	suite.T().SkipNow()
 }

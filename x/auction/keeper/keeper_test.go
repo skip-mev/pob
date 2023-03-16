@@ -46,6 +46,8 @@ func (suite *KeeperTestSuite) SetupTest() {
 	suite.accountKeeper.EXPECT().GetModuleAddress(types.ModuleName).Return(sdk.AccAddress{}).AnyTimes()
 
 	suite.bankKeeper = NewMockBankKeeper(ctrl)
+	suite.distrKeeper = NewMockDistributionKeeper(ctrl)
+	suite.stakingKeeper = NewMockStakingKeeper(ctrl)
 	suite.authorityAccount = sdk.AccAddress([]byte("authority"))
 	suite.auctionKeeper = keeper.NewKeeper(
 		suite.encCfg.Codec,
@@ -56,9 +58,6 @@ func (suite *KeeperTestSuite) SetupTest() {
 		suite.stakingKeeper,
 		suite.authorityAccount.String(),
 	)
-
-	suite.distrKeeper = NewMockDistributionKeeper(ctrl)
-	suite.stakingKeeper = NewMockStakingKeeper(ctrl)
 
 	err := suite.auctionKeeper.SetParams(suite.ctx, types.DefaultParams())
 	suite.Require().NoError(err)
