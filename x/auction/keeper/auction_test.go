@@ -9,7 +9,7 @@ import (
 	auctiontypes "github.com/skip-mev/pob/x/auction/types"
 )
 
-func (suite *IntegrationTestSuite) TestValidateAuctionMsg() {
+func (suite *KeeperTestSuite) TestValidateAuctionMsg() {
 	var (
 		// Tx building variables
 		accounts = []Account{} // tracks the order of signers in the bundle
@@ -167,7 +167,7 @@ func (suite *IntegrationTestSuite) TestValidateAuctionMsg() {
 	}
 }
 
-func (suite *IntegrationTestSuite) TestValidateBundle() {
+func (suite *KeeperTestSuite) TestValidateBundle() {
 	// TODO: Update this to be multi-dimensional to test multi-sig
 	// https://github.com/skip-mev/pob/issues/14
 	var accounts []Account // tracks the order of signers in the bundle

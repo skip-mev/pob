@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-type IntegrationTestSuite struct {
+type KeeperTestSuite struct {
 	suite.Suite
 
 	auctionKeeper    keeper.Keeper
@@ -31,10 +31,10 @@ type IntegrationTestSuite struct {
 }
 
 func TestKeeperTestSuite(t *testing.T) {
-	suite.Run(t, new(IntegrationTestSuite))
+	suite.Run(t, new(KeeperTestSuite))
 }
 
-func (suite *IntegrationTestSuite) SetupTest() {
+func (suite *KeeperTestSuite) SetupTest() {
 	suite.encCfg = createTestEncodingConfig()
 	suite.key = sdk.NewKVStoreKey(types.StoreKey)
 	testCtx := testutil.DefaultContextWithDB(suite.T(), suite.key, sdk.NewTransientStoreKey("transient_test"))
