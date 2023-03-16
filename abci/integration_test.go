@@ -4,6 +4,7 @@ import (
 	"math/rand"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/cometbft/cometbft/libs/log"
 	"github.com/cosmos/cosmos-sdk/client"
@@ -16,6 +17,8 @@ import (
 	storetypes "github.com/cosmos/cosmos-sdk/store/types"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/tx/signing"
+	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	"github.com/cosmos/cosmos-sdk/x/auth/tx"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/golang/mock/gomock"
@@ -36,6 +39,7 @@ type IntegrationTestSuite struct {
 	logger          log.Logger
 	encodingConfig  encodingConfig
 	proposalHandler *abci.ProposalHandler
+	maxBidAmount    int64
 
 	// auction setup
 	auctionKeeper    keeper.Keeper
@@ -44,6 +48,12 @@ type IntegrationTestSuite struct {
 	auctionDecorator ante.AuctionDecorator
 	key              *storetypes.KVStoreKey
 	authorityAccount sdk.AccAddress
+
+	// account set up
+	accounts []Account
+	balances sdk.Coins
+	random   *rand.Rand
+	nonces   map[string]uint64
 }
 
 func TestPrepareProposalSuite(t *testing.T) {
@@ -51,7 +61,9 @@ func TestPrepareProposalSuite(t *testing.T) {
 }
 
 func (suite *IntegrationTestSuite) SetupTest() {
+	// General config
 	suite.encodingConfig = createTestEncodingConfig()
+	suite.random = rand.New(rand.NewSource(time.Now().Unix()))
 	suite.key = sdk.NewKVStoreKey(auctiontypes.StoreKey)
 	testCtx := testutil.DefaultContextWithDB(suite.T(), suite.key, sdk.NewTransientStoreKey("transient_test"))
 	suite.ctx = testCtx.Ctx
@@ -60,7 +72,6 @@ func (suite *IntegrationTestSuite) SetupTest() {
 	ctrl := gomock.NewController(suite.T())
 	suite.accountKeeper = NewMockAccountKeeper(ctrl)
 	suite.accountKeeper.EXPECT().GetModuleAddress(auctiontypes.ModuleName).Return(sdk.AccAddress{}).AnyTimes()
-
 	suite.bankKeeper = NewMockBankKeeper(ctrl)
 	suite.authorityAccount = sdk.AccAddress([]byte("authority"))
 
@@ -70,23 +81,123 @@ func (suite *IntegrationTestSuite) SetupTest() {
 	suite.Require().NoError(err)
 	suite.auctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encodingConfig.TxConfig.TxDecoder())
 
+	// Accounts set up
+	suite.accounts = RandomAccounts(suite.random, 1)
+	suite.balances = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000000000000)))
+	suite.nonces = make(map[string]uint64)
+	for _, acc := range suite.accounts {
+		suite.nonces[acc.Address.String()] = 0
+	}
+	suite.fundAccounds()
+
 	// Mempool set up
 	suite.mempool = mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), 0)
+	suite.maxBidAmount = 40000
+
+	// Proposal handler set up
 	suite.logger = log.NewNopLogger()
 	suite.proposalHandler = abci.NewProposalHandler(suite.mempool, suite.logger, suite, suite.encodingConfig.TxConfig.TxEncoder(), suite.encodingConfig.TxConfig.TxDecoder())
 }
 
 func (suite *IntegrationTestSuite) PrepareProposalVerifyTx(tx sdk.Tx) ([]byte, error) {
-	_, err := suite.auctionDecorator.AnteHandle(suite.ctx, tx, false, nil)
-	txBz := suite.encodingConfig.TxConfig.TxEncoder()(tx)
+	_, err := suite.executeAnteHandler(tx)
+	if err != nil {
+		return nil, err
+	}
+
+	txBz, err := suite.encodingConfig.TxConfig.TxEncoder()(tx)
 
 	if err != nil {
 		return nil, err
 	}
+
+	return txBz, nil
 }
 
 func (suite *IntegrationTestSuite) ProcessProposalVerifyTx(txBz []byte) (sdk.Tx, error) {
 	return nil, nil
+}
+
+func (suite *IntegrationTestSuite) executeAnteHandler(tx sdk.Tx) (sdk.Context, error) {
+	next := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
+		return ctx, nil
+	}
+
+	return suite.auctionDecorator.AnteHandle(suite.ctx, tx, false, next)
+}
+
+// CreateFilledMempool creates a pre-filled mempool with numNormalTxs normal transactions, numAuctionTxs auction transactions, and numBundledTxs bundled
+// transactions per auction transaction. If insertRefTxs is true, it will also insert a the referenced transactions into the mempool. This returns
+// the total number of transactions inserted into the mempool.
+func (suite *IntegrationTestSuite) createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs int, insertRefTxs bool) int {
+	// Insert a bunch of normal transactions into the global mempool
+	for i := 0; i < numNormalTxs; i++ {
+		// create a few random msgs
+		randomMsgs := createRandomMsgs(3)
+
+		// randomly select an account to create the tx
+		randomIndex := suite.random.Intn(len(suite.accounts))
+		acc := suite.accounts[randomIndex]
+		nonce := suite.nonces[acc.Address.String()]
+		randomTx, err := createTx(suite.encodingConfig.TxConfig, acc, nonce, randomMsgs)
+		suite.Require().NoError(err)
+
+		suite.nonces[acc.Address.String()]++
+		priority := suite.random.Int63n(100) + 1
+		suite.Require().NoError(suite.mempool.Insert(suite.ctx.WithPriority(priority), randomTx))
+	}
+
+	suite.Require().Equal(numNormalTxs, suite.mempool.CountTx())
+	suite.Require().Equal(0, suite.mempool.CountAuctionTx())
+
+	// Insert a bunch of auction transactions into the global mempool and auction mempool
+	for i := 0; i < numAuctionTxs; i++ {
+		// randomly select a bidder to create the tx
+		randomIndex := suite.random.Intn(len(suite.accounts))
+		acc := suite.accounts[randomIndex]
+
+		// create a new auction bid msg with numBundledTxs bundled transactions
+		bid := sdk.NewCoins(sdk.NewInt64Coin("foo", suite.maxBidAmount))
+		nonce := suite.nonces[acc.Address.String()]
+		bidMsg, err := createMsgAuctionBid(suite.encodingConfig.TxConfig, acc, bid, nonce, numBundledTxs)
+		suite.nonces[acc.Address.String()] += uint64(numBundledTxs)
+		suite.Require().NoError(err)
+
+		// create the auction tx
+		nonce = suite.nonces[acc.Address.String()]
+		auctionTx, err := createTx(suite.encodingConfig.TxConfig, acc, nonce, []sdk.Msg{bidMsg})
+		suite.Require().NoError(err)
+
+		// insert the auction tx into the global mempool
+		suite.Require().NoError(suite.mempool.Insert(suite.ctx.WithPriority(suite.maxBidAmount), auctionTx))
+		suite.nonces[acc.Address.String()]++
+
+		if insertRefTxs {
+			for _, refRawTx := range bidMsg.GetTransactions() {
+				refTx, err := suite.encodingConfig.TxConfig.TxDecoder()(refRawTx)
+				suite.Require().NoError(err)
+				suite.Require().NoError(suite.mempool.Insert(suite.ctx.WithPriority(suite.maxBidAmount), refTx))
+			}
+		}
+	}
+
+	var totalNumTxs int
+	suite.Require().Equal(numAuctionTxs, suite.mempool.CountAuctionTx())
+	if insertRefTxs {
+		totalNumTxs = numNormalTxs + numAuctionTxs*(numBundledTxs+1)
+		suite.Require().Equal(totalNumTxs, suite.mempool.CountTx())
+	} else {
+		totalNumTxs = numNormalTxs + numAuctionTxs
+		suite.Require().Equal(totalNumTxs, suite.mempool.CountTx())
+	}
+
+	return totalNumTxs
+}
+
+func (suite *IntegrationTestSuite) fundAccounds() {
+	for _, acc := range suite.accounts {
+		suite.bankKeeper.EXPECT().GetAllBalances(suite.ctx, acc.Address).AnyTimes().Return(suite.balances)
+	}
 }
 
 type encodingConfig struct {
@@ -102,6 +213,7 @@ func createTestEncodingConfig() encodingConfig {
 
 	banktypes.RegisterInterfaces(interfaceRegistry)
 	cryptocodec.RegisterInterfaces(interfaceRegistry)
+	auctiontypes.RegisterInterfaces(interfaceRegistry)
 
 	codec := codec.NewProtoCodec(interfaceRegistry)
 
@@ -140,6 +252,83 @@ func RandomAccounts(r *rand.Rand, n int) []Account {
 	}
 
 	return accs
+}
+
+func createTx(txCfg client.TxConfig, account Account, nonce uint64, msgs []sdk.Msg) (authsigning.Tx, error) {
+	txBuilder := txCfg.NewTxBuilder()
+	if err := txBuilder.SetMsgs(msgs...); err != nil {
+		return nil, err
+	}
+
+	sigV2 := signing.SignatureV2{
+		PubKey: account.PrivKey.PubKey(),
+		Data: &signing.SingleSignatureData{
+			SignMode:  txCfg.SignModeHandler().DefaultMode(),
+			Signature: nil,
+		},
+		Sequence: nonce,
+	}
+	if err := txBuilder.SetSignatures(sigV2); err != nil {
+		return nil, err
+	}
+
+	return txBuilder.GetTx(), nil
+}
+
+func createRandomMsgs(numberMsgs int) []sdk.Msg {
+	msgs := make([]sdk.Msg, numberMsgs)
+	for i := 0; i < numberMsgs; i++ {
+		msgs[i] = &banktypes.MsgSend{
+			FromAddress: sdk.AccAddress([]byte("addr1_______________")).String(),
+			ToAddress:   sdk.AccAddress([]byte("addr2_______________")).String(),
+		}
+	}
+
+	return msgs
+}
+
+// createMsgAuctionBid creates a new MsgAuctionBid with numberMsgs of referenced transactions embedded into the message and the inputted bid/bidder.
+func createMsgAuctionBid(txCfg client.TxConfig, bidder Account, bid sdk.Coins, nonce uint64, numberMsgs int) (*auctiontypes.MsgAuctionBid, error) {
+	bidMsg := &auctiontypes.MsgAuctionBid{
+		Bidder:       bidder.Address.String(),
+		Bid:          bid,
+		Transactions: make([][]byte, numberMsgs),
+	}
+
+	for i := 0; i < numberMsgs; i++ {
+		txBuilder := txCfg.NewTxBuilder()
+
+		msgs := []sdk.Msg{
+			&banktypes.MsgSend{
+				FromAddress: bidder.Address.String(),
+				ToAddress:   bidder.Address.String(),
+			},
+		}
+		if err := txBuilder.SetMsgs(msgs...); err != nil {
+			return nil, err
+		}
+
+		sigV2 := signing.SignatureV2{
+			PubKey: bidder.PrivKey.PubKey(),
+			Data: &signing.SingleSignatureData{
+				SignMode:  txCfg.SignModeHandler().DefaultMode(),
+				Signature: nil,
+			},
+			Sequence: nonce + uint64(i),
+		}
+		if err := txBuilder.SetSignatures(sigV2); err != nil {
+			return nil, err
+		}
+
+		bz, err := txCfg.TxEncoder()(txBuilder.GetTx())
+		if err != nil {
+			return nil, err
+		}
+
+		bidMsg.Transactions[i] = bz
+	}
+
+	return bidMsg, nil
 }
 
 // MockAccountKeeper is a mock of AccountKeeper interface.
