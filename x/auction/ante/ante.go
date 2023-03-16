@@ -68,10 +68,5 @@ func (ad AuctionDecorator) GetHighestAuctionBid(ctx sdk.Context) (sdk.Coins, err
 		return sdk.NewCoins(), nil
 	}
 
-	auctionMsg, err := mempool.GetMsgAuctionBidFromTx(auctionTx)
-	if err != nil {
-		return sdk.NewCoins(), err
-	}
-
-	return auctionMsg.Bid, nil
+	return auctionTx.(*mempool.WrappedBidTx).GetBid(), nil
 }
