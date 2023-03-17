@@ -11,12 +11,13 @@ import (
 
 func (suite *KeeperTestSuite) TestMsgAuctionBid() {
 	rng := rand.New(rand.NewSource(time.Now().Unix()))
-	accs := RandomAccounts(rng, 3)
+	accounts := RandomAccounts(rng, 4)
 
-	bidder := accs[0]
+	bidder := accounts[0]
+	escrow := accounts[1]
 
-	proposerCons := accs[1]
-	proposerOperator := accs[2]
+	proposerCons := accounts[2]
+	proposerOperator := accounts[3]
 	proposer := stakingtypes.Validator{
 		OperatorAddress: sdk.ValAddress(proposerOperator.Address).String(),
 	}
@@ -58,13 +59,14 @@ func (suite *KeeperTestSuite) TestMsgAuctionBid() {
 			malleate: func() {
 				params := types.DefaultParams()
 				params.ProposerFee = sdk.ZeroDec()
+				params.EscrowAccountAddress = escrow.Address.String()
 				suite.auctionKeeper.SetParams(suite.ctx, params)
 
 				suite.bankKeeper.EXPECT().
-					SendCoinsFromAccountToModule(
+					SendCoins(
 						suite.ctx,
 						bidder.Address,
-						types.ModuleName,
+						escrow.Address,
 						sdk.NewCoins(sdk.NewInt64Coin("foo", 1024)),
 					).
 					Return(nil).
@@ -82,6 +84,7 @@ func (suite *KeeperTestSuite) TestMsgAuctionBid() {
 			malleate: func() {
 				params := types.DefaultParams()
 				params.ProposerFee = sdk.MustNewDecFromStr("0.30")
+				params.EscrowAccountAddress = escrow.Address.String()
 				suite.auctionKeeper.SetParams(suite.ctx, params)
 
 				suite.distrKeeper.EXPECT().
@@ -98,7 +101,7 @@ func (suite *KeeperTestSuite) TestMsgAuctionBid() {
 					Return(nil)
 
 				suite.bankKeeper.EXPECT().
-					SendCoinsFromAccountToModule(suite.ctx, bidder.Address, types.ModuleName, sdk.NewCoins(sdk.NewInt64Coin("foo", 2392))).
+					SendCoins(suite.ctx, bidder.Address, escrow.Address, sdk.NewCoins(sdk.NewInt64Coin("foo", 2392))).
 					Return(nil)
 			},
 			expectErr: false,

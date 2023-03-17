@@ -46,9 +46,14 @@ func (m MsgServer) AuctionBid(goCtx context.Context, msg *types.MsgAuctionBid) (
 		return nil, err
 	}
 
+	escrow, err := m.Keeper.GetEscrowAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	if proposerFee.IsZero() {
 		// send the entire bid to the escrow account when no proposer fee is set
-		if err := m.bankKeeper.SendCoinsFromAccountToModule(ctx, bidder, types.ModuleName, msg.Bid); err != nil {
+		if err := m.bankKeeper.SendCoins(ctx, bidder, escrow, msg.Bid); err != nil {
 			return nil, err
 		}
 	} else {
@@ -68,7 +73,7 @@ func (m MsgServer) AuctionBid(goCtx context.Context, msg *types.MsgAuctionBid) (
 		escrowTotal := bid.Sub(sdk.NewDecCoinsFromCoins(proposerReward...))
 		escrowReward, _ := escrowTotal.TruncateDecimal()
 
-		if err := m.bankKeeper.SendCoinsFromAccountToModule(ctx, bidder, types.ModuleName, escrowReward); err != nil {
+		if err := m.bankKeeper.SendCoins(ctx, bidder, escrow, escrowReward); err != nil {
 			return nil, err
 		}
 	}

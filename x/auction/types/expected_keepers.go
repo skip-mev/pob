@@ -5,15 +5,14 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
-// AccountKeeper defines the contract required for account APIs.
+// BankKeeper defines the expected API contract for the x/auth module.
 type AccountKeeper interface {
 	GetModuleAddress(moduleName string) sdk.AccAddress
 }
 
-// BankKeeper defines the contract required for bank APIs.
+// BankKeeper defines the expected API contract for the x/bank module.
 type BankKeeper interface {
 	SendCoins(ctx sdk.Context, fromAddr sdk.AccAddress, toAddr sdk.AccAddress, amt sdk.Coins) error
-	SendCoinsFromAccountToModule(ctx sdk.Context, senderAddr sdk.AccAddress, recipientModule string, amt sdk.Coins) error
 	GetAllBalances(ctx sdk.Context, addr sdk.AccAddress) sdk.Coins
 }
 
