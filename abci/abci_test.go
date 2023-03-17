@@ -470,7 +470,11 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 			}
 			suite.Require().LessOrEqual(totalBytes, maxTxBytes)
 
+<<<<<<< HEAD
 			// 3. the number of transactions in the response must be equal to the number of expected transactions
+=======
+			// 3. the number of transactions in the response must be equal to the number of transactions
+>>>>>>> 8bacb82 (done with basic testing)
 			suite.Require().Equal(tc.expectedNumberProposalTxs, len(res.Txs))
 
 			// 4. if there are auction transactions, the first transaction must be the top bid
