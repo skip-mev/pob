@@ -20,8 +20,12 @@ func (suite *KeeperTestSuite) TestValidateAuctionMsg() {
 		maxBundleSize          uint32 = 10
 		reserveFee                    = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
 		minBuyInFee                   = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
+		minBidIncrement               = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
 		escrowAddress                 = sdk.AccAddress([]byte("escrow"))
 		frontRunningProtection        = true
+
+		// mempool variables
+		highestBid = sdk.NewCoins()
 	)
 
 	rnd := rand.New(rand.NewSource(time.Now().Unix()))
@@ -119,6 +123,23 @@ func (suite *KeeperTestSuite) TestValidateAuctionMsg() {
 			},
 			true,
 		},
+		{
+			"invalid bundle that does not outbid the highest bid",
+			func() {
+				accounts = []Account{bidder, bidder, bidder}
+				highestBid = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(500)))
+				bid = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(500)))
+			},
+			false,
+		},
+		{
+			"valid bundle that outbids the highest bid",
+			func() {
+				highestBid = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(500)))
+				bid = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1500)))
+			},
+			true,
+		},
 	}
 
 	for _, tc := range cases {
@@ -146,6 +167,7 @@ func (suite *KeeperTestSuite) TestValidateAuctionMsg() {
 				MinBuyInFee:            minBuyInFee,
 				EscrowAccountAddress:   escrowAddress.String(),
 				FrontRunningProtection: frontRunningProtection,
+				MinBidIncrement:        minBidIncrement,
 			}
 			suite.auctionKeeper.SetParams(suite.ctx, params)
 
@@ -157,7 +179,7 @@ func (suite *KeeperTestSuite) TestValidateAuctionMsg() {
 				bundle = append(bundle, tx)
 			}
 
-			err := suite.auctionKeeper.ValidateAuctionMsg(suite.ctx, bidder.Address, bid, bundle)
+			err := suite.auctionKeeper.ValidateAuctionMsg(suite.ctx, bidder.Address, bid, highestBid, bundle)
 			if tc.pass {
 				suite.Require().NoError(err)
 			} else {

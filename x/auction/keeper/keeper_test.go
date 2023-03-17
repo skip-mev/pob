@@ -7,6 +7,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/golang/mock/gomock"
+	"github.com/skip-mev/pob/mempool"
 	"github.com/skip-mev/pob/x/auction/ante"
 	"github.com/skip-mev/pob/x/auction/keeper"
 	"github.com/skip-mev/pob/x/auction/types"
@@ -28,6 +29,8 @@ type KeeperTestSuite struct {
 	msgServer        types.MsgServer
 	key              *storetypes.KVStoreKey
 	authorityAccount sdk.AccAddress
+
+	mempool *mempool.AuctionMempool
 }
 
 func TestKeeperTestSuite(t *testing.T) {
@@ -62,6 +65,7 @@ func (suite *KeeperTestSuite) SetupTest() {
 	err := suite.auctionKeeper.SetParams(suite.ctx, types.DefaultParams())
 	suite.Require().NoError(err)
 
-	suite.AuctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encCfg.TxConfig.TxDecoder())
+	suite.mempool = mempool.NewAuctionMempool(suite.encCfg.TxConfig.TxDecoder(), 0)
+	suite.AuctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encCfg.TxConfig.TxDecoder(), suite.mempool)
 	suite.msgServer = keeper.NewMsgServerImpl(suite.auctionKeeper)
 }
