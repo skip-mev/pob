@@ -118,7 +118,6 @@ func (suite *IntegrationTestSuite) PrepareProposalVerifyTx(tx sdk.Tx) ([]byte, e
 	}
 
 	txBz, err := suite.encodingConfig.TxConfig.TxEncoder()(tx)
-
 	if err != nil {
 		return nil, err
 	}
@@ -203,12 +202,12 @@ func (suite *IntegrationTestSuite) createFilledMempool(numNormalTxs, numAuctionT
 
 	numSeenGlobalTxs := 0
 	for iterator := suite.mempool.Select(suite.ctx, nil); iterator != nil; iterator = iterator.Next() {
-		numSeenGlobalTxs += 1
+		numSeenGlobalTxs++
 	}
 
 	numSeenAuctionTxs := 0
 	for iterator := suite.mempool.AuctionBidSelect(suite.ctx); iterator != nil; iterator = iterator.Next() {
-		numSeenAuctionTxs += 1
+		numSeenAuctionTxs++
 	}
 
 	var totalNumTxs int
