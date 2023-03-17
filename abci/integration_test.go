@@ -2,7 +2,6 @@ package abci_test
 
 import (
 	"math/rand"
-	"reflect"
 	"testing"
 	"time"
 
@@ -35,16 +34,19 @@ type IntegrationTestSuite struct {
 	ctx sdk.Context
 
 	// mempool setup
-	mempool         *mempool.AuctionMempool
-	logger          log.Logger
-	encodingConfig  encodingConfig
-	proposalHandler *abci.ProposalHandler
-	maxBidAmount    int64
+	mempool          *mempool.AuctionMempool
+	logger           log.Logger
+	encodingConfig   encodingConfig
+	proposalHandler  *abci.ProposalHandler
+	auctionBidAmount sdk.Coins
+	minBidIncrement  sdk.Coins
 
 	// auction setup
 	auctionKeeper    keeper.Keeper
 	bankKeeper       *MockBankKeeper
 	accountKeeper    *MockAccountKeeper
+	distrKeeper      *MockDistributionKeeper
+	stakingKeeper    *MockStakingKeeper
 	auctionDecorator ante.AuctionDecorator
 	key              *storetypes.KVStoreKey
 	authorityAccount sdk.AccAddress
@@ -68,31 +70,41 @@ func (suite *IntegrationTestSuite) SetupTest() {
 	testCtx := testutil.DefaultContextWithDB(suite.T(), suite.key, sdk.NewTransientStoreKey("transient_test"))
 	suite.ctx = testCtx.Ctx
 
+	// Mempool set up
+	suite.mempool = mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), 0)
+	suite.auctionBidAmount = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000000000)))
+	suite.minBidIncrement = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
+
 	// Mock keepers set up
 	ctrl := gomock.NewController(suite.T())
 	suite.accountKeeper = NewMockAccountKeeper(ctrl)
 	suite.accountKeeper.EXPECT().GetModuleAddress(auctiontypes.ModuleName).Return(sdk.AccAddress{}).AnyTimes()
 	suite.bankKeeper = NewMockBankKeeper(ctrl)
+	suite.distrKeeper = NewMockDistributionKeeper(ctrl)
+	suite.stakingKeeper = NewMockStakingKeeper(ctrl)
 	suite.authorityAccount = sdk.AccAddress([]byte("authority"))
 
 	// Auction keeper / decorator set up
-	suite.auctionKeeper = keeper.NewKeeper(suite.encodingConfig.Codec, suite.key, suite.accountKeeper, suite.bankKeeper, suite.authorityAccount.String())
+	suite.auctionKeeper = keeper.NewKeeper(
+		suite.encodingConfig.Codec,
+		suite.key,
+		suite.accountKeeper,
+		suite.bankKeeper,
+		suite.distrKeeper,
+		suite.stakingKeeper,
+		suite.authorityAccount.String(),
+	)
 	err := suite.auctionKeeper.SetParams(suite.ctx, auctiontypes.DefaultParams())
 	suite.Require().NoError(err)
-	suite.auctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encodingConfig.TxConfig.TxDecoder())
+	suite.auctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.mempool)
 
 	// Accounts set up
 	suite.accounts = RandomAccounts(suite.random, 1)
-	suite.balances = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000000000000)))
+	suite.balances = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000000000000000000)))
 	suite.nonces = make(map[string]uint64)
 	for _, acc := range suite.accounts {
 		suite.nonces[acc.Address.String()] = 0
 	}
-	suite.fundAccounds()
-
-	// Mempool set up
-	suite.mempool = mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), 0)
-	suite.maxBidAmount = 40000
 
 	// Proposal handler set up
 	suite.logger = log.NewNopLogger()
@@ -119,6 +131,9 @@ func (suite *IntegrationTestSuite) ProcessProposalVerifyTx(txBz []byte) (sdk.Tx,
 }
 
 func (suite *IntegrationTestSuite) executeAnteHandler(tx sdk.Tx) (sdk.Context, error) {
+	signer := tx.GetMsgs()[0].GetSigners()[0]
+	suite.bankKeeper.EXPECT().GetAllBalances(suite.ctx, signer).AnyTimes().Return(suite.balances)
+
 	next := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
 		return ctx, nil
 	}
@@ -132,12 +147,13 @@ func (suite *IntegrationTestSuite) executeAnteHandler(tx sdk.Tx) (sdk.Context, e
 func (suite *IntegrationTestSuite) createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs int, insertRefTxs bool) int {
 	// Insert a bunch of normal transactions into the global mempool
 	for i := 0; i < numNormalTxs; i++ {
-		// create a few random msgs
-		randomMsgs := createRandomMsgs(3)
-
 		// randomly select an account to create the tx
 		randomIndex := suite.random.Intn(len(suite.accounts))
 		acc := suite.accounts[randomIndex]
+
+		// create a few random msgs
+		randomMsgs := createRandomMsgs(acc.Address, 3)
+
 		nonce := suite.nonces[acc.Address.String()]
 		randomTx, err := createTx(suite.encodingConfig.TxConfig, acc, nonce, randomMsgs)
 		suite.Require().NoError(err)
@@ -157,9 +173,8 @@ func (suite *IntegrationTestSuite) createFilledMempool(numNormalTxs, numAuctionT
 		acc := suite.accounts[randomIndex]
 
 		// create a new auction bid msg with numBundledTxs bundled transactions
-		bid := sdk.NewCoins(sdk.NewInt64Coin("foo", suite.maxBidAmount))
 		nonce := suite.nonces[acc.Address.String()]
-		bidMsg, err := createMsgAuctionBid(suite.encodingConfig.TxConfig, acc, bid, nonce, numBundledTxs)
+		bidMsg, err := createMsgAuctionBid(suite.encodingConfig.TxConfig, acc, suite.auctionBidAmount, nonce, numBundledTxs)
 		suite.nonces[acc.Address.String()] += uint64(numBundledTxs)
 		suite.Require().NoError(err)
 
@@ -169,16 +184,31 @@ func (suite *IntegrationTestSuite) createFilledMempool(numNormalTxs, numAuctionT
 		suite.Require().NoError(err)
 
 		// insert the auction tx into the global mempool
-		suite.Require().NoError(suite.mempool.Insert(suite.ctx.WithPriority(suite.maxBidAmount), auctionTx))
+		priority := suite.random.Int63n(100) + 1
+		suite.Require().NoError(suite.mempool.Insert(suite.ctx.WithPriority(priority), auctionTx))
 		suite.nonces[acc.Address.String()]++
 
 		if insertRefTxs {
 			for _, refRawTx := range bidMsg.GetTransactions() {
 				refTx, err := suite.encodingConfig.TxConfig.TxDecoder()(refRawTx)
 				suite.Require().NoError(err)
-				suite.Require().NoError(suite.mempool.Insert(suite.ctx.WithPriority(suite.maxBidAmount), refTx))
+				priority := suite.random.Int63n(100) + 1
+				suite.Require().NoError(suite.mempool.Insert(suite.ctx.WithPriority(priority), refTx))
 			}
 		}
+
+		// decrement the bid amount for the next auction tx
+		suite.auctionBidAmount = suite.auctionBidAmount.Sub(suite.minBidIncrement...)
+	}
+
+	numSeenGlobalTxs := 0
+	for iterator := suite.mempool.Select(suite.ctx, nil); iterator != nil; iterator = iterator.Next() {
+		numSeenGlobalTxs += 1
+	}
+
+	numSeenAuctionTxs := 0
+	for iterator := suite.mempool.AuctionBidSelect(suite.ctx); iterator != nil; iterator = iterator.Next() {
+		numSeenAuctionTxs += 1
 	}
 
 	var totalNumTxs int
@@ -186,18 +216,16 @@ func (suite *IntegrationTestSuite) createFilledMempool(numNormalTxs, numAuctionT
 	if insertRefTxs {
 		totalNumTxs = numNormalTxs + numAuctionTxs*(numBundledTxs+1)
 		suite.Require().Equal(totalNumTxs, suite.mempool.CountTx())
+		suite.Require().Equal(totalNumTxs, numSeenGlobalTxs)
 	} else {
 		totalNumTxs = numNormalTxs + numAuctionTxs
 		suite.Require().Equal(totalNumTxs, suite.mempool.CountTx())
+		suite.Require().Equal(totalNumTxs, numSeenGlobalTxs)
 	}
+
+	suite.Require().Equal(numAuctionTxs, numSeenAuctionTxs)
 
 	return totalNumTxs
-}
-
-func (suite *IntegrationTestSuite) fundAccounds() {
-	for _, acc := range suite.accounts {
-		suite.bankKeeper.EXPECT().GetAllBalances(suite.ctx, acc.Address).AnyTimes().Return(suite.balances)
-	}
 }
 
 type encodingConfig struct {
@@ -275,12 +303,12 @@ func createTx(txCfg client.TxConfig, account Account, nonce uint64, msgs []sdk.M
 	return txBuilder.GetTx(), nil
 }
 
-func createRandomMsgs(numberMsgs int) []sdk.Msg {
+func createRandomMsgs(acc sdk.AccAddress, numberMsgs int) []sdk.Msg {
 	msgs := make([]sdk.Msg, numberMsgs)
 	for i := 0; i < numberMsgs; i++ {
 		msgs[i] = &banktypes.MsgSend{
-			FromAddress: sdk.AccAddress([]byte("addr1_______________")).String(),
-			ToAddress:   sdk.AccAddress([]byte("addr2_______________")).String(),
+			FromAddress: acc.String(),
+			ToAddress:   acc.String(),
 		}
 	}
 
@@ -329,105 +357,4 @@ func createMsgAuctionBid(txCfg client.TxConfig, bidder Account, bid sdk.Coins, n
 	}
 
 	return bidMsg, nil
-}
-
-// MockAccountKeeper is a mock of AccountKeeper interface.
-type MockAccountKeeper struct {
-	ctrl     *gomock.Controller
-	recorder *MockAccountKeeperMockRecorder
-}
-
-// MockAccountKeeperMockRecorder is the mock recorder for MockAccountKeeper.
-type MockAccountKeeperMockRecorder struct {
-	mock *MockAccountKeeper
-}
-
-// NewMockAccountKeeper creates a new mock instance.
-func NewMockAccountKeeper(ctrl *gomock.Controller) *MockAccountKeeper {
-	mock := &MockAccountKeeper{ctrl: ctrl}
-	mock.recorder = &MockAccountKeeperMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockAccountKeeper) EXPECT() *MockAccountKeeperMockRecorder {
-	return m.recorder
-}
-
-// GetModuleAddress mocks base method.
-func (m *MockAccountKeeper) GetModuleAddress(name string) sdk.AccAddress {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetModuleAddress", name)
-	ret0, _ := ret[0].(sdk.AccAddress)
-	return ret0
-}
-
-// GetModuleAddress indicates an expected call of GetModuleAddress.
-func (mr *MockAccountKeeperMockRecorder) GetModuleAddress(name interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModuleAddress", reflect.TypeOf((*MockAccountKeeper)(nil).GetModuleAddress), name)
-}
-
-// MockBankKeeper is a mock of BankKeeper interface.
-type MockBankKeeper struct {
-	ctrl     *gomock.Controller
-	recorder *MockBankKeeperMockRecorder
-}
-
-// MockBankKeeperMockRecorder is the mock recorder for MockBankKeeper.
-type MockBankKeeperMockRecorder struct {
-	mock *MockBankKeeper
-}
-
-// NewMockBankKeeper creates a new mock instance.
-func NewMockBankKeeper(ctrl *gomock.Controller) *MockBankKeeper {
-	mock := &MockBankKeeper{ctrl: ctrl}
-	mock.recorder = &MockBankKeeperMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockBankKeeper) EXPECT() *MockBankKeeperMockRecorder {
-	return m.recorder
-}
-
-// GetAllBalances mocks base method.
-func (m *MockBankKeeper) GetAllBalances(ctx sdk.Context, addr sdk.AccAddress) sdk.Coins {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAllBalances", ctx, addr)
-	ret0 := ret[0].(sdk.Coins)
-	return ret0
-}
-
-// GetAllBalances indicates an expected call of GetAllBalances.
-func (mr *MockBankKeeperMockRecorder) GetAllBalances(ctx, addr interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllBalances", reflect.TypeOf((*MockBankKeeper)(nil).GetAllBalances), ctx, addr)
-}
-
-// SendCoins mocks base method.
-func (m *MockBankKeeper) SendCoins(ctx sdk.Context, fromAddr sdk.AccAddress, toAddr sdk.AccAddress, amt sdk.Coins) error {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SendCoins", ctx, fromAddr, toAddr, amt)
-	return nil
-}
-
-// SendCoins indicates an expected call of SendCoins.
-func (mr *MockBankKeeperMockRecorder) SendCoins(ctx, fromAddr, toAddr, amt interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCoins", reflect.TypeOf((*MockBankKeeper)(nil).SendCoins), ctx, fromAddr, toAddr, amt)
-}
-
-// SendCoinsFromAccountToModule mocks base method.
-func (m *MockBankKeeper) SendCoinsFromAccountToModule(ctx sdk.Context, senderAddr sdk.AccAddress, recipientModule string, amt sdk.Coins) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendCoinsFromAccountToModule", ctx, senderAddr, recipientModule, amt)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SendCoinsFromAccountToModule indicates an expected call of SendCoinsFromAccountToModule.
-func (mr *MockBankKeeperMockRecorder) SendCoinsFromAccountToModule(ctx, senderAddr, recipientModule, amt interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCoinsFromAccountToModule", reflect.TypeOf((*MockBankKeeper)(nil).SendCoinsFromAccountToModule), ctx, senderAddr, recipientModule, amt)
 }

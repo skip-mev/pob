@@ -11,7 +11,7 @@ import (
 func (suite *IntegrationTestSuite) TestPrepareProposal() {
 	var (
 		// the modified transactions cannot exceed this size
-		maxTxBytes int64 = 100000000000000000
+		maxTxBytes int64 = 1000000000000000000
 
 		// mempool configuration
 		numNormalTxs  = 100
@@ -27,10 +27,11 @@ func (suite *IntegrationTestSuite) TestPrepareProposal() {
 	)
 
 	cases := []struct {
-		name          string
-		malleate      func()
-		txs           int
-		isTopBidValid bool
+		name                       string
+		malleate                   func()
+		expectedNumberProposalTxs  int
+		expectedNumberTxsInMempool int
+		isTopBidValid              bool
 	}{
 		{
 			"single bundle in the mempool",
@@ -40,6 +41,7 @@ func (suite *IntegrationTestSuite) TestPrepareProposal() {
 				numBundledTxs = 3
 				insertRefTxs = true
 			},
+			4,
 			4,
 			true,
 		},
@@ -52,28 +54,60 @@ func (suite *IntegrationTestSuite) TestPrepareProposal() {
 				insertRefTxs = false
 			},
 			4,
+			1,
 			true,
 		},
 		{
 			"single bundle in the mempool, not valid",
 			func() {
-				suite.maxBidAmount = 1
+				reserveFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100000)))
+				suite.auctionBidAmount = sdk.Coins{sdk.NewCoin("foo", sdk.NewInt(10000))} // this will fail the ante handler
+				numNormalTxs = 0
 				numAuctionTxs = 1
 				numBundledTxs = 3
 			},
 			0,
+			0,
 			false,
 		},
 		{
-			"multiple bundles in the mempool, no normal txs",
+			"single bundle in the mempool, not valid with ref txs in mempool",
 			func() {
-				suite.maxBidAmount = 10000000
+				reserveFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100000)))
+				suite.auctionBidAmount = sdk.Coins{sdk.NewCoin("foo", sdk.NewInt(10000))} // this will fail the ante handler
 				numNormalTxs = 0
-				numAuctionTxs = 100
+				numAuctionTxs = 1
+				numBundledTxs = 3
+				insertRefTxs = true
+			},
+			3,
+			3,
+			false,
+		},
+		{
+			"multiple bundles in the mempool, no normal txs + no ref txs in mempool",
+			func() {
+				reserveFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
+				suite.auctionBidAmount = sdk.Coins{sdk.NewCoin("foo", sdk.NewInt(10000000))}
+				numNormalTxs = 0
+				numAuctionTxs = 10
 				numBundledTxs = 3
 				insertRefTxs = false
 			},
-			103,
+			4,
+			1,
+			true,
+		},
+		{
+			"multiple bundles in the mempool, no normal txs + ref txs in mempool",
+			func() {
+				numNormalTxs = 0
+				numAuctionTxs = 10
+				numBundledTxs = 3
+				insertRefTxs = true
+			},
+			31,
+			31,
 			true,
 		},
 		{
@@ -83,6 +117,7 @@ func (suite *IntegrationTestSuite) TestPrepareProposal() {
 				numAuctionTxs = 0
 				numBundledTxs = 0
 			},
+			1,
 			1,
 			false,
 		},
@@ -94,6 +129,7 @@ func (suite *IntegrationTestSuite) TestPrepareProposal() {
 				numBundledTxs = 0
 			},
 			100,
+			100,
 			false,
 		},
 		{
@@ -104,6 +140,7 @@ func (suite *IntegrationTestSuite) TestPrepareProposal() {
 				numBundledTxs = 0
 			},
 			2,
+			2,
 			true,
 		},
 		{
@@ -112,17 +149,36 @@ func (suite *IntegrationTestSuite) TestPrepareProposal() {
 				numNormalTxs = 1
 				numAuctionTxs = 1
 				numBundledTxs = 3
+				insertRefTxs = false
 			},
 			5,
+			2,
 			true,
+		},
+		{
+			"single normal tx, single failing auction tx with ref txs",
+			func() {
+				numNormalTxs = 1
+				numAuctionTxs = 1
+				numBundledTxs = 3
+				insertRefTxs = true
+				suite.auctionBidAmount = sdk.Coins{sdk.NewCoin("foo", sdk.NewInt(2000))} // this will fail the ante handler
+				reserveFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000000000)))
+			},
+			4,
+			4,
+			false,
 		},
 		{
 			"many normal tx, single auction tx with no ref txs",
 			func() {
+				reserveFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
+				suite.auctionBidAmount = sdk.Coins{sdk.NewCoin("foo", sdk.NewInt(2000000))}
 				numNormalTxs = 100
 				numAuctionTxs = 1
 				numBundledTxs = 0
 			},
+			101,
 			101,
 			true,
 		},
@@ -132,8 +188,22 @@ func (suite *IntegrationTestSuite) TestPrepareProposal() {
 				numNormalTxs = 100
 				numAuctionTxs = 1
 				numBundledTxs = 3
+				insertRefTxs = true
 			},
 			104,
+			104,
+			true,
+		},
+		{
+			"many normal tx, single auction tx with ref txs",
+			func() {
+				numNormalTxs = 100
+				numAuctionTxs = 1
+				numBundledTxs = 3
+				insertRefTxs = false
+			},
+			104,
+			101,
 			true,
 		},
 		{
@@ -142,7 +212,9 @@ func (suite *IntegrationTestSuite) TestPrepareProposal() {
 				numNormalTxs = 100
 				numAuctionTxs = 100
 				numBundledTxs = 1
+				insertRefTxs = true
 			},
+			201,
 			201,
 			true,
 		},
@@ -162,9 +234,10 @@ func (suite *IntegrationTestSuite) TestPrepareProposal() {
 				ReserveFee:             reserveFee,
 				MinBuyInFee:            minBuyInFee,
 				FrontRunningProtection: frontRunningProtection,
+				MinBidIncrement:        suite.minBidIncrement,
 			}
 			suite.auctionKeeper.SetParams(suite.ctx, params)
-			suite.auctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encodingConfig.TxConfig.TxDecoder())
+			suite.auctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.mempool)
 
 			handler := suite.proposalHandler.PrepareProposalHandler()
 			res := handler(suite.ctx, abci.RequestPrepareProposal{
@@ -191,7 +264,7 @@ func (suite *IntegrationTestSuite) TestPrepareProposal() {
 			suite.Require().LessOrEqual(totalBytes, maxTxBytes)
 
 			// 3. the number of transactions in the response must be equal to the number of transactions
-			suite.Require().Equal(tc.txs, len(res.Txs))
+			suite.Require().Equal(tc.expectedNumberProposalTxs, len(res.Txs))
 
 			// 4. if there are auction transactions, the first transaction must be the top bid
 			// and the rest of the bundle must be in the response
@@ -206,6 +279,16 @@ func (suite *IntegrationTestSuite) TestPrepareProposal() {
 					suite.Require().Equal(tx, res.Txs[index+1])
 				}
 			}
+
+			// 5. All of the transactions must be unique
+			uniqueTxs := make(map[string]bool)
+			for _, tx := range res.Txs {
+				suite.Require().False(uniqueTxs[string(tx)])
+				uniqueTxs[string(tx)] = true
+			}
+
+			// 6. The number of transactions in the mempool must be correct
+			suite.Require().Equal(tc.expectedNumberTxsInMempool, suite.mempool.CountTx())
 		})
 	}
 }
