@@ -89,7 +89,7 @@ func validateProposerFee(v sdk.Dec) error {
 }
 
 // validateEscrowAccountAddress ensures the escrow account address is a valid
-// address 
+// address.
 func validateEscrowAccountAddress(account string) error {
 	// If the escrow account address is set, ensure it is a valid address.
 	if _, err := sdk.AccAddressFromBech32(account); err != nil {
