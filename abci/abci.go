@@ -116,6 +116,11 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 					selectedTxs = append(selectedTxs, refTxRaw)
 				}
 
+				// We also add the bid transaction to seen txs so that it is not
+				// double-counted in the mempool.
+				refTxHash := sha256.Sum256(bidTxBz)
+				refTxHashStr := hex.EncodeToString(refTxHash[:])
+				bidTxMap[refTxHashStr] = struct{}{}
 				break selectBidTxLoop
 			}
 
