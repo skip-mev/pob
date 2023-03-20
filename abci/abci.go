@@ -1,6 +1,7 @@
 package abci
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -175,7 +176,68 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 // block proposal verification.
 func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 	return func(ctx sdk.Context, req abci.RequestProcessProposal) abci.ResponseProcessProposal {
-		panic("not implemented")
+		if len(req.Txs) == 0 {
+			return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_ACCEPT}
+		}
+
+		topOfBlockTx, err := h.txVerifier.ProcessProposalVerifyTx(req.Txs[0])
+		if err != nil {
+			return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
+		}
+
+		msgAuctionBid, err := mempool.GetMsgAuctionBidFromTx(topOfBlockTx)
+		if err != nil {
+			h.RemoveTx(topOfBlockTx, true)
+			return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
+		}
+
+		// If the first transaction is a bid transaction, then we need to verify
+		// the bundled referenced transactions as well.
+		txIndex := 1
+		if msgAuctionBid != nil {
+			if len(req.Txs) < len(msgAuctionBid.Transactions)+1 {
+				return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
+			}
+
+			for index, rawRefTx := range msgAuctionBid.Transactions {
+				// ordering of referenced transactions must match the order of transactions in the request
+				if !bytes.Equal(rawRefTx, req.Txs[index+1]) {
+					return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
+				}
+
+				refTx, err := h.txVerifier.ProcessProposalVerifyTx(rawRefTx)
+				if err != nil {
+					h.RemoveTx(topOfBlockTx, true)
+					return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
+				}
+
+				// Ensure that the referenced transaction is not a bid transaction.
+				msgAuctionBid, err := mempool.GetMsgAuctionBidFromTx(refTx)
+				if err != nil || msgAuctionBid != nil {
+					h.RemoveTx(topOfBlockTx, true)
+					return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
+				}
+			}
+
+			txIndex += len(msgAuctionBid.Transactions)
+		}
+
+		// Verify all the remaining transactions.
+		for _, rawTx := range req.Txs[txIndex:] {
+			tx, err := h.txVerifier.ProcessProposalVerifyTx(rawTx)
+			if err != nil {
+				return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
+			}
+
+			// Ensure that there are no more auction bid transactions in the block.
+			msgAuctionBid, err := mempool.GetMsgAuctionBidFromTx(tx)
+			if err != nil || msgAuctionBid != nil {
+				h.RemoveTx(tx, false)
+				return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
+			}
+		}
+
+		return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_ACCEPT}
 	}
 }
 
