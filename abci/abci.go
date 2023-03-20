@@ -116,15 +116,14 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 				}
 
 				break selectBidTxLoop
-
-			} else {
-				h.logger.Info(
-					"failed to select auction bid tx; tx size is too large; skipping auction",
-					"tx_size", bidTxSize,
-					"max_size", req.MaxTxBytes,
-				)
-				break selectBidTxLoop
 			}
+
+			h.logger.Info(
+				"failed to select auction bid tx; tx size is too large; skipping auction",
+				"tx_size", bidTxSize,
+				"max_size", req.MaxTxBytes,
+			)
+			break selectBidTxLoop
 		}
 
 		// Remove all invalid transactions from the mempool.
