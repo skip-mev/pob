@@ -128,7 +128,7 @@ func (suite *IntegrationTestSuite) PrepareProposalVerifyTx(tx sdk.Tx) ([]byte, e
 	return txBz, nil
 }
 
-func (suite *IntegrationTestSuite) ProcessProposalVerifyTx(txBz []byte) (sdk.Tx, error) {
+func (suite *IntegrationTestSuite) ProcessProposalVerifyTx(_ []byte) (sdk.Tx, error) {
 	return nil, nil
 }
 
