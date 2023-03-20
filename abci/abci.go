@@ -131,11 +131,6 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 			h.RemoveTx(tx)
 		}
 
-		// Remove all invalid transactions from the mempool.
-		for tx := range txsToRemove {
-			h.RemoveTx(tx)
-		}
-
 		iterator := h.mempool.Select(ctx, nil)
 		txsToRemove = map[sdk.Tx]struct{}{}
 
