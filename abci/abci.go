@@ -49,16 +49,18 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		)
 
 		bidTxMap := make(map[string]struct{})
-		topBidAuctionTx := h.mempool.GetTopAuctionTx(ctx)
+		bidTxIterator := h.mempool.AuctionBidSelect(ctx)
+		txsToRemove := make(map[sdk.Tx]struct{}, 0)
+
 		// Attempt to select the highest bid transaction that is valid and whose
 		// bundled transactions are valid.
 	selectBidTxLoop:
-		for ; topBidAuctionTx != nil; topBidAuctionTx = h.mempool.GetTopAuctionTx(ctx) {
-			tmpBidTx := topBidAuctionTx.(*mempool.WrappedBidTx).Tx
+		for ; bidTxIterator != nil; bidTxIterator = bidTxIterator.Next() {
+			tmpBidTx := bidTxIterator.Tx().(*mempool.WrappedBidTx).Tx
 
 			bidTxBz, err := h.txVerifier.PrepareProposalVerifyTx(tmpBidTx)
 			if err != nil {
-				h.RemoveTx(tmpBidTx)
+				txsToRemove[tmpBidTx] = struct{}{}
 				continue selectBidTxLoop
 			}
 
@@ -69,7 +71,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 					// This should never happen, as CheckTx will ensure only valid bids
 					// enter the mempool, but in case it does, we need to remove the
 					// transaction from the mempool.
-					h.RemoveTx(tmpBidTx)
+					txsToRemove[tmpBidTx] = struct{}{}
 					continue selectBidTxLoop
 				}
 
@@ -79,14 +81,14 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 					if err != nil {
 						// Malformed bundled transaction, so we remove the bid transaction
 						// and try the next top bid.
-						h.RemoveTx(tmpBidTx)
+						txsToRemove[tmpBidTx] = struct{}{}
 						continue selectBidTxLoop
 					}
 
 					if _, err := h.txVerifier.PrepareProposalVerifyTx(refTx); err != nil {
 						// Invalid bundled transaction, so we remove the bid transaction
 						// and try the next top bid.
-						h.RemoveTx(tmpBidTx)
+						txsToRemove[tmpBidTx] = struct{}{}
 						continue selectBidTxLoop
 					}
 
@@ -113,11 +115,6 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 					selectedTxs = append(selectedTxs, refTxRaw)
 				}
 
-				// We also add the bid transaction to seen txs so that it is not
-				// double-counted in the mempool.
-				refTxHash := sha256.Sum256(bidTxBz)
-				refTxHashStr := hex.EncodeToString(refTxHash[:])
-				bidTxMap[refTxHashStr] = struct{}{}
 				break selectBidTxLoop
 
 			} else {
@@ -130,8 +127,13 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 			}
 		}
 
+		// Remove all invalid transactions from the mempool.
+		for tx := range txsToRemove {
+			h.RemoveTx(tx)
+		}
+
 		iterator := h.mempool.Select(ctx, nil)
-		txsToRemove := make(map[sdk.Tx]struct{}, 0)
+		txsToRemove = map[sdk.Tx]struct{}{}
 
 		// Select remaining transactions for the block proposal until we've reached
 		// size capacity.

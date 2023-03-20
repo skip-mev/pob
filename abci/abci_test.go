@@ -228,7 +228,6 @@ func (suite *IntegrationTestSuite) TestPrepareProposal() {
 			suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
 
 			// create a new auction
-			// TODO: add the min bid increment here
 			params := types.Params{
 				MaxBundleSize:          maxBundleSize,
 				ReserveFee:             reserveFee,
@@ -263,7 +262,7 @@ func (suite *IntegrationTestSuite) TestPrepareProposal() {
 			}
 			suite.Require().LessOrEqual(totalBytes, maxTxBytes)
 
-			// 3. the number of transactions in the response must be equal to the number of transactions
+			// 3. the number of transactions in the response must be equal to the number of expected transactions
 			suite.Require().Equal(tc.expectedNumberProposalTxs, len(res.Txs))
 
 			// 4. if there are auction transactions, the first transaction must be the top bid
