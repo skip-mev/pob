@@ -1,6 +1,8 @@
 package ante
 
 import (
+	"bytes"
+
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/mempool"
@@ -13,13 +15,15 @@ type AuctionDecorator struct {
 	auctionKeeper keeper.Keeper
 	txDecoder     sdk.TxDecoder
 	mempool       *mempool.AuctionMempool
+	txEncoder     sdk.TxEncoder
 }
 
-func NewAuctionDecorator(ak keeper.Keeper, txDecoder sdk.TxDecoder, mempool *mempool.AuctionMempool) AuctionDecorator {
+func NewAuctionDecorator(ak keeper.Keeper, txDecoder sdk.TxDecoder, mempool *mempool.AuctionMempool, txEncoder sdk.TxEncoder) AuctionDecorator {
 	return AuctionDecorator{
 		auctionKeeper: ak,
 		txDecoder:     txDecoder,
 		mempool:       mempool,
+		txEncoder:     txEncoder,
 	}
 }
 
@@ -70,7 +74,19 @@ func (ad AuctionDecorator) GetTopAuctionBid(ctx sdk.Context, currTx sdk.Tx) (sdk
 	}
 
 	wrappedTx := auctionTx.(*mempool.WrappedBidTx)
-	if wrappedTx.Tx == currTx {
+
+	// Check if the current transaction is the highest bidding transaction.
+	auctionBz, err := ad.txEncoder(wrappedTx.Tx)
+	if err != nil {
+		return sdk.NewCoins(), errors.Wrap(err, "failed to encode auction transaction")
+	}
+
+	currBz, err := ad.txEncoder(currTx)
+	if err != nil {
+		return sdk.NewCoins(), errors.Wrap(err, "failed to encode current transaction")
+	}
+
+	if bytes.Equal(auctionBz, currBz) {
 		return sdk.NewCoins(), nil
 	}
 

@@ -98,7 +98,7 @@ func (suite *IntegrationTestSuite) SetupTest() {
 	)
 	err := suite.auctionKeeper.SetParams(suite.ctx, auctiontypes.DefaultParams())
 	suite.Require().NoError(err)
-	suite.auctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.mempool)
+	suite.auctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.mempool, suite.encodingConfig.TxConfig.TxEncoder())
 
 	// Accounts set up
 	suite.accounts = RandomAccounts(suite.random, 1)
@@ -237,8 +237,9 @@ func (suite *IntegrationTestSuite) createFilledMempool(numNormalTxs, numAuctionT
 	return totalNumTxs
 }
 
-func (suite *IntegrationTestSuite) exportMempool() [][]byte {
+func (suite *IntegrationTestSuite) exportMempool(exportRefTxs bool) [][]byte {
 	txs := make([][]byte, 0)
+	seenTxs := make(map[string]bool)
 
 	auctionIterator := suite.mempool.AuctionBidSelect(suite.ctx)
 	for ; auctionIterator != nil; auctionIterator = auctionIterator.Next() {
@@ -247,6 +248,15 @@ func (suite *IntegrationTestSuite) exportMempool() [][]byte {
 		suite.Require().NoError(err)
 
 		txs = append(txs, txBz)
+
+		if exportRefTxs {
+			for _, refRawTx := range auctionTx.GetMsgs()[0].(*auctiontypes.MsgAuctionBid).GetTransactions() {
+				txs = append(txs, refRawTx)
+				seenTxs[string(refRawTx)] = true
+			}
+		}
+
+		seenTxs[string(txBz)] = true
 	}
 
 	iterator := suite.mempool.Select(suite.ctx, nil)
@@ -254,7 +264,9 @@ func (suite *IntegrationTestSuite) exportMempool() [][]byte {
 		txBz, err := suite.encodingConfig.TxConfig.TxEncoder()(iterator.Tx())
 		suite.Require().NoError(err)
 
-		txs = append(txs, txBz)
+		if !seenTxs[string(txBz)] {
+			txs = append(txs, txBz)
+		}
 	}
 
 	return txs

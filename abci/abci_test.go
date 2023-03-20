@@ -88,7 +88,7 @@ func (suite *ABCITestSuite) SetupTest() {
 	)
 	err := suite.auctionKeeper.SetParams(suite.ctx, types.DefaultParams())
 	suite.Require().NoError(err)
-	suite.auctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.mempool)
+	suite.auctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.mempool, suite.encodingConfig.TxConfig.TxEncoder())
 
 	// Accounts set up
 	suite.accounts = RandomAccounts(suite.random, 1)
@@ -444,7 +444,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				MinBidIncrement:        suite.minBidIncrement,
 			}
 			suite.auctionKeeper.SetParams(suite.ctx, params)
-			suite.auctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.mempool)
+			suite.auctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.mempool, suite.encodingConfig.TxConfig.TxEncoder())
 
 			handler := suite.proposalHandler.PrepareProposalHandler()
 			res := handler(suite.ctx, abcitypes.RequestPrepareProposal{
@@ -507,6 +507,7 @@ func (suite *IntegrationTestSuite) TestProcessProposal() {
 		numAuctionTxs = 1
 		numBundledTxs = 3
 		insertRefTxs  = true
+		exportRefTxs  = true
 
 		// auction set up
 		maxBundleSize          uint32 = 10
@@ -520,19 +521,19 @@ func (suite *IntegrationTestSuite) TestProcessProposal() {
 		malleate                   func()
 		expectedNumberTxsInMempool int
 		isTopBidValid              bool
-		response                   abci.ResponseProcessProposal_ProposalStatus
+		response                   abcitypes.ResponseProcessProposal_ProposalStatus
 	}{
-		// {
-		// 	"single normal tx, no auction tx",
-		// 	func() {
-		// 		numNormalTxs = 1
-		// 		numAuctionTxs = 0
-		// 		numBundledTxs = 0
-		// 	},
-		// 	1,
-		// 	false,
-		// 	abci.ResponseProcessProposal_ACCEPT,
-		// },
+		{
+			"single normal tx, no auction tx",
+			func() {
+				numNormalTxs = 1
+				numAuctionTxs = 0
+				numBundledTxs = 0
+			},
+			1,
+			false,
+			abci.ResponseProcessProposal_ACCEPT,
+		},
 		{
 			"single auction tx, no normal txs",
 			func() {
@@ -542,7 +543,106 @@ func (suite *IntegrationTestSuite) TestProcessProposal() {
 			},
 			1,
 			true,
-			abci.ResponseProcessProposal_ACCEPT,
+			abcitypes.ResponseProcessProposal_ACCEPT,
+		},
+		{
+			"single auction tx, single auction tx",
+			func() {
+				numNormalTxs = 1
+				numAuctionTxs = 1
+				numBundledTxs = 0
+			},
+			2,
+			true,
+			abcitypes.ResponseProcessProposal_ACCEPT,
+		},
+		{
+			"single auction tx, single auction tx with ref txs",
+			func() {
+				numNormalTxs = 1
+				numAuctionTxs = 1
+				numBundledTxs = 4
+			},
+			6,
+			true,
+			abcitypes.ResponseProcessProposal_ACCEPT,
+		},
+		{
+			"single auction tx, single auction tx with no ref txs",
+			func() {
+				numNormalTxs = 1
+				numAuctionTxs = 1
+				numBundledTxs = 4
+				insertRefTxs = false
+			},
+			2,
+			true,
+			abcitypes.ResponseProcessProposal_ACCEPT,
+		},
+		{
+			"multiple auction txs, single normal tx",
+			func() {
+				numNormalTxs = 1
+				numAuctionTxs = 2
+				numBundledTxs = 4
+				insertRefTxs = true
+			},
+			11,
+			true,
+			abcitypes.ResponseProcessProposal_REJECT,
+		},
+		{
+			"single auction txs, multiple normal tx",
+			func() {
+				numNormalTxs = 100
+				numAuctionTxs = 1
+				numBundledTxs = 4
+				insertRefTxs = true
+			},
+			105,
+			true,
+			abcitypes.ResponseProcessProposal_ACCEPT,
+		},
+		{
+			"single invalid auction txs, multiple normal tx",
+			func() {
+				numNormalTxs = 100
+				numAuctionTxs = 1
+				numBundledTxs = 4
+				reserveFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100000000000000000)))
+				insertRefTxs = true
+			},
+			105,
+			false,
+			abcitypes.ResponseProcessProposal_REJECT,
+		},
+		{
+			"single valid auction txs but missing ref txs",
+			func() {
+				numNormalTxs = 0
+				numAuctionTxs = 1
+				numBundledTxs = 4
+				reserveFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
+				insertRefTxs = false
+				exportRefTxs = false
+			},
+			1,
+			true,
+			abcitypes.ResponseProcessProposal_REJECT,
+		},
+		{
+			"single valid auction txs but missing ref txs, with many normal txs",
+			func() {
+				numNormalTxs = 100
+				numAuctionTxs = 1
+				numBundledTxs = 4
+				reserveFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
+				insertRefTxs = false
+				exportRefTxs = false
+			},
+			101,
+			true,
+			abcitypes.ResponseProcessProposal_REJECT,
 		},
 	}
 
@@ -562,22 +662,22 @@ func (suite *IntegrationTestSuite) TestProcessProposal() {
 				MinBidIncrement:        suite.minBidIncrement,
 			}
 			suite.auctionKeeper.SetParams(suite.ctx, params)
-			suite.auctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.mempool)
-
+			suite.auctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.mempool, suite.encodingConfig.TxConfig.TxEncoder())
 			suite.Require().Equal(tc.isTopBidValid, suite.isTopBidValid())
-			txs := suite.exportMempool()
+
+			txs := suite.exportMempool(exportRefTxs)
 
 			handler := suite.proposalHandler.ProcessProposalHandler()
-			res := handler(suite.ctx, abci.RequestProcessProposal{
+			res := handler(suite.ctx, abcitypes.RequestProcessProposal{
 				Txs: txs,
 			})
 
 			// -------------------- Check Invariants -------------------- //
-			// 1. Check if the response is valid
-			suite.Require().Equal(tc.response, res.Status)
-
-			// 2. The number of transactions in the mempool must match
+			// 1. The number of transactions in the mempool must match
 			suite.Require().Equal(tc.expectedNumberTxsInMempool, suite.mempool.CountTx())
+
+			// 2. Check if the response is valid
+			suite.Require().Equal(tc.response, res.Status)
 		})
 	}
 }
