@@ -140,7 +140,6 @@ func (suite *IntegrationTestSuite) ProcessProposalVerifyTx(txBz []byte) (sdk.Tx,
 	}
 
 	return tx, nil
-
 }
 
 func (suite *IntegrationTestSuite) executeAnteHandler(tx sdk.Tx) (sdk.Context, error) {
