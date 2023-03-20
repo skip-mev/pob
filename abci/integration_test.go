@@ -34,10 +34,12 @@ type IntegrationTestSuite struct {
 	ctx sdk.Context
 
 	// mempool setup
-	mempool          *mempool.AuctionMempool
-	logger           log.Logger
-	encodingConfig   encodingConfig
-	proposalHandler  *abci.ProposalHandler
+	mempool         *mempool.AuctionMempool
+	logger          log.Logger
+	encodingConfig  encodingConfig
+	proposalHandler *abci.ProposalHandler
+
+	// auction bid setup
 	auctionBidAmount sdk.Coins
 	minBidIncrement  sdk.Coins
 
@@ -141,9 +143,6 @@ func (suite *IntegrationTestSuite) executeAnteHandler(tx sdk.Tx) (sdk.Context, e
 	return suite.auctionDecorator.AnteHandle(suite.ctx, tx, false, next)
 }
 
-// CreateFilledMempool creates a pre-filled mempool with numNormalTxs normal transactions, numAuctionTxs auction transactions, and numBundledTxs bundled
-// transactions per auction transaction. If insertRefTxs is true, it will also insert a the referenced transactions into the mempool. This returns
-// the total number of transactions inserted into the mempool.
 func (suite *IntegrationTestSuite) createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs int, insertRefTxs bool) int {
 	// Insert a bunch of normal transactions into the global mempool
 	for i := 0; i < numNormalTxs; i++ {
@@ -264,7 +263,6 @@ func (acc Account) Equals(acc2 Account) bool {
 	return acc.Address.Equals(acc2.Address)
 }
 
-// RandomAccounts returns a slice of n random accounts.
 func RandomAccounts(r *rand.Rand, n int) []Account {
 	accs := make([]Account, n)
 
@@ -315,7 +313,6 @@ func createRandomMsgs(acc sdk.AccAddress, numberMsgs int) []sdk.Msg {
 	return msgs
 }
 
-// createMsgAuctionBid creates a new MsgAuctionBid with numberMsgs of referenced transactions embedded into the message and the inputted bid/bidder.
 func createMsgAuctionBid(txCfg client.TxConfig, bidder Account, bid sdk.Coins, nonce uint64, numberMsgs int) (*auctiontypes.MsgAuctionBid, error) {
 	bidMsg := &auctiontypes.MsgAuctionBid{
 		Bidder:       bidder.Address.String(),
