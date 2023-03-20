@@ -500,6 +500,88 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 	}
 }
 
+func (suite *IntegrationTestSuite) TestProcessProposal() {
+	var (
+		// mempool set up
+		numNormalTxs  = 100
+		numAuctionTxs = 1
+		numBundledTxs = 3
+		insertRefTxs  = true
+
+		// auction set up
+		maxBundleSize          uint32 = 10
+		reserveFee                    = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
+		minBuyInFee                   = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
+		frontRunningProtection        = true
+	)
+
+	cases := []struct {
+		name                       string
+		malleate                   func()
+		expectedNumberTxsInMempool int
+		isTopBidValid              bool
+		response                   abci.ResponseProcessProposal_ProposalStatus
+	}{
+		// {
+		// 	"single normal tx, no auction tx",
+		// 	func() {
+		// 		numNormalTxs = 1
+		// 		numAuctionTxs = 0
+		// 		numBundledTxs = 0
+		// 	},
+		// 	1,
+		// 	false,
+		// 	abci.ResponseProcessProposal_ACCEPT,
+		// },
+		{
+			"single auction tx, no normal txs",
+			func() {
+				numNormalTxs = 0
+				numAuctionTxs = 1
+				numBundledTxs = 0
+			},
+			1,
+			true,
+			abci.ResponseProcessProposal_ACCEPT,
+		},
+	}
+
+	for _, tc := range cases {
+		suite.Run(tc.name, func() {
+			suite.SetupTest() // reset
+			tc.malleate()
+
+			suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+
+			// create a new auction
+			params := types.Params{
+				MaxBundleSize:          maxBundleSize,
+				ReserveFee:             reserveFee,
+				MinBuyInFee:            minBuyInFee,
+				FrontRunningProtection: frontRunningProtection,
+				MinBidIncrement:        suite.minBidIncrement,
+			}
+			suite.auctionKeeper.SetParams(suite.ctx, params)
+			suite.auctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.mempool)
+
+			suite.Require().Equal(tc.isTopBidValid, suite.isTopBidValid())
+			txs := suite.exportMempool()
+
+			handler := suite.proposalHandler.ProcessProposalHandler()
+			res := handler(suite.ctx, abci.RequestProcessProposal{
+				Txs: txs,
+			})
+
+			// -------------------- Check Invariants -------------------- //
+			// 1. Check if the response is valid
+			suite.Require().Equal(tc.response, res.Status)
+
+			// 2. The number of transactions in the mempool must match
+			suite.Require().Equal(tc.expectedNumberTxsInMempool, suite.mempool.CountTx())
+		})
+	}
+}
+
 // isTopBidValid returns true if the top bid is valid. We purposefully insert invalid
 // auction transactions into the mempool to test the handlers.
 func (suite *ABCITestSuite) isTopBidValid() bool {

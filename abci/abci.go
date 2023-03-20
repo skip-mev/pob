@@ -187,7 +187,7 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 
 		msgAuctionBid, err := mempool.GetMsgAuctionBidFromTx(topOfBlockTx)
 		if err != nil {
-			h.RemoveTx(topOfBlockTx, true)
+			h.RemoveTx(topOfBlockTx)
 			return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 		}
 
@@ -207,14 +207,14 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 
 				refTx, err := h.txVerifier.ProcessProposalVerifyTx(rawRefTx)
 				if err != nil {
-					h.RemoveTx(topOfBlockTx, true)
+					h.RemoveTx(topOfBlockTx)
 					return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 				}
 
 				// Ensure that the referenced transaction is not a bid transaction.
 				msgAuctionBid, err := mempool.GetMsgAuctionBidFromTx(refTx)
 				if err != nil || msgAuctionBid != nil {
-					h.RemoveTx(topOfBlockTx, true)
+					h.RemoveTx(topOfBlockTx)
 					return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 				}
 			}
@@ -232,7 +232,7 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 			// Ensure that there are no more auction bid transactions in the block.
 			msgAuctionBid, err := mempool.GetMsgAuctionBidFromTx(tx)
 			if err != nil || msgAuctionBid != nil {
-				h.RemoveTx(tx, false)
+				h.RemoveTx(tx)
 				return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 			}
 		}

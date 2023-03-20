@@ -127,8 +127,19 @@ func (suite *IntegrationTestSuite) PrepareProposalVerifyTx(tx sdk.Tx) ([]byte, e
 	return txBz, nil
 }
 
-func (suite *IntegrationTestSuite) ProcessProposalVerifyTx(_ []byte) (sdk.Tx, error) {
-	return nil, nil
+func (suite *IntegrationTestSuite) ProcessProposalVerifyTx(txBz []byte) (sdk.Tx, error) {
+	tx, err := suite.encodingConfig.TxConfig.TxDecoder()(txBz)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = suite.executeAnteHandler(tx)
+	if err != nil {
+		return nil, err
+	}
+
+	return tx, nil
+
 }
 
 func (suite *IntegrationTestSuite) executeAnteHandler(tx sdk.Tx) (sdk.Context, error) {
@@ -224,6 +235,29 @@ func (suite *IntegrationTestSuite) createFilledMempool(numNormalTxs, numAuctionT
 	suite.Require().Equal(numAuctionTxs, numSeenAuctionTxs)
 
 	return totalNumTxs
+}
+
+func (suite *IntegrationTestSuite) exportMempool() [][]byte {
+	txs := make([][]byte, 0)
+
+	auctionIterator := suite.mempool.AuctionBidSelect(suite.ctx)
+	for ; auctionIterator != nil; auctionIterator = auctionIterator.Next() {
+		auctionTx := auctionIterator.Tx().(*mempool.WrappedBidTx).Tx
+		txBz, err := suite.encodingConfig.TxConfig.TxEncoder()(auctionTx)
+		suite.Require().NoError(err)
+
+		txs = append(txs, txBz)
+	}
+
+	iterator := suite.mempool.Select(suite.ctx, nil)
+	for ; iterator != nil; iterator = iterator.Next() {
+		txBz, err := suite.encodingConfig.TxConfig.TxEncoder()(iterator.Tx())
+		suite.Require().NoError(err)
+
+		txs = append(txs, txBz)
+	}
+
+	return txs
 }
 
 type encodingConfig struct {
