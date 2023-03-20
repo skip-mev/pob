@@ -56,7 +56,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		// bundled transactions are valid.
 	selectBidTxLoop:
 		for ; bidTxIterator != nil; bidTxIterator = bidTxIterator.Next() {
-			tmpBidTx := bidTxIterator.Tx().(*mempool.WrappedBidTx).Tx
+			tmpBidTx := mempool.UnwrapBidTx(bidTxIterator.Tx())
 
 			bidTxBz, err := h.txVerifier.PrepareProposalVerifyTx(tmpBidTx)
 			if err != nil {
