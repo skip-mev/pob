@@ -532,7 +532,7 @@ func (suite *IntegrationTestSuite) TestProcessProposal() {
 			},
 			1,
 			false,
-			abci.ResponseProcessProposal_ACCEPT,
+			abcitypes.ResponseProcessProposal_ACCEPT,
 		},
 		{
 			"single auction tx, no normal txs",
