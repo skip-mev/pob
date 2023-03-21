@@ -616,9 +616,10 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 				numAuctionTxs = 1
 				numBundledTxs = 4
 				insertRefTxs = false
+				exportRefTxs = false
 			},
 			true,
-			abcitypes.ResponseProcessProposal_ACCEPT,
+			abcitypes.ResponseProcessProposal_REJECT,
 		},
 		{
 			"multiple auction txs, single normal tx",
@@ -627,6 +628,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 				numAuctionTxs = 2
 				numBundledTxs = 4
 				insertRefTxs = true
+				exportRefTxs = true
 			},
 			true,
 			abcitypes.ResponseProcessProposal_REJECT,
@@ -637,7 +639,6 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 				numNormalTxs = 100
 				numAuctionTxs = 1
 				numBundledTxs = 4
-				insertRefTxs = true
 			},
 			true,
 			abcitypes.ResponseProcessProposal_ACCEPT,
