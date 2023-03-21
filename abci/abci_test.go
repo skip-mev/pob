@@ -550,12 +550,12 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 func (suite *ABCITestSuite) TestProcessProposal() {
 	var (
 		// mempool set up
-		numNormalTxs          = 100
-		numAuctionTxs         = 1
-		numBundledTxs         = 3
-		insertRefTxs          = true
-		exportRefTxs          = true
-		frontRunningTx sdk.Tx = nil
+		numNormalTxs   = 100
+		numAuctionTxs  = 1
+		numBundledTxs  = 3
+		insertRefTxs   = true
+		exportRefTxs   = true
+		frontRunningTx sdk.Tx
 
 		// auction set up
 		maxBundleSize          uint32 = 10
