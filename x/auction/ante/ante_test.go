@@ -158,11 +158,27 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 			true,
 		},
 		{
+			"auction tx is the top bidding tx",
+			func() {
+				balance = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(10000)))
+				bid = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
+				reserveFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100)))
+				minBuyInFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100)))
+
+				insertTopBid = true
+				topBidder = bidder
+				topBid = bid
+				signers = []Account{}
+			},
+			true,
+		},
+		{
 			"invalid frontrunning auction bid tx",
 			func() {
 				randomAccount := RandomAccounts(suite.random, 2)
 				bidder := randomAccount[0]
 				otherUser := randomAccount[1]
+				insertTopBid = false
 
 				signers = []Account{bidder, otherUser}
 			},
@@ -220,7 +236,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 			// Insert the top bid into the mempool
 			mempool := mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), 0)
 			if insertTopBid {
-				topAuctionTx, err := createAuctionTxWithSigners(suite.encodingConfig.TxConfig, topBidder, topBid, 0, []Account{topBidder})
+				topAuctionTx, err := createAuctionTxWithSigners(suite.encodingConfig.TxConfig, topBidder, topBid, 0, []Account{})
 				suite.Require().NoError(err)
 				suite.Require().Equal(0, mempool.CountTx())
 				suite.Require().Equal(0, mempool.CountAuctionTx())
