@@ -52,7 +52,6 @@ func (ad AuctionDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 			transactions[i] = decodedTx
 		}
 
-		// Track the highest bidding auction tx.
 		topBid := sdk.NewCoins()
 
 		// If the current transaction is the highest bidding transaction, then the highest bid is empty.
