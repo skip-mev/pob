@@ -1,7 +1,6 @@
 package ante_test
 
 import (
-	"fmt"
 	"math/rand"
 	"testing"
 	"time"
@@ -86,7 +85,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 		bidder  Account   = RandomAccounts(suite.random, 1)[0]
 		bid     sdk.Coins = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
 		balance sdk.Coins = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(10000)))
-		refTxs  []sdk.Tx  = []sdk.Tx{}
+		signers           = []Account{bidder}
 
 		// Top bidding auction tx set up
 		topBidder    Account   = RandomAccounts(suite.random, 1)[0]
@@ -161,15 +160,50 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 		{
 			"invalid frontrunning auction bid tx",
 			func() {
-				// todo: add test case
+				randomAccount := RandomAccounts(suite.random, 2)
+				bidder := randomAccount[0]
+				otherUser := randomAccount[1]
+
+				signers = []Account{bidder, otherUser}
+			},
+			false,
+		},
+		{
+			"valid frontrunning auction bid tx",
+			func() {
+				randomAccount := RandomAccounts(suite.random, 2)
+				bidder := randomAccount[0]
+				otherUser := randomAccount[1]
+
+				signers = []Account{bidder, otherUser}
+				frontRunningProtection = false
 			},
 			true,
+		},
+		{
+			"invalid sandwiching auction bid tx",
+			func() {
+				randomAccount := RandomAccounts(suite.random, 2)
+				bidder := randomAccount[0]
+				otherUser := randomAccount[1]
+
+				signers = []Account{bidder, otherUser, bidder}
+				frontRunningProtection = true
+			},
+			false,
+		},
+		{
+			"invalid auction bid tx with many signers",
+			func() {
+				signers = RandomAccounts(suite.random, 10)
+				frontRunningProtection = true
+			},
+			false,
 		},
 	}
 
 	for _, tc := range cases {
 		suite.Run(tc.name, func() {
-			fmt.Println(tc.name)
 			suite.SetupTest()
 			tc.malleate()
 
@@ -186,10 +220,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 			// Insert the top bid into the mempool
 			mempool := mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), 0)
 			if insertTopBid {
-				topAuctionBidMsg, err := createMsgAuctionBid(suite.encodingConfig.TxConfig, topBidder, topBid, 0, nil)
-				suite.Require().NoError(err)
-
-				topAuctionTx, err := createTx(suite.encodingConfig.TxConfig, topBidder, 0, []sdk.Msg{topAuctionBidMsg})
+				topAuctionTx, err := createAuctionTxWithSigners(suite.encodingConfig.TxConfig, topBidder, topBid, 0, []Account{topBidder})
 				suite.Require().NoError(err)
 				suite.Require().Equal(0, mempool.CountTx())
 				suite.Require().Equal(0, mempool.CountAuctionTx())
@@ -199,23 +230,17 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 			}
 
 			// Create the actual auction tx and insert into the mempool
-			auctionMsgBid, err := createMsgAuctionBid(suite.encodingConfig.TxConfig, bidder, bid, 0, refTxs)
-			suite.Require().NoError(err)
-
-			auctionTx, err := createTx(suite.encodingConfig.TxConfig, bidder, 0, []sdk.Msg{auctionMsgBid})
+			auctionTx, err := createAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, 0, signers)
 			suite.Require().NoError(err)
 
 			// Execute the ante handler
-			suite.auctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encodingConfig.TxConfig.TxDecoder(), mempool, suite.encodingConfig.TxConfig.TxEncoder())
+			suite.auctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), mempool)
 			_, err = suite.executeAnteHandler(auctionTx, balance)
-			fmt.Println(err)
 			if tc.pass {
 				suite.Require().NoError(err)
 			} else {
 				suite.Require().Error(err)
 			}
-
-			fmt.Println("")
 		})
 	}
 }
