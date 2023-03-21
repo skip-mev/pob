@@ -635,7 +635,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 				numBundledTxs = 4
 				insertRefTxs = true
 			},
-			11,
+			10,
 			true,
 			abcitypes.ResponseProcessProposal_REJECT,
 		},
