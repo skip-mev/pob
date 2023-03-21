@@ -1,6 +1,8 @@
 package abci_test
 
 import (
+	"bytes"
+	"fmt"
 	"math/rand"
 	"testing"
 	"time"
@@ -548,11 +550,12 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 func (suite *ABCITestSuite) TestProcessProposal() {
 	var (
 		// mempool set up
-		numNormalTxs  = 100
-		numAuctionTxs = 1
-		numBundledTxs = 3
-		insertRefTxs  = true
-		exportRefTxs  = true
+		numNormalTxs          = 100
+		numAuctionTxs         = 1
+		numBundledTxs         = 3
+		insertRefTxs          = true
+		exportRefTxs          = true
+		frontRunningTx sdk.Tx = nil
 
 		// auction set up
 		maxBundleSize          uint32 = 10
@@ -689,6 +692,43 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			true,
 			abcitypes.ResponseProcessProposal_REJECT,
 		},
+		{
+			"auction tx with frontrunning",
+			func() {
+				randomAccount := RandomAccounts(suite.random, 1)[0]
+				bidder := suite.accounts[0]
+				bid := sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(696969696969)))
+				nonce := suite.nonces[bidder.Address.String()]
+				frontRunningTx, _ = createAuctionTxWithSigners(suite.encodingConfig.TxConfig, suite.accounts[0], bid, nonce+1, []Account{bidder, randomAccount})
+				suite.Require().NotNil(frontRunningTx)
+
+				numNormalTxs = 100
+				numAuctionTxs = 1
+				numBundledTxs = 4
+				insertRefTxs = true
+				exportRefTxs = true
+			},
+			105,
+			false,
+			abcitypes.ResponseProcessProposal_REJECT,
+		},
+		{
+			"auction tx with frontrunning, but frontrunning protection disabled",
+			func() {
+				randomAccount := RandomAccounts(suite.random, 1)[0]
+				bidder := suite.accounts[0]
+				bid := sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(696969696969)))
+				nonce := suite.nonces[bidder.Address.String()]
+				frontRunningTx, _ = createAuctionTxWithSigners(suite.encodingConfig.TxConfig, suite.accounts[0], bid, nonce+1, []Account{bidder, randomAccount})
+				suite.Require().NotNil(frontRunningTx)
+
+				numAuctionTxs = 0
+				frontRunningProtection = false
+			},
+			100,
+			true,
+			abcitypes.ResponseProcessProposal_ACCEPT,
+		},
 	}
 
 	for _, tc := range cases {
@@ -697,6 +737,10 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			tc.malleate()
 
 			suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+
+			if frontRunningTx != nil {
+				suite.Require().NoError(suite.mempool.Insert(suite.ctx, frontRunningTx))
+			}
 
 			// create a new auction
 			params := auctiontypes.Params{
@@ -711,6 +755,13 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			suite.Require().Equal(tc.isTopBidValid, suite.isTopBidValid())
 
 			txs := suite.exportMempool(exportRefTxs)
+
+			if frontRunningTx != nil {
+				txBz, err := suite.encodingConfig.TxConfig.TxEncoder()(frontRunningTx)
+				suite.Require().NoError(err)
+
+				suite.Require().True(bytes.Equal(txs[0], txBz))
+			}
 
 			handler := suite.proposalHandler.ProcessProposalHandler()
 			res := handler(suite.ctx, abcitypes.RequestProcessProposal{
@@ -734,6 +785,8 @@ func (suite *ABCITestSuite) isTopBidValid() bool {
 	if iterator == nil {
 		return false
 	}
+
+	fmt.Println(iterator.Tx().(*mempool.WrappedBidTx).GetBid())
 
 	// check if the top bid is valid
 	_, err := suite.executeAnteHandler(iterator.Tx().(*mempool.WrappedBidTx).Tx)
