@@ -52,12 +52,24 @@ func (ad AuctionDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 			transactions[i] = decodedTx
 		}
 
-		highestBid, err := ad.GetTopAuctionBid(ctx, tx)
+		// Track the highest bidding auction tx.
+		topBid := sdk.NewCoins()
+
+		// If the current transaction is the highest bidding transaction, then the highest bid is empty.
+		isTopBidTx, err := ad.IsTopBidTx(ctx, tx)
 		if err != nil {
-			return ctx, errors.Wrap(err, "failed to get highest auction bid")
+			return ctx, errors.Wrap(err, "failed to check if current transaction is highest bidding transaction")
 		}
 
-		if err := ad.auctionKeeper.ValidateAuctionMsg(ctx, bidder, auctionMsg.Bid, highestBid, transactions); err != nil {
+		if !isTopBidTx {
+			// Set the top bid to the highest bidding transaction.
+			topBid, err = ad.GetTopAuctionBid(ctx)
+			if err != nil {
+				return ctx, errors.Wrap(err, "failed to get highest auction bid")
+			}
+		}
+
+		if err := ad.auctionKeeper.ValidateAuctionMsg(ctx, bidder, auctionMsg.Bid, topBid, transactions); err != nil {
 			return ctx, errors.Wrap(err, "failed to validate auction bid")
 		}
 	}
@@ -65,30 +77,33 @@ func (ad AuctionDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 	return next(ctx, tx, simulate)
 }
 
-// GetTopAuctionBid returns the highest auction bid if one exists. If the current transaction is the highest
-// bidding transaction, then an empty coin set is returned.
-func (ad AuctionDecorator) GetTopAuctionBid(ctx sdk.Context, currTx sdk.Tx) (sdk.Coins, error) {
+// GetTopAuctionBid returns the highest auction bid if one exists.
+func (ad AuctionDecorator) GetTopAuctionBid(ctx sdk.Context) (sdk.Coins, error) {
 	auctionTx := ad.mempool.GetTopAuctionTx(ctx)
 	if auctionTx == nil {
 		return sdk.NewCoins(), nil
 	}
 
-	wrappedTx := auctionTx.(*mempool.WrappedBidTx)
+	return auctionTx.(*mempool.WrappedBidTx).GetBid(), nil
+}
 
-	// Check if the current transaction is the highest bidding transaction.
-	auctionBz, err := ad.txEncoder(wrappedTx.Tx)
+// IsTopBidTx returns true if the transaction inputted is the highest bidding auction transaction in the mempool.
+func (ad AuctionDecorator) IsTopBidTx(ctx sdk.Context, tx sdk.Tx) (bool, error) {
+	auctionTx := ad.mempool.GetTopAuctionTx(ctx)
+	if auctionTx == nil {
+		return false, nil
+	}
+
+	topBidTx := mempool.UnwrapBidTx(auctionTx)
+	topBidBz, err := ad.txEncoder(topBidTx)
 	if err != nil {
-		return sdk.NewCoins(), errors.Wrap(err, "failed to encode auction transaction")
+		return false, err
 	}
 
-	currBz, err := ad.txEncoder(currTx)
+	currentTxBz, err := ad.txEncoder(tx)
 	if err != nil {
-		return sdk.NewCoins(), errors.Wrap(err, "failed to encode current transaction")
+		return false, err
 	}
 
-	if bytes.Equal(auctionBz, currBz) {
-		return sdk.NewCoins(), nil
-	}
-
-	return wrappedTx.GetBid(), nil
+	return bytes.Equal(topBidBz, currentTxBz), nil
 }

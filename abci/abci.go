@@ -179,7 +179,6 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 		for index, txBz := range req.Txs {
 			tx, err := h.txVerifier.ProcessProposalVerifyTx(txBz)
 			if err != nil {
-				h.RemoveTx(tx)
 				return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 			}
 
