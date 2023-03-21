@@ -82,22 +82,22 @@ func (suite *AnteTestSuite) executeAnteHandler(tx sdk.Tx, balance sdk.Coins) (sd
 func (suite *AnteTestSuite) TestAnteHandler() {
 	var (
 		// Bid set up
-		bidder  Account   = RandomAccounts(suite.random, 1)[0]
-		bid     sdk.Coins = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
-		balance sdk.Coins = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(10000)))
-		signers           = []Account{bidder}
+		bidder  = RandomAccounts(suite.random, 1)[0]
+		bid     = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
+		balance = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(10000)))
+		signers = []Account{bidder}
 
 		// Top bidding auction tx set up
-		topBidder    Account   = RandomAccounts(suite.random, 1)[0]
-		topBid       sdk.Coins = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100)))
-		insertTopBid           = true
+		topBidder    = RandomAccounts(suite.random, 1)[0]
+		topBid       = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100)))
+		insertTopBid = true
 
 		// Auction setup
-		maxBundleSize          uint32    = 5
-		reserveFee             sdk.Coins = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100)))
-		minBuyInFee            sdk.Coins = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100)))
-		minBidIncrement        sdk.Coins = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100)))
-		frontRunningProtection bool      = true
+		maxBundleSize          uint32 = 5
+		reserveFee                    = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100)))
+		minBuyInFee                   = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100)))
+		minBidIncrement               = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100)))
+		frontRunningProtection        = true
 	)
 
 	cases := []struct {
