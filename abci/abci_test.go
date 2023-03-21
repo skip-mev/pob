@@ -127,7 +127,7 @@ func (suite *ABCITestSuite) ProcessProposalVerifyTx(txBz []byte) (sdk.Tx, error)
 
 	_, err = suite.executeAnteHandler(tx)
 	if err != nil {
-		return nil, err
+		return tx, err
 	}
 
 	return tx, nil
@@ -652,7 +652,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			abcitypes.ResponseProcessProposal_ACCEPT,
 		},
 		{
-			"single invalid auction txs, multiple normal tx",
+			"single invalid auction tx, multiple normal tx",
 			func() {
 				numNormalTxs = 100
 				numAuctionTxs = 1
@@ -660,7 +660,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 				reserveFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100000000000000000)))
 				insertRefTxs = true
 			},
-			105,
+			104,
 			false,
 			abcitypes.ResponseProcessProposal_REJECT,
 		},
@@ -708,7 +708,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 				insertRefTxs = true
 				exportRefTxs = true
 			},
-			105,
+			104,
 			false,
 			abcitypes.ResponseProcessProposal_REJECT,
 		},
@@ -733,6 +733,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 
 	for _, tc := range cases {
 		suite.Run(tc.name, func() {
+			fmt.Println(tc.name)
 			suite.SetupTest() // reset
 			tc.malleate()
 
@@ -785,8 +786,6 @@ func (suite *ABCITestSuite) isTopBidValid() bool {
 	if iterator == nil {
 		return false
 	}
-
-	fmt.Println(iterator.Tx().(*mempool.WrappedBidTx).GetBid())
 
 	// check if the top bid is valid
 	_, err := suite.executeAnteHandler(iterator.Tx().(*mempool.WrappedBidTx).Tx)

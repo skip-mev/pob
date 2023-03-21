@@ -182,6 +182,7 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 
 		topOfBlockTx, err := h.txVerifier.ProcessProposalVerifyTx(req.Txs[0])
 		if err != nil {
+			h.RemoveTx(topOfBlockTx)
 			return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 		}
 
