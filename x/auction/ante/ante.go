@@ -14,16 +14,16 @@ var _ sdk.AnteDecorator = AuctionDecorator{}
 type AuctionDecorator struct {
 	auctionKeeper keeper.Keeper
 	txDecoder     sdk.TxDecoder
-	mempool       *mempool.AuctionMempool
 	txEncoder     sdk.TxEncoder
+	mempool       *mempool.AuctionMempool
 }
 
-func NewAuctionDecorator(ak keeper.Keeper, txDecoder sdk.TxDecoder, mempool *mempool.AuctionMempool, txEncoder sdk.TxEncoder) AuctionDecorator {
+func NewAuctionDecorator(ak keeper.Keeper, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, mempool *mempool.AuctionMempool) AuctionDecorator {
 	return AuctionDecorator{
 		auctionKeeper: ak,
 		txDecoder:     txDecoder,
-		mempool:       mempool,
 		txEncoder:     txEncoder,
+		mempool:       mempool,
 	}
 }
 

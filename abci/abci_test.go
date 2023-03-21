@@ -15,7 +15,7 @@ import (
 	"github.com/skip-mev/pob/mempool"
 	"github.com/skip-mev/pob/x/auction/ante"
 	"github.com/skip-mev/pob/x/auction/keeper"
-	"github.com/skip-mev/pob/x/auction/types"
+	auctiontypes "github.com/skip-mev/pob/x/auction/types"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -58,7 +58,7 @@ func (suite *ABCITestSuite) SetupTest() {
 	// General config
 	suite.encodingConfig = createTestEncodingConfig()
 	suite.random = rand.New(rand.NewSource(time.Now().Unix()))
-	suite.key = sdk.NewKVStoreKey(types.StoreKey)
+	suite.key = sdk.NewKVStoreKey(auctiontypes.StoreKey)
 	testCtx := testutil.DefaultContextWithDB(suite.T(), suite.key, sdk.NewTransientStoreKey("transient_test"))
 	suite.ctx = testCtx.Ctx
 
@@ -70,7 +70,7 @@ func (suite *ABCITestSuite) SetupTest() {
 	// Mock keepers set up
 	ctrl := gomock.NewController(suite.T())
 	suite.accountKeeper = NewMockAccountKeeper(ctrl)
-	suite.accountKeeper.EXPECT().GetModuleAddress(types.ModuleName).Return(sdk.AccAddress{}).AnyTimes()
+	suite.accountKeeper.EXPECT().GetModuleAddress(auctiontypes.ModuleName).Return(sdk.AccAddress{}).AnyTimes()
 	suite.bankKeeper = NewMockBankKeeper(ctrl)
 	suite.distrKeeper = NewMockDistributionKeeper(ctrl)
 	suite.stakingKeeper = NewMockStakingKeeper(ctrl)
@@ -86,9 +86,9 @@ func (suite *ABCITestSuite) SetupTest() {
 		suite.stakingKeeper,
 		suite.authorityAccount.String(),
 	)
-	err := suite.auctionKeeper.SetParams(suite.ctx, types.DefaultParams())
+	err := suite.auctionKeeper.SetParams(suite.ctx, auctiontypes.DefaultParams())
 	suite.Require().NoError(err)
-	suite.auctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.mempool, suite.encodingConfig.TxConfig.TxEncoder())
+	suite.auctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), suite.mempool)
 
 	// Accounts set up
 	suite.accounts = RandomAccounts(suite.random, 1)
@@ -117,8 +117,18 @@ func (suite *ABCITestSuite) PrepareProposalVerifyTx(tx sdk.Tx) ([]byte, error) {
 	return txBz, nil
 }
 
-func (suite *ABCITestSuite) ProcessProposalVerifyTx(_ []byte) (sdk.Tx, error) {
-	return nil, nil
+func (suite *ABCITestSuite) ProcessProposalVerifyTx(txBz []byte) (sdk.Tx, error) {
+	tx, err := suite.encodingConfig.TxConfig.TxDecoder()(txBz)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = suite.executeAnteHandler(tx)
+	if err != nil {
+		return nil, err
+	}
+
+	return tx, nil
 }
 
 func (suite *ABCITestSuite) executeAnteHandler(tx sdk.Tx) (sdk.Context, error) {
@@ -214,6 +224,41 @@ func (suite *ABCITestSuite) createFilledMempool(numNormalTxs, numAuctionTxs, num
 	suite.Require().Equal(numAuctionTxs, numSeenAuctionTxs)
 
 	return totalNumTxs
+}
+
+func (suite *ABCITestSuite) exportMempool(exportRefTxs bool) [][]byte {
+	txs := make([][]byte, 0)
+	seenTxs := make(map[string]bool)
+
+	auctionIterator := suite.mempool.AuctionBidSelect(suite.ctx)
+	for ; auctionIterator != nil; auctionIterator = auctionIterator.Next() {
+		auctionTx := auctionIterator.Tx().(*mempool.WrappedBidTx).Tx
+		txBz, err := suite.encodingConfig.TxConfig.TxEncoder()(auctionTx)
+		suite.Require().NoError(err)
+
+		txs = append(txs, txBz)
+
+		if exportRefTxs {
+			for _, refRawTx := range auctionTx.GetMsgs()[0].(*auctiontypes.MsgAuctionBid).GetTransactions() {
+				txs = append(txs, refRawTx)
+				seenTxs[string(refRawTx)] = true
+			}
+		}
+
+		seenTxs[string(txBz)] = true
+	}
+
+	iterator := suite.mempool.Select(suite.ctx, nil)
+	for ; iterator != nil; iterator = iterator.Next() {
+		txBz, err := suite.encodingConfig.TxConfig.TxEncoder()(iterator.Tx())
+		suite.Require().NoError(err)
+
+		if !seenTxs[string(txBz)] {
+			txs = append(txs, txBz)
+		}
+	}
+
+	return txs
 }
 
 func (suite *ABCITestSuite) TestPrepareProposal() {
@@ -436,7 +481,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 			suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
 
 			// create a new auction
-			params := types.Params{
+			params := auctiontypes.Params{
 				MaxBundleSize:          maxBundleSize,
 				ReserveFee:             reserveFee,
 				MinBuyInFee:            minBuyInFee,
@@ -444,7 +489,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				MinBidIncrement:        suite.minBidIncrement,
 			}
 			suite.auctionKeeper.SetParams(suite.ctx, params)
-			suite.auctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.mempool, suite.encodingConfig.TxConfig.TxEncoder())
+			suite.auctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), suite.mempool)
 
 			handler := suite.proposalHandler.PrepareProposalHandler()
 			res := handler(suite.ctx, abcitypes.RequestPrepareProposal{
@@ -500,7 +545,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 	}
 }
 
-func (suite *IntegrationTestSuite) TestProcessProposal() {
+func (suite *ABCITestSuite) TestProcessProposal() {
 	var (
 		// mempool set up
 		numNormalTxs  = 100
@@ -654,7 +699,7 @@ func (suite *IntegrationTestSuite) TestProcessProposal() {
 			suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
 
 			// create a new auction
-			params := types.Params{
+			params := auctiontypes.Params{
 				MaxBundleSize:          maxBundleSize,
 				ReserveFee:             reserveFee,
 				MinBuyInFee:            minBuyInFee,
@@ -662,7 +707,7 @@ func (suite *IntegrationTestSuite) TestProcessProposal() {
 				MinBidIncrement:        suite.minBidIncrement,
 			}
 			suite.auctionKeeper.SetParams(suite.ctx, params)
-			suite.auctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.mempool, suite.encodingConfig.TxConfig.TxEncoder())
+			suite.auctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), suite.mempool)
 			suite.Require().Equal(tc.isTopBidValid, suite.isTopBidValid())
 
 			txs := suite.exportMempool(exportRefTxs)
