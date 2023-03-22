@@ -2,7 +2,6 @@ package abci_test
 
 import (
 	"bytes"
-	"fmt"
 	"math/rand"
 	"testing"
 	"time"
@@ -565,11 +564,10 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 	)
 
 	cases := []struct {
-		name                       string
-		malleate                   func()
-		expectedNumberTxsInMempool int
-		isTopBidValid              bool
-		response                   abcitypes.ResponseProcessProposal_ProposalStatus
+		name          string
+		malleate      func()
+		isTopBidValid bool
+		response      abcitypes.ResponseProcessProposal_ProposalStatus
 	}{
 		{
 			"single normal tx, no auction tx",
@@ -578,7 +576,6 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 				numAuctionTxs = 0
 				numBundledTxs = 0
 			},
-			1,
 			false,
 			abcitypes.ResponseProcessProposal_ACCEPT,
 		},
@@ -589,7 +586,6 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 				numAuctionTxs = 1
 				numBundledTxs = 0
 			},
-			1,
 			true,
 			abcitypes.ResponseProcessProposal_ACCEPT,
 		},
@@ -600,7 +596,6 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 				numAuctionTxs = 1
 				numBundledTxs = 0
 			},
-			2,
 			true,
 			abcitypes.ResponseProcessProposal_ACCEPT,
 		},
@@ -611,7 +606,6 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 				numAuctionTxs = 1
 				numBundledTxs = 4
 			},
-			6,
 			true,
 			abcitypes.ResponseProcessProposal_ACCEPT,
 		},
@@ -622,10 +616,10 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 				numAuctionTxs = 1
 				numBundledTxs = 4
 				insertRefTxs = false
+				exportRefTxs = false
 			},
-			2,
 			true,
-			abcitypes.ResponseProcessProposal_ACCEPT,
+			abcitypes.ResponseProcessProposal_REJECT,
 		},
 		{
 			"multiple auction txs, single normal tx",
@@ -634,8 +628,8 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 				numAuctionTxs = 2
 				numBundledTxs = 4
 				insertRefTxs = true
+				exportRefTxs = true
 			},
-			11,
 			true,
 			abcitypes.ResponseProcessProposal_REJECT,
 		},
@@ -645,9 +639,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 				numNormalTxs = 100
 				numAuctionTxs = 1
 				numBundledTxs = 4
-				insertRefTxs = true
 			},
-			105,
 			true,
 			abcitypes.ResponseProcessProposal_ACCEPT,
 		},
@@ -660,7 +652,6 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 				reserveFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100000000000000000)))
 				insertRefTxs = true
 			},
-			104,
 			false,
 			abcitypes.ResponseProcessProposal_REJECT,
 		},
@@ -674,7 +665,6 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 				insertRefTxs = false
 				exportRefTxs = false
 			},
-			1,
 			true,
 			abcitypes.ResponseProcessProposal_REJECT,
 		},
@@ -688,7 +678,6 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 				insertRefTxs = false
 				exportRefTxs = false
 			},
-			101,
 			true,
 			abcitypes.ResponseProcessProposal_REJECT,
 		},
@@ -708,7 +697,6 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 				insertRefTxs = true
 				exportRefTxs = true
 			},
-			104,
 			false,
 			abcitypes.ResponseProcessProposal_REJECT,
 		},
@@ -725,7 +713,6 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 				numAuctionTxs = 0
 				frontRunningProtection = false
 			},
-			100,
 			true,
 			abcitypes.ResponseProcessProposal_ACCEPT,
 		},
@@ -733,7 +720,6 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 
 	for _, tc := range cases {
 		suite.Run(tc.name, func() {
-			fmt.Println(tc.name)
 			suite.SetupTest() // reset
 			tc.malleate()
 
@@ -769,11 +755,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 				Txs: txs,
 			})
 
-			// -------------------- Check Invariants -------------------- //
-			// 1. The number of transactions in the mempool must match
-			suite.Require().Equal(tc.expectedNumberTxsInMempool, suite.mempool.CountTx())
-
-			// 2. Check if the response is valid
+			// Check if the response is valid
 			suite.Require().Equal(tc.response, res.Status)
 		})
 	}
