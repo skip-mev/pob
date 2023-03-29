@@ -15,9 +15,9 @@ import (
 	"github.com/skip-mev/pob/abci"
 	"github.com/skip-mev/pob/mempool"
 	testutils "github.com/skip-mev/pob/testutils"
-	"github.com/skip-mev/pob/x/auction/ante"
-	"github.com/skip-mev/pob/x/auction/keeper"
-	auctiontypes "github.com/skip-mev/pob/x/auction/types"
+	"github.com/skip-mev/pob/x/pob/ante"
+	"github.com/skip-mev/pob/x/pob/keeper"
+	pobtypes "github.com/skip-mev/pob/x/pob/types"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -26,22 +26,22 @@ type ABCITestSuite struct {
 	ctx sdk.Context
 
 	// mempool setup
-	mempool         *mempool.AuctionMempool
+	mempool         *mempool.POBMempool
 	logger          log.Logger
 	encodingConfig  testutils.EncodingConfig
 	proposalHandler *abci.ProposalHandler
 
-	// auction bid setup
+	// auction params setup
 	auctionBidAmount sdk.Coins
 	minBidIncrement  sdk.Coins
 
-	// auction setup
-	auctionKeeper    keeper.Keeper
+	// keeper setup
+	pobKeeper        keeper.Keeper
 	bankKeeper       *testutils.MockBankKeeper
 	accountKeeper    *testutils.MockAccountKeeper
 	distrKeeper      *testutils.MockDistributionKeeper
 	stakingKeeper    *testutils.MockStakingKeeper
-	auctionDecorator ante.AuctionDecorator
+	pobDecorator     ante.POBDecorator
 	key              *storetypes.KVStoreKey
 	authorityAccount sdk.AccAddress
 
@@ -60,26 +60,26 @@ func (suite *ABCITestSuite) SetupTest() {
 	// General config
 	suite.encodingConfig = testutils.CreateTestEncodingConfig()
 	suite.random = rand.New(rand.NewSource(time.Now().Unix()))
-	suite.key = storetypes.NewKVStoreKey(auctiontypes.StoreKey)
+	suite.key = storetypes.NewKVStoreKey(pobtypes.StoreKey)
 	testCtx := testutil.DefaultContextWithDB(suite.T(), suite.key, storetypes.NewTransientStoreKey("transient_test"))
 	suite.ctx = testCtx.Ctx
 
 	// Mempool set up
-	suite.mempool = mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), 0)
+	suite.mempool = mempool.NewPOBMempool(suite.encodingConfig.TxConfig.TxDecoder(), 0)
 	suite.auctionBidAmount = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000000000)))
 	suite.minBidIncrement = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
 
 	// Mock keepers set up
 	ctrl := gomock.NewController(suite.T())
 	suite.accountKeeper = testutils.NewMockAccountKeeper(ctrl)
-	suite.accountKeeper.EXPECT().GetModuleAddress(auctiontypes.ModuleName).Return(sdk.AccAddress{}).AnyTimes()
+	suite.accountKeeper.EXPECT().GetModuleAddress(pobtypes.ModuleName).Return(sdk.AccAddress{}).AnyTimes()
 	suite.bankKeeper = testutils.NewMockBankKeeper(ctrl)
 	suite.distrKeeper = testutils.NewMockDistributionKeeper(ctrl)
 	suite.stakingKeeper = testutils.NewMockStakingKeeper(ctrl)
 	suite.authorityAccount = sdk.AccAddress([]byte("authority"))
 
-	// Auction keeper / decorator set up
-	suite.auctionKeeper = keeper.NewKeeper(
+	// POB keeper / decorator set up
+	suite.pobKeeper = keeper.NewKeeper(
 		suite.encodingConfig.Codec,
 		suite.key,
 		suite.accountKeeper,
@@ -88,9 +88,9 @@ func (suite *ABCITestSuite) SetupTest() {
 		suite.stakingKeeper,
 		suite.authorityAccount.String(),
 	)
-	err := suite.auctionKeeper.SetParams(suite.ctx, auctiontypes.DefaultParams())
+	err := suite.pobKeeper.SetParams(suite.ctx, pobtypes.DefaultParams())
 	suite.Require().NoError(err)
-	suite.auctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), suite.mempool)
+	suite.pobDecorator = ante.NewPOBDecorator(suite.pobKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), suite.mempool)
 
 	// Accounts set up
 	suite.accounts = testutils.RandomAccounts(suite.random, 1)
@@ -141,7 +141,7 @@ func (suite *ABCITestSuite) executeAnteHandler(tx sdk.Tx) (sdk.Context, error) {
 		return ctx, nil
 	}
 
-	return suite.auctionDecorator.AnteHandle(suite.ctx, tx, false, next)
+	return suite.pobDecorator.AnteHandle(suite.ctx, tx, false, next)
 }
 
 func (suite *ABCITestSuite) createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs int, insertRefTxs bool) int {
@@ -166,7 +166,7 @@ func (suite *ABCITestSuite) createFilledMempool(numNormalTxs, numAuctionTxs, num
 	suite.Require().Equal(numNormalTxs, suite.mempool.CountTx())
 	suite.Require().Equal(0, suite.mempool.CountAuctionTx())
 
-	// Insert a bunch of auction transactions into the global mempool and auction mempool
+	// Insert a bunch of auction transactions into the global mempool and pob mempool
 	for i := 0; i < numAuctionTxs; i++ {
 		// randomly select a bidder to create the tx
 		randomIndex := suite.random.Intn(len(suite.accounts))
@@ -241,7 +241,7 @@ func (suite *ABCITestSuite) exportMempool(exportRefTxs bool) [][]byte {
 		txs = append(txs, txBz)
 
 		if exportRefTxs {
-			for _, refRawTx := range auctionTx.GetMsgs()[0].(*auctiontypes.MsgAuctionBid).GetTransactions() {
+			for _, refRawTx := range auctionTx.GetMsgs()[0].(*pobtypes.MsgAuctionBid).GetTransactions() {
 				txs = append(txs, refRawTx)
 				seenTxs[string(refRawTx)] = true
 			}
@@ -483,15 +483,15 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 			suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
 
 			// create a new auction
-			params := auctiontypes.Params{
+			params := pobtypes.Params{
 				MaxBundleSize:          maxBundleSize,
 				ReserveFee:             reserveFee,
 				MinBuyInFee:            minBuyInFee,
 				FrontRunningProtection: frontRunningProtection,
 				MinBidIncrement:        suite.minBidIncrement,
 			}
-			suite.auctionKeeper.SetParams(suite.ctx, params)
-			suite.auctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), suite.mempool)
+			suite.pobKeeper.SetParams(suite.ctx, params)
+			suite.pobDecorator = ante.NewPOBDecorator(suite.pobKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), suite.mempool)
 
 			handler := suite.proposalHandler.PrepareProposalHandler()
 			res := handler(suite.ctx, abcitypes.RequestPrepareProposal{
@@ -731,15 +731,15 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			}
 
 			// create a new auction
-			params := auctiontypes.Params{
+			params := pobtypes.Params{
 				MaxBundleSize:          maxBundleSize,
 				ReserveFee:             reserveFee,
 				MinBuyInFee:            minBuyInFee,
 				FrontRunningProtection: frontRunningProtection,
 				MinBidIncrement:        suite.minBidIncrement,
 			}
-			suite.auctionKeeper.SetParams(suite.ctx, params)
-			suite.auctionDecorator = ante.NewAuctionDecorator(suite.auctionKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), suite.mempool)
+			suite.pobKeeper.SetParams(suite.ctx, params)
+			suite.pobDecorator = ante.NewPOBDecorator(suite.pobKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), suite.mempool)
 			suite.Require().Equal(tc.isTopBidValid, suite.isTopBidValid())
 
 			txs := suite.exportMempool(exportRefTxs)

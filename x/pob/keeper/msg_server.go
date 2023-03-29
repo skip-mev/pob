@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/skip-mev/pob/x/auction/types"
+	"github.com/skip-mev/pob/x/pob/types"
 )
 
 var _ types.MsgServer = MsgServer{}

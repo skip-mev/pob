@@ -6,30 +6,30 @@ import (
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/mempool"
-	"github.com/skip-mev/pob/x/auction/keeper"
+	"github.com/skip-mev/pob/x/pob/keeper"
 )
 
-var _ sdk.AnteDecorator = AuctionDecorator{}
+var _ sdk.AnteDecorator = POBDecorator{}
 
-type AuctionDecorator struct {
-	auctionKeeper keeper.Keeper
-	txDecoder     sdk.TxDecoder
-	txEncoder     sdk.TxEncoder
-	mempool       *mempool.AuctionMempool
+type POBDecorator struct {
+	pobKeeper keeper.Keeper
+	txDecoder sdk.TxDecoder
+	txEncoder sdk.TxEncoder
+	mempool   *mempool.POBMempool
 }
 
-func NewAuctionDecorator(ak keeper.Keeper, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, mempool *mempool.AuctionMempool) AuctionDecorator {
-	return AuctionDecorator{
-		auctionKeeper: ak,
-		txDecoder:     txDecoder,
-		txEncoder:     txEncoder,
-		mempool:       mempool,
+func NewPOBDecorator(ak keeper.Keeper, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, mempool *mempool.POBMempool) POBDecorator {
+	return POBDecorator{
+		pobKeeper: ak,
+		txDecoder: txDecoder,
+		txEncoder: txEncoder,
+		mempool:   mempool,
 	}
 }
 
 // AnteHandle validates that the auction bid is valid if one exists. If valid it will deduct the entrance fee from the
 // bidder's account.
-func (ad AuctionDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (sdk.Context, error) {
+func (ad POBDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (sdk.Context, error) {
 	auctionMsg, err := mempool.GetMsgAuctionBidFromTx(tx)
 	if err != nil {
 		return ctx, err
@@ -68,7 +68,7 @@ func (ad AuctionDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 			}
 		}
 
-		if err := ad.auctionKeeper.ValidateAuctionMsg(ctx, bidder, auctionMsg.Bid, topBid, transactions); err != nil {
+		if err := ad.pobKeeper.ValidateAuctionMsg(ctx, bidder, auctionMsg.Bid, topBid, transactions); err != nil {
 			return ctx, errors.Wrap(err, "failed to validate auction bid")
 		}
 	}
@@ -77,7 +77,7 @@ func (ad AuctionDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 }
 
 // GetTopAuctionBid returns the highest auction bid if one exists.
-func (ad AuctionDecorator) GetTopAuctionBid(ctx sdk.Context) (sdk.Coins, error) {
+func (ad POBDecorator) GetTopAuctionBid(ctx sdk.Context) (sdk.Coins, error) {
 	auctionTx := ad.mempool.GetTopAuctionTx(ctx)
 	if auctionTx == nil {
 		return sdk.NewCoins(), nil
@@ -87,7 +87,7 @@ func (ad AuctionDecorator) GetTopAuctionBid(ctx sdk.Context) (sdk.Coins, error) 
 }
 
 // IsTopBidTx returns true if the transaction inputted is the highest bidding auction transaction in the mempool.
-func (ad AuctionDecorator) IsTopBidTx(ctx sdk.Context, tx sdk.Tx) (bool, error) {
+func (ad POBDecorator) IsTopBidTx(ctx sdk.Context, tx sdk.Tx) (bool, error) {
 	auctionTx := ad.mempool.GetTopAuctionTx(ctx)
 	if auctionTx == nil {
 		return false, nil

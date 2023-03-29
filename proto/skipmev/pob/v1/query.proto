@@ -1,20 +1,20 @@
 syntax = "proto3";
-package skipmev.pob.auction.v1;
+package skipmev.pob.v1;
 
 import "gogoproto/gogo.proto";
 import "google/api/annotations.proto";
 import "cosmos_proto/cosmos.proto";
 import "cosmos/query/v1/query.proto";
-import "pob/auction/v1/genesis.proto";
+import "skipmev/pob/v1/genesis.proto";
 
-option go_package = "github.com/skip-mev/pob/x/auction/types";
+option go_package = "github.com/skip-mev/pob/x/pob/types";
 
-// Query defines the x/auction querier service.
+// Query defines the x/pob querier service.
 service Query {
-  // Params queries the parameters of the x/auction module.
+  // Params queries the parameters of the x/pob module.
   rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
     option (cosmos.query.v1.module_query_safe) = true;
-    option (google.api.http).get = "/pob/auction/v1/params";
+    option (google.api.http).get = "/pob/v1/params";
   }
 }
 

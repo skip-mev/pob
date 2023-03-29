@@ -10,7 +10,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/mempool"
 	testutils "github.com/skip-mev/pob/testutils"
-	auctiontypes "github.com/skip-mev/pob/x/auction/types"
+	pobtypes "github.com/skip-mev/pob/x/pob/types"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -18,7 +18,7 @@ type IntegrationTestSuite struct {
 	suite.Suite
 
 	encCfg   testutils.EncodingConfig
-	mempool  *mempool.AuctionMempool
+	mempool  *mempool.POBMempool
 	ctx      sdk.Context
 	random   *rand.Rand
 	accounts []testutils.Account
@@ -32,7 +32,7 @@ func TestMempoolTestSuite(t *testing.T) {
 func (suite *IntegrationTestSuite) SetupTest() {
 	// Mempool setup
 	suite.encCfg = testutils.CreateTestEncodingConfig()
-	suite.mempool = mempool.NewAuctionMempool(suite.encCfg.TxConfig.TxDecoder(), 0)
+	suite.mempool = mempool.NewPOBMempool(suite.encCfg.TxConfig.TxDecoder(), 0)
 	suite.ctx = sdk.NewContext(nil, cmtproto.Header{}, false, log.NewNopLogger())
 
 	// Init accounts
@@ -113,7 +113,7 @@ func (suite *IntegrationTestSuite) CreateFilledMempool(numNormalTxs, numAuctionT
 	return totalNumTxs
 }
 
-func (suite *IntegrationTestSuite) TestAuctionMempoolRemove() {
+func (suite *IntegrationTestSuite) TestPOBMempoolRemove() {
 	numberTotalTxs := 100
 	numberAuctionTxs := 10
 	numberBundledTxs := 5
@@ -142,7 +142,7 @@ func (suite *IntegrationTestSuite) TestAuctionMempoolRemove() {
 	suite.Require().Equal(numMempoolTxs-numberBundledTxs-1, suite.mempool.CountTx())
 }
 
-func (suite *IntegrationTestSuite) TestAuctionMempoolSelect() {
+func (suite *IntegrationTestSuite) TestPOBMempoolSelect() {
 	numberTotalTxs := 100
 	numberAuctionTxs := 10
 	numberBundledTxs := 5
@@ -158,7 +158,7 @@ func (suite *IntegrationTestSuite) TestAuctionMempoolSelect() {
 		tx := auctionIterator.Tx()
 		suite.Require().Len(tx.GetMsgs(), 1)
 
-		msgAuctionBid := tx.GetMsgs()[0].(*auctiontypes.MsgAuctionBid)
+		msgAuctionBid := tx.GetMsgs()[0].(*pobtypes.MsgAuctionBid)
 		if highestBid == nil {
 			highestBid = msgAuctionBid.Bid
 			prevBid = msgAuctionBid.Bid

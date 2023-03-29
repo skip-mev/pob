@@ -2,7 +2,7 @@ package keeper
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/skip-mev/pob/x/auction/types"
+	"github.com/skip-mev/pob/x/pob/types"
 )
 
 // InitGenesis initializes the auction module's state from a given genesis state.

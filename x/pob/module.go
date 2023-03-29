@@ -1,4 +1,4 @@
-package auction
+package pob
 
 import (
 	"context"
@@ -13,8 +13,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
-	"github.com/skip-mev/pob/x/auction/keeper"
-	"github.com/skip-mev/pob/x/auction/types"
+	"github.com/skip-mev/pob/x/pob/keeper"
+	"github.com/skip-mev/pob/x/pob/types"
 	"github.com/spf13/cobra"
 )
 
@@ -23,7 +23,7 @@ var (
 	_ module.AppModuleBasic = AppModuleBasic{}
 )
 
-// ConsensusVersion defines the current x/auction module consensus version.
+// ConsensusVersion defines the current x/pob module consensus version.
 const ConsensusVersion = 1
 
 // AppModuleBasic defines the basic application module used by the auction module.
@@ -95,7 +95,7 @@ func NewAppModule(cdc codec.Codec, keeper keeper.Keeper, accountKeeper types.Acc
 // ConsensusVersion implements AppModule/ConsensusVersion.
 func (AppModule) ConsensusVersion() uint64 { return ConsensusVersion }
 
-// RegisterServices registers a the gRPC Query and Msg services for the x/auction
+// RegisterServices registers a the gRPC Query and Msg services for the x/pob
 // module.
 func (am AppModule) RegisterServices(_ module.Configurator) {
 	// TODO: Define the gRPC querier service and register it with the auction module configurator
