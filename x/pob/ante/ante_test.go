@@ -31,7 +31,7 @@ type AnteTestSuite struct {
 	accountKeeper    *testutils.MockAccountKeeper
 	distrKeeper      *testutils.MockDistributionKeeper
 	stakingKeeper    *testutils.MockStakingKeeper
-	POBDecorator     ante.POBDecorator
+	pobDecorator     ante.POBDecorator
 	key              *storetypes.KVStoreKey
 	authorityAccount sdk.AccAddress
 }
@@ -77,7 +77,7 @@ func (suite *AnteTestSuite) executeAnteHandler(tx sdk.Tx, balance sdk.Coins) (sd
 		return ctx, nil
 	}
 
-	return suite.POBDecorator.AnteHandle(suite.ctx, tx, false, next)
+	return suite.pobDecorator.AnteHandle(suite.ctx, tx, false, next)
 }
 
 func (suite *AnteTestSuite) TestAnteHandler() {
@@ -251,7 +251,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 			suite.Require().NoError(err)
 
 			// Execute the ante handler
-			suite.POBDecorator = ante.NewPOBDecorator(suite.pobKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), mempool)
+			suite.pobDecorator = ante.NewPOBDecorator(suite.pobKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), mempool)
 			_, err = suite.executeAnteHandler(auctionTx, balance)
 			if tc.pass {
 				suite.Require().NoError(err)

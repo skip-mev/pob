@@ -166,7 +166,7 @@ func (suite *ABCITestSuite) createFilledMempool(numNormalTxs, numAuctionTxs, num
 	suite.Require().Equal(numNormalTxs, suite.mempool.CountTx())
 	suite.Require().Equal(0, suite.mempool.CountAuctionTx())
 
-	// Insert a bunch of auction transactions into the global mempool and pob mempool
+	// Insert a bunch of auction transactions into the global mempool and auction mempool
 	for i := 0; i < numAuctionTxs; i++ {
 		// randomly select a bidder to create the tx
 		randomIndex := suite.random.Intn(len(suite.accounts))
