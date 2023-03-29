@@ -9,7 +9,7 @@ import (
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/mempool"
-	testutils "github.com/skip-mev/pob/tests"
+	testutils "github.com/skip-mev/pob/testutils"
 	auctiontypes "github.com/skip-mev/pob/x/auction/types"
 	"github.com/stretchr/testify/suite"
 )

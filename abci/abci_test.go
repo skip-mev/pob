@@ -14,7 +14,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/skip-mev/pob/abci"
 	"github.com/skip-mev/pob/mempool"
-	testutils "github.com/skip-mev/pob/tests"
+	testutils "github.com/skip-mev/pob/testutils"
 	"github.com/skip-mev/pob/x/auction/ante"
 	"github.com/skip-mev/pob/x/auction/keeper"
 	auctiontypes "github.com/skip-mev/pob/x/auction/types"
