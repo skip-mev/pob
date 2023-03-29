@@ -65,7 +65,7 @@ func (suite *ABCITestSuite) SetupTest() {
 	suite.ctx = testCtx.Ctx
 
 	// Mempool set up
-	suite.mempool = mempool.NewPOBMempool(suite.encodingConfig.TxConfig.TxDecoder(), 0)
+	suite.mempool = mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), 0)
 	suite.auctionBidAmount = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000000000)))
 	suite.minBidIncrement = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
 

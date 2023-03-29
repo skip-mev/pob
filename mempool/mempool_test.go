@@ -32,7 +32,7 @@ func TestMempoolTestSuite(t *testing.T) {
 func (suite *IntegrationTestSuite) SetupTest() {
 	// Mempool setup
 	suite.encCfg = testutils.CreateTestEncodingConfig()
-	suite.mempool = mempool.NewPOBMempool(suite.encCfg.TxConfig.TxDecoder(), 0)
+	suite.mempool = mempool.NewAuctionMempool(suite.encCfg.TxConfig.TxDecoder(), 0)
 	suite.ctx = sdk.NewContext(nil, cmtproto.Header{}, false, log.NewNopLogger())
 
 	// Init accounts
@@ -113,7 +113,7 @@ func (suite *IntegrationTestSuite) CreateFilledMempool(numNormalTxs, numAuctionT
 	return totalNumTxs
 }
 
-func (suite *IntegrationTestSuite) TestPOBMempoolRemove() {
+func (suite *IntegrationTestSuite) TestAuctionMempoolRemove() {
 	numberTotalTxs := 100
 	numberAuctionTxs := 10
 	numberBundledTxs := 5
@@ -142,7 +142,7 @@ func (suite *IntegrationTestSuite) TestPOBMempoolRemove() {
 	suite.Require().Equal(numMempoolTxs-numberBundledTxs-1, suite.mempool.CountTx())
 }
 
-func (suite *IntegrationTestSuite) TestPOBMempoolSelect() {
+func (suite *IntegrationTestSuite) TestAuctionMempoolSelect() {
 	numberTotalTxs := 100
 	numberAuctionTxs := 10
 	numberBundledTxs := 5

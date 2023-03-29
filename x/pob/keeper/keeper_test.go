@@ -64,6 +64,6 @@ func (suite *KeeperTestSuite) SetupTest() {
 	err := suite.pobKeeper.SetParams(suite.ctx, types.DefaultParams())
 	suite.Require().NoError(err)
 
-	suite.mempool = mempool.NewPOBMempool(suite.encCfg.TxConfig.TxDecoder(), 0)
+	suite.mempool = mempool.NewAuctionMempool(suite.encCfg.TxConfig.TxDecoder(), 0)
 	suite.msgServer = keeper.NewMsgServerImpl(suite.pobKeeper)
 }

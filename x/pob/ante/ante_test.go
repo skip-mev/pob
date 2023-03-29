@@ -235,7 +235,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 			suite.Require().NoError(err)
 
 			// Insert the top bid into the mempool
-			mempool := mempool.NewPOBMempool(suite.encodingConfig.TxConfig.TxDecoder(), 0)
+			mempool := mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), 0)
 			if insertTopBid {
 				topAuctionTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, topBidder, topBid, 0, []testutils.Account{})
 				suite.Require().NoError(err)
