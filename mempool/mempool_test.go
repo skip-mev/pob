@@ -18,7 +18,7 @@ type IntegrationTestSuite struct {
 	suite.Suite
 
 	encCfg   testutils.EncodingConfig
-	mempool  *mempool.POBMempool
+	mempool  *mempool.AuctionMempool
 	ctx      sdk.Context
 	random   *rand.Rand
 	accounts []testutils.Account

@@ -17,7 +17,7 @@ import (
 )
 
 type ProposalHandler struct {
-	mempool    *mempool.POBMempool
+	mempool    *mempool.AuctionMempool
 	logger     log.Logger
 	txVerifier baseapp.ProposalTxVerifier
 	txEncoder  sdk.TxEncoder
@@ -25,7 +25,7 @@ type ProposalHandler struct {
 }
 
 func NewProposalHandler(
-	mp *mempool.POBMempool,
+	mp *mempool.AuctionMempool,
 	logger log.Logger,
 	txVerifier baseapp.ProposalTxVerifier,
 	txEncoder sdk.TxEncoder,

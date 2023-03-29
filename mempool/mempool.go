@@ -9,13 +9,13 @@ import (
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
-var _ sdkmempool.Mempool = (*POBMempool)(nil)
+var _ sdkmempool.Mempool = (*AuctionMempool)(nil)
 
-// POBMempool defines an protocol owned builder mempool. It can be seen as an extension of
+// AuctionMempool defines an auction mempool. It can be seen as an extension of
 // an SDK PriorityNonceMempool, i.e. a mempool that supports <sender, nonce>
 // two-dimensional priority ordering, with the additional support of prioritizing
 // and indexing auction bids.
-type POBMempool struct {
+type AuctionMempool struct {
 	// globalIndex defines the index of all transactions in the mempool. It uses
 	// the SDK's builtin PriorityNonceMempool. Once a bid is selected for top-of-block,
 	// all subsequent transactions in the mempool will be selected from this index.
@@ -67,8 +67,8 @@ func AuctionTxPriority() TxPriority[string] {
 	}
 }
 
-func NewPOBMempool(txDecoder sdk.TxDecoder, maxTx int) *POBMempool {
-	return &POBMempool{
+func NewPOBMempool(txDecoder sdk.TxDecoder, maxTx int) *AuctionMempool {
+	return &AuctionMempool{
 		globalIndex: NewPriorityMempool(
 			PriorityNonceMempoolConfig[int64]{
 				TxPriority: NewDefaultTxPriority(),
@@ -88,7 +88,7 @@ func NewPOBMempool(txDecoder sdk.TxDecoder, maxTx int) *POBMempool {
 // Insert inserts a transaction into the mempool. If the transaction is a special
 // auction tx (tx that contains a single MsgAuctionBid), it will also insert the
 // transaction into the auction index.
-func (am *POBMempool) Insert(ctx context.Context, tx sdk.Tx) error {
+func (am *AuctionMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 	if err := am.globalIndex.Insert(ctx, tx); err != nil {
 		return fmt.Errorf("failed to insert tx into global index: %w", err)
 	}
@@ -111,7 +111,7 @@ func (am *POBMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 // Remove removes a transaction from the mempool. If the transaction is a special
 // auction tx (tx that contains a single MsgAuctionBid), it will also remove all
 // referenced transactions from the global mempool.
-func (am *POBMempool) Remove(tx sdk.Tx) error {
+func (am *AuctionMempool) Remove(tx sdk.Tx) error {
 	// 1. Remove the tx from the global index
 	removeTx(am.globalIndex, tx)
 
@@ -143,7 +143,7 @@ func (am *POBMempool) Remove(tx sdk.Tx) error {
 // auction transactions (txs that only include a single MsgAuctionBid). This
 // API is used to ensure that searchers are unable to remove valid transactions
 // from the global mempool.
-func (am *POBMempool) RemoveWithoutRefTx(tx sdk.Tx) error {
+func (am *AuctionMempool) RemoveWithoutRefTx(tx sdk.Tx) error {
 	removeTx(am.globalIndex, tx)
 
 	msg, err := GetMsgAuctionBidFromTx(tx)
@@ -159,7 +159,7 @@ func (am *POBMempool) RemoveWithoutRefTx(tx sdk.Tx) error {
 }
 
 // GetTopAuctionTx returns the highest bidding transaction in the auction mempool.
-func (am *POBMempool) GetTopAuctionTx(ctx context.Context) sdk.Tx {
+func (am *AuctionMempool) GetTopAuctionTx(ctx context.Context) sdk.Tx {
 	iterator := am.auctionIndex.Select(ctx, nil)
 	if iterator == nil {
 		return nil
@@ -169,19 +169,19 @@ func (am *POBMempool) GetTopAuctionTx(ctx context.Context) sdk.Tx {
 }
 
 // AuctionBidSelect returns an iterator over auction bids transactions only.
-func (am *POBMempool) AuctionBidSelect(ctx context.Context) sdkmempool.Iterator {
+func (am *AuctionMempool) AuctionBidSelect(ctx context.Context) sdkmempool.Iterator {
 	return am.auctionIndex.Select(ctx, nil)
 }
 
-func (am *POBMempool) Select(ctx context.Context, txs [][]byte) sdkmempool.Iterator {
+func (am *AuctionMempool) Select(ctx context.Context, txs [][]byte) sdkmempool.Iterator {
 	return am.globalIndex.Select(ctx, txs)
 }
 
-func (am *POBMempool) CountAuctionTx() int {
+func (am *AuctionMempool) CountAuctionTx() int {
 	return am.auctionIndex.CountTx()
 }
 
-func (am *POBMempool) CountTx() int {
+func (am *AuctionMempool) CountTx() int {
 	return am.globalIndex.CountTx()
 }
 

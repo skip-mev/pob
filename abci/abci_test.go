@@ -26,7 +26,7 @@ type ABCITestSuite struct {
 	ctx sdk.Context
 
 	// mempool setup
-	mempool         *mempool.POBMempool
+	mempool         *mempool.AuctionMempool
 	logger          log.Logger
 	encodingConfig  testutils.EncodingConfig
 	proposalHandler *abci.ProposalHandler

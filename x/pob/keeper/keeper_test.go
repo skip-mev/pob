@@ -29,7 +29,7 @@ type KeeperTestSuite struct {
 	key              *storetypes.KVStoreKey
 	authorityAccount sdk.AccAddress
 
-	mempool *mempool.POBMempool
+	mempool *mempool.AuctionMempool
 }
 
 func TestKeeperTestSuite(t *testing.T) {

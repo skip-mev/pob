@@ -15,10 +15,10 @@ type POBDecorator struct {
 	pobKeeper keeper.Keeper
 	txDecoder sdk.TxDecoder
 	txEncoder sdk.TxEncoder
-	mempool   *mempool.POBMempool
+	mempool   *mempool.AuctionMempool
 }
 
-func NewPOBDecorator(ak keeper.Keeper, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, mempool *mempool.POBMempool) POBDecorator {
+func NewPOBDecorator(ak keeper.Keeper, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, mempool *mempool.AuctionMempool) POBDecorator {
 	return POBDecorator{
 		pobKeeper: ak,
 		txDecoder: txDecoder,
