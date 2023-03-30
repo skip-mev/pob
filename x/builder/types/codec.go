@@ -30,7 +30,7 @@ func init() {
 	RegisterLegacyAminoCodec(groupcodec.Amino)
 }
 
-// RegisterLegacyAminoCodec registers the necessary x/auction interfaces and
+// RegisterLegacyAminoCodec registers the necessary x/builder interfaces and
 // concrete types on the provided LegacyAmino codec. These types are used for
 // Amino JSON serialization.
 func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
@@ -40,7 +40,7 @@ func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(Params{}, "skip-mev/pob/Params", nil)
 }
 
-// RegisterInterfaces registers the x/auction interfaces types with the
+// RegisterInterfaces registers the x/builder interfaces types with the
 // interface registry.
 func RegisterInterfaces(registry types.InterfaceRegistry) {
 	registry.RegisterImplementations(
