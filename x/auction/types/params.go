@@ -9,12 +9,12 @@ import (
 
 var (
 	DefaultMaxBundleSize          uint32 = 2
-	DefaultEscrowAccountAddress   string
-	DefaultReserveFee             = sdk.Coins{}
-	DefaultMinBuyInFee            = sdk.Coins{}
-	DefaultMinBidIncrement        = sdk.Coins{}
-	DefaultFrontRunningProtection = true
-	DefaultProposerFee            = sdk.ZeroDec()
+	DefaultEscrowAccountAddress   string = "cosmos1wmtuareu8ltlntlt4yf3e0zqmtu84lpgemr9hv"
+	DefaultReserveFee                    = sdk.Coins{}
+	DefaultMinBuyInFee                   = sdk.Coins{}
+	DefaultMinBidIncrement               = sdk.Coins{}
+	DefaultFrontRunningProtection        = true
+	DefaultProposerFee                   = sdk.ZeroDec()
 )
 
 // NewParams returns a new Params instance with the provided values.
