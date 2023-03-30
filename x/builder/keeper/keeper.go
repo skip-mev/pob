@@ -53,7 +53,7 @@ func NewKeeper(
 	}
 }
 
-// Logger returns an builder module-specific logger.
+// Logger returns a builder module-specific logger.
 func (k Keeper) Logger(ctx sdk.Context) log.Logger {
 	return ctx.Logger().With("module", "x/"+types.ModuleName)
 }

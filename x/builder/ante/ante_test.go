@@ -25,13 +25,13 @@ type AnteTestSuite struct {
 	encodingConfig testutils.EncodingConfig
 	random         *rand.Rand
 
-	// auction setup
+	// builder setup
 	builderKeeper    keeper.Keeper
 	bankKeeper       *testutils.MockBankKeeper
 	accountKeeper    *testutils.MockAccountKeeper
 	distrKeeper      *testutils.MockDistributionKeeper
 	stakingKeeper    *testutils.MockStakingKeeper
-	BuilderDecorator ante.BuilderDecorator
+	builderDecorator ante.BuilderDecorator
 	key              *storetypes.KVStoreKey
 	authorityAccount sdk.AccAddress
 }
@@ -77,7 +77,7 @@ func (suite *AnteTestSuite) executeAnteHandler(tx sdk.Tx, balance sdk.Coins) (sd
 		return ctx, nil
 	}
 
-	return suite.BuilderDecorator.AnteHandle(suite.ctx, tx, false, next)
+	return suite.builderDecorator.AnteHandle(suite.ctx, tx, false, next)
 }
 
 func (suite *AnteTestSuite) TestAnteHandler() {
@@ -251,7 +251,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 			suite.Require().NoError(err)
 
 			// Execute the ante handler
-			suite.BuilderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), mempool)
+			suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), mempool)
 			_, err = suite.executeAnteHandler(auctionTx, balance)
 			if tc.pass {
 				suite.Require().NoError(err)

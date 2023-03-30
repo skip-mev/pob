@@ -35,7 +35,7 @@ type ABCITestSuite struct {
 	auctionBidAmount sdk.Coins
 	minBidIncrement  sdk.Coins
 
-	// auction setup
+	// builder setup
 	builderKeeper    keeper.Keeper
 	bankKeeper       *testutils.MockBankKeeper
 	accountKeeper    *testutils.MockAccountKeeper
