@@ -45,3 +45,53 @@ $ go install github.com/skip-mev/pob
 ```
 
 ## Setup
+
+1. Import the necessary dependencies into your application. This includes the
+   proposal handlers, mempool, keeper, builder types, and builder module. This
+   tutorial will go into more detail into each of the dependencies.
+
+   ```go
+   import (
+     ...
+     proposalhandler "github.com/skip-mev/pob/abci"
+     "github.com/skip-mev/pob/mempool"
+     "github.com/skip-mev/pob/x/auction"
+     auctionkeeper "github.com/skip-mev/pob/x/auction/keeper"
+     auctiontypes "github.com/skip-mev/pob/x/auction/types"
+     ...
+   )
+   ```
+
+2. Add your module to the the `AppModuleBasic` manager. This manager is in
+   charge of setting up basic, non-dependent module elements such as codec
+   registration and genesis verification. This will register the special
+   `MsgAuctionBid` message. When users want to bid for top of block execution,
+   they will submit a transaction - which we call an auction transaction - that
+   includes a single `MsgAuctionBid`. We prevent any other messages from being
+   included in auction transaction to prevent malicious behavior - such as front
+   running or sandwiching.
+
+   ```go
+   var (
+     ...
+     ModuleBasics = module.NewBasicManager(
+       ...
+       auction.AppModuleBasic{},
+     )
+     ...
+   )
+
+
+   func NewApp(...) *App {
+
+     ...
+     app.ModuleManager = module.NewManager(
+       ...
+       auction.NewAppModule(appCodec, app.AuctionKeeper),
+       ...
+     )
+     ...
+   }
+   ```
+
+3.
