@@ -13,6 +13,23 @@ apps construct and validate blocks in a transparent on-chain enforceable way,
 such as giving complete control to the protocol to recapture, control, and
 redistribute MEV.
 
+Skip's POB provides developers with a set of a few core primitives:
+
+* `x/builder`: This Cosmos SDK module gives applications the ability to process
+  MEV bundled transactions in addition to having the ability to define how searchers
+  and block proposers are rewarded. In addition, the module defines a `AuctionDecorator`,
+  which is an AnteHandler decorator that enforces various chain configurable MEV
+  rules.
+* `ProposalHandler`: This ABCI++ handler defines `PrepareProposal` and `ProcessProposal`
+  methods that give applications the ability to perform top-of-block auctions,
+  which enables recapturing, redistributing and control over MEV. These methods
+  are responsible for block proposal construction and validation.
+* `AuctionMempool`: An MEV-aware mempool that enables searchers to submit bundled
+  transactions to the mempool and have them bundled into blocks via a top-of-block
+  auction. Searchers include a bid in their bundled transactions and the highest
+  bid wins the auction. Application devs have control over levers that control
+  aspects such as the bid floor and minimum bid increment.
+
 ## Releases
 
 ### Release Compatibility Matrix
@@ -22,5 +39,9 @@ redistribute MEV.
 |   v1.x.x    |  v0.47.x   |
 
 ## Install
+
+```shell
+$ go install github.com/skip-mev/pob
+```
 
 ## Setup
