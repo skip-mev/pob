@@ -73,7 +73,6 @@ $ go install github.com/skip-mev/pob
 
    ```go
    var (
-     ...
      ModuleBasics = module.NewBasicManager(
        ...
        auction.AppModuleBasic{},
@@ -83,15 +82,27 @@ $ go install github.com/skip-mev/pob
 
 
    func NewApp(...) *App {
-
      ...
      app.ModuleManager = module.NewManager(
        ...
        auction.NewAppModule(appCodec, app.AuctionKeeper),
-       ...
      )
      ...
    }
    ```
 
-3.
+3. POB’s `Keeper` is the gateway to processing special `MsgAuctionBid` messages
+   that allow users to participate in the top of block auction, distribute
+   revenue to the auction house, and ensure the validity of auction transactions.
+
+   1. First add the keeper to the app's struct definition.
+
+      ```go
+      type App struct {
+        ...
+        AuctionKeeper         auctionkeeper.Keeper
+        ...
+      }
+      ```
+
+    2. f
