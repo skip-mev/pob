@@ -1,4 +1,4 @@
-# Protocol-Owned Builder
+<h1 align="center">Protocol-Owned Builder</h1>
 
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#wip)
 [![GoDoc](https://img.shields.io/badge/godoc-reference-blue?style=flat-square&logo=go)](https://godoc.org/github.com/skip-mev/pob)
@@ -52,7 +52,6 @@ $ go install github.com/skip-mev/pob
 
    ```go
    import (
-     ...
      proposalhandler "github.com/skip-mev/pob/abci"
      "github.com/skip-mev/pob/mempool"
      "github.com/skip-mev/pob/x/auction"
@@ -82,7 +81,6 @@ $ go install github.com/skip-mev/pob
 
 
    func NewApp(...) *App {
-     ...
      app.ModuleManager = module.NewManager(
        ...
        auction.NewAppModule(appCodec, app.AuctionKeeper),
@@ -95,14 +93,42 @@ $ go install github.com/skip-mev/pob
    that allow users to participate in the top of block auction, distribute
    revenue to the auction house, and ensure the validity of auction transactions.
 
-   1. First add the keeper to the app's struct definition.
+   a. First add the keeper to the app's struct definition.
 
       ```go
       type App struct {
-        ...
         AuctionKeeper         auctionkeeper.Keeper
         ...
       }
       ```
 
-    2. f
+    b. Add the POB module to the list of module account permissions. This will
+    instantiate the POB module account on genesis.
+
+      ```go
+      maccPerms = map[string][]string{
+        auction.ModuleName: nil,
+        ...
+      }
+      ```
+
+    c. Instantiate the builder keeper and store keys. Note, be sure to do this
+    after all the required keeper dependencies have been instantiated.
+
+      ```go
+      keys := storetypes.NewKVStoreKeys(
+        auctiontypes.StoreKey,
+        ...
+      )
+
+      ...
+      app.AuctionKeeper := auctionkeeper.NewKeeper(
+        appCodec,
+        keys[auctiontypes.StoreKey],
+        app.AccountKeeper,
+        app.BankKeeper,
+        app.DistrKeeper,
+        app.StakingKeeper,
+        authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+      )
+      ```
