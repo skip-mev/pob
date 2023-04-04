@@ -55,8 +55,8 @@ $ go install github.com/skip-mev/pob
      proposalhandler "github.com/skip-mev/pob/abci"
      "github.com/skip-mev/pob/mempool"
      "github.com/skip-mev/pob/x/auction"
-     auctionkeeper "github.com/skip-mev/pob/x/auction/keeper"
-     auctiontypes "github.com/skip-mev/pob/x/auction/types"
+     builderkeeper "github.com/skip-mev/pob/x/builder/keeper"
+     buildertypes "github.com/skip-mev/pob/x/builder/types"
      ...
    )
    ```
@@ -74,30 +74,21 @@ $ go install github.com/skip-mev/pob
    var (
      ModuleBasics = module.NewBasicManager(
        ...
-       auction.AppModuleBasic{},
+       builder.AppModuleBasic{},
      )
      ...
    )
-
-
-   func NewApp(...) *App {
-     app.ModuleManager = module.NewManager(
-       ...
-       auction.NewAppModule(appCodec, app.AuctionKeeper),
-     )
-     ...
-   }
    ```
 
-3. POB’s `Keeper` is the gateway to processing special `MsgAuctionBid` messages
-   that allow users to participate in the top of block auction, distribute
+3. The auction `Keeper` is POB's gateway to processing special `MsgAuctionBid`
+   messages that allow users to participate in the top of block auction, distribute
    revenue to the auction house, and ensure the validity of auction transactions.
 
    a. First add the keeper to the app's struct definition.
 
       ```go
       type App struct {
-        AuctionKeeper         auctionkeeper.Keeper
+        BuilderKeeper builderkeeper.Keeper
         ...
       }
       ```
@@ -107,28 +98,93 @@ $ go install github.com/skip-mev/pob
 
       ```go
       maccPerms = map[string][]string{
-        auction.ModuleName: nil,
+        builder.ModuleName: nil,
         ...
       }
       ```
 
-    c. Instantiate the builder keeper and store keys. Note, be sure to do this
-    after all the required keeper dependencies have been instantiated.
+    c. Instantiate the builder keeper, store keys, and module manager. Note, be
+    sure to do this after all the required keeper dependencies have been instantiated.
 
       ```go
       keys := storetypes.NewKVStoreKeys(
-        auctiontypes.StoreKey,
+        buildertypes.StoreKey,
         ...
       )
 
       ...
       app.AuctionKeeper := auctionkeeper.NewKeeper(
         appCodec,
-        keys[auctiontypes.StoreKey],
+        keys[buildertypes.StoreKey],
         app.AccountKeeper,
         app.BankKeeper,
         app.DistrKeeper,
         app.StakingKeeper,
-        authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+        authtypes.NewModuleAddress(builder.ModuleName).String(),
+      )
+
+      
+      app.ModuleManager = module.NewManager(
+        builder.NewAppModule(appCodec, app.BuilderKeeper),
+        ...
       )
       ```
+
+    d. Searchers bid to have their bundles executed at the top of the block
+    using `MsgAuctionBid` messages. While the builder `Keeper` is capable of
+    tracking valid bids, it is unable to correctly sequence the auction
+    transactions alongside the normal transactions without having access to the
+    application’s mempool. As such, we have to instantiate POB’s custom
+    `AuctionMempool` - a modified version of the SDK’s priority sender-nonce
+    mempool - into the application. Note, this should be done after `BaseApp` is
+    instantiated.
+
+    ```go
+    mempool := mempool.NewAuctionMempool(txConfig.TxDecoder(), GetMaxMempoolSize())
+    bApp.SetMempool(mempool)
+    ```
+
+    e. With Cosmos SDK version 0.47.0, the process of building blocks has been
+    updated and moved from the consensus layer, CometBFT, to the application layer.
+    When a new block is requested, the proposer for that height will utilize the `PrepareProposal` handler to build a block while the `ProcessProposal` handler
+    will verify the contents of the block proposal by all validators. The
+    combination of the `AuctionMempool`, `PrepareProposal` and `ProcessProposal`
+    handlers allows the application to verifiably build valid blocks with
+    top-of-block block space reserved for auctions.
+
+    ```go
+    handler := proposalhandler.NewProposalHandler(
+      mempool, 
+      bApp.Logger(), 
+      bApp,
+      txConfig.TxEncoder(),
+      txConfig.TxDecoder(),
+    )
+    bApp.SetPrepareProposal(handler.PrepareProposalHandler())
+    bApp.SetProcessProposal(handler.ProcessProposalHandler())
+    ```
+
+    f. Finally, update the app's `InitGenesis` order and ante-handler chain.
+
+    ```go
+    genesisModuleOrder := []string{
+      buildertypes.ModuleName,
+      ...,
+    }
+
+    anteDecorators := []sdk.AnteDecorator{
+      auction.NewAuctionDecorator(
+        app.BuilderKeeper,
+        txConfig.TxDecoder(),
+        txConfig.TxEncoder(),
+        mempool,
+      ),
+      ...,
+    }
+    ```
+
+Note, before building or upgrading the application, make sure to initialize the
+escrow address for POB in the parameters of the module. The default parameters
+do not initialize an escrow address as that should be determined by governance.
+The escrow address will be the address that is receiving a portion of auction
+house revenue alongside the proposer (if enabled).
