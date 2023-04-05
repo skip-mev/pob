@@ -67,7 +67,13 @@ func (p Params) Validate() error {
 		return fmt.Errorf("invalid minimum bid increment (%s)", err)
 	}
 
-	if p.MinBidIncrement.Denom != p.MinBuyInFee.Denom || p.MinBidIncrement.Denom != p.ReserveFee.Denom {
+	denoms := map[string]struct{}{
+		p.ReserveFee.Denom:      {},
+		p.MinBuyInFee.Denom:     {},
+		p.MinBidIncrement.Denom: {},
+	}
+
+	if len(denoms) != 1 {
 		return fmt.Errorf("mismatched auction fee denoms: minimum bid increment (%s), minimum buy-in fee (%s), reserve fee (%s)", p.MinBidIncrement, p.MinBuyInFee, p.ReserveFee)
 	}
 
@@ -97,7 +103,6 @@ func validateProposerFee(v sdk.Dec) error {
 }
 
 func validateEscrowAccountAddress(account string) error {
-	// If the escrow account address is set, ensure it is a valid address.
 	if _, err := sdk.AccAddressFromBech32(account); err != nil {
 		return fmt.Errorf("invalid escrow account address (%s)", err)
 	}
