@@ -120,7 +120,7 @@ $ go install github.com/skip-mev/pob
         app.BankKeeper,
         app.DistrKeeper,
         app.StakingKeeper,
-        authtypes.NewModuleAddress(builder.ModuleName).String(),
+        authtypes.NewModuleAddress(govv1.ModuleName).String(),
       )
 
       
