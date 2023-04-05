@@ -80,7 +80,7 @@ $ go install github.com/skip-mev/pob
    )
    ```
 
-3. The auction `Keeper` is POB's gateway to processing special `MsgAuctionBid`
+3. The builder `Keeper` is POB's gateway to processing special `MsgAuctionBid`
    messages that allow users to participate in the top of block auction, distribute
    revenue to the auction house, and ensure the validity of auction transactions.
 
