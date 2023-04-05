@@ -113,7 +113,7 @@ $ go install github.com/skip-mev/pob
       )
 
       ...
-      app.AuctionKeeper := auctionkeeper.NewKeeper(
+      app.BuilderKeeper := builderkeeper.NewKeeper(
         appCodec,
         keys[buildertypes.StoreKey],
         app.AccountKeeper,
