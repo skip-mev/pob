@@ -94,7 +94,7 @@ $ go install github.com/skip-mev/pob
       ```
 
     b. Add the builder module to the list of module account permissions. This will
-    instantiate the POB module account on genesis.
+    instantiate the builder module account on genesis.
 
       ```go
       maccPerms = map[string][]string{
