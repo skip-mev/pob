@@ -9,7 +9,7 @@
 
 Skip Protocol's Protocol-Owned Builder (POB) is a set of Cosmos SDK and ABCI++
 primitives that provide application developers the ability to define how their
-apps construct and validate blocks in a transparent on-chain enforceable way,
+apps construct and validate blocks on-chain in a transparent, enforceable way,
 such as giving complete control to the protocol to recapture, control, and
 redistribute MEV.
 
