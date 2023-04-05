@@ -67,6 +67,10 @@ func (p Params) Validate() error {
 		return fmt.Errorf("invalid minimum bid increment (%s)", err)
 	}
 
+	if p.MinBidIncrement.Denom != p.MinBuyInFee.Denom || p.MinBidIncrement.Denom != p.ReserveFee.Denom {
+		return fmt.Errorf("mismatched auction fee denoms: minimum bid increment (%s), minimum buy-in fee (%s), reserve fee (%s)", p.MinBidIncrement, p.MinBuyInFee, p.ReserveFee)
+	}
+
 	return validateProposerFee(p.ProposerFee)
 }
 
