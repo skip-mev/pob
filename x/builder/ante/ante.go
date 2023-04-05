@@ -47,7 +47,7 @@ func (ad BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 		}
 
 		if !contains {
-			return ctx, fmt.Errorf("transaction not found in mempool")
+			return ctx, fmt.Errorf("transaction not found in application mempool")
 		}
 	}
 

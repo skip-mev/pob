@@ -36,7 +36,7 @@ type AuctionMempool struct {
 
 	// txIndex is a map of all transactions in the mempool. It is used
 	// to quickly check if a transaction is already in the mempool.
-	txIndex map[string]bool
+	txIndex map[string]struct{}
 }
 
 // AuctionTxPriority returns a TxPriority over auction bid transactions only. It
@@ -98,7 +98,7 @@ func NewAuctionMempool(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx i
 		),
 		txDecoder: txDecoder,
 		txEncoder: txEncoder,
-		txIndex:   make(map[string]bool),
+		txIndex:   make(map[string]struct{}),
 	}
 }
 
@@ -127,7 +127,7 @@ func (am *AuctionMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 		return err
 	}
 
-	am.txIndex[txHashStr] = true
+	am.txIndex[txHashStr] = struct{}{}
 
 	return nil
 }
@@ -216,7 +216,8 @@ func (am *AuctionMempool) Contains(tx sdk.Tx) (bool, error) {
 		return false, fmt.Errorf("failed to get tx hash string: %w", err)
 	}
 
-	return am.txIndex[txHashStr], nil
+	_, ok := am.txIndex[txHashStr]
+	return ok, nil
 }
 
 // getTxHashStr returns the transaction hash string for a given transaction.
