@@ -54,7 +54,7 @@ $ go install github.com/skip-mev/pob
    import (
      proposalhandler "github.com/skip-mev/pob/abci"
      "github.com/skip-mev/pob/mempool"
-     "github.com/skip-mev/pob/x/auction"
+     "github.com/skip-mev/pob/x/builder"
      builderkeeper "github.com/skip-mev/pob/x/builder/keeper"
      buildertypes "github.com/skip-mev/pob/x/builder/types"
      ...
