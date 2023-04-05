@@ -84,20 +84,21 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 	var (
 		// Bid set up
 		bidder  = testutils.RandomAccounts(suite.random, 1)[0]
-		bid     = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
+		bid     = sdk.NewCoin("foo", sdk.NewInt(1000))
 		balance = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(10000)))
 		signers = []testutils.Account{bidder}
+		timeout = uint64(1000)
 
 		// Top bidding auction tx set up
 		topBidder    = testutils.RandomAccounts(suite.random, 1)[0]
-		topBid       = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100)))
+		topBid       = sdk.NewCoin("foo", sdk.NewInt(100))
 		insertTopBid = true
 
 		// Auction setup
 		maxBundleSize          uint32 = 5
-		reserveFee                    = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100)))
-		minBuyInFee                   = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100)))
-		minBidIncrement               = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100)))
+		reserveFee                    = sdk.NewCoin("foo", sdk.NewInt(100))
+		minBuyInFee                   = sdk.NewCoin("foo", sdk.NewInt(100))
+		minBidIncrement               = sdk.NewCoin("foo", sdk.NewInt(100))
 		frontRunningProtection        = true
 	)
 
@@ -117,7 +118,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 			"smaller bid than winning bid, invalid auction tx",
 			func() {
 				insertTopBid = true
-				topBid = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100000)))
+				topBid = sdk.NewCoin("foo", sdk.NewInt(100000))
 			},
 			false,
 		},
@@ -133,8 +134,8 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 			"bid is smaller than reserve fee, invalid auction tx",
 			func() {
 				balance = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(10000)))
-				bid = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(101)))
-				reserveFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
+				bid = sdk.NewCoin("foo", sdk.NewInt(101))
+				reserveFee = sdk.NewCoin("foo", sdk.NewInt(1000))
 			},
 			false,
 		},
@@ -142,9 +143,9 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 			"bid is greater than reserve fee but has insufficient balance to pay the buy in fee",
 			func() {
 				balance = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
-				bid = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(101)))
-				reserveFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100)))
-				minBuyInFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
+				bid = sdk.NewCoin("foo", sdk.NewInt(101))
+				reserveFee = sdk.NewCoin("foo", sdk.NewInt(100))
+				minBuyInFee = sdk.NewCoin("foo", sdk.NewInt(1000))
 			},
 			false,
 		},
@@ -152,19 +153,27 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 			"valid auction bid tx",
 			func() {
 				balance = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(10000)))
-				bid = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
-				reserveFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100)))
-				minBuyInFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100)))
+				bid = sdk.NewCoin("foo", sdk.NewInt(1000))
+				reserveFee = sdk.NewCoin("foo", sdk.NewInt(100))
+				minBuyInFee = sdk.NewCoin("foo", sdk.NewInt(100))
 			},
 			true,
 		},
 		{
+			"invalid auction bid tx with no timeout",
+			func() {
+				timeout = 0
+			},
+			false,
+		},
+		{
 			"auction tx is the top bidding tx",
 			func() {
+				timeout = 1000
 				balance = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(10000)))
-				bid = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
-				reserveFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100)))
-				minBuyInFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100)))
+				bid = sdk.NewCoin("foo", sdk.NewInt(1000))
+				reserveFee = sdk.NewCoin("foo", sdk.NewInt(100))
+				minBuyInFee = sdk.NewCoin("foo", sdk.NewInt(100))
 
 				insertTopBid = true
 				topBidder = bidder
@@ -235,9 +244,9 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 			suite.Require().NoError(err)
 
 			// Insert the top bid into the mempool
-			mempool := mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), 0)
+			mempool := mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), 0)
 			if insertTopBid {
-				topAuctionTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, topBidder, topBid, 0, []testutils.Account{})
+				topAuctionTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, topBidder, topBid, 0, timeout, []testutils.Account{})
 				suite.Require().NoError(err)
 				suite.Require().Equal(0, mempool.CountTx())
 				suite.Require().Equal(0, mempool.CountAuctionTx())
@@ -247,7 +256,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 			}
 
 			// Create the actual auction tx and insert into the mempool
-			auctionTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, 0, signers)
+			auctionTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, 0, timeout, signers)
 			suite.Require().NoError(err)
 
 			// Execute the ante handler

@@ -32,8 +32,8 @@ type ABCITestSuite struct {
 	proposalHandler *abci.ProposalHandler
 
 	// auction bid setup
-	auctionBidAmount sdk.Coins
-	minBidIncrement  sdk.Coins
+	auctionBidAmount sdk.Coin
+	minBidIncrement  sdk.Coin
 
 	// builder setup
 	builderKeeper    keeper.Keeper
@@ -65,9 +65,9 @@ func (suite *ABCITestSuite) SetupTest() {
 	suite.ctx = testCtx.Ctx
 
 	// Mempool set up
-	suite.mempool = mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), 0)
-	suite.auctionBidAmount = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000000000)))
-	suite.minBidIncrement = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
+	suite.mempool = mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), 0)
+	suite.auctionBidAmount = sdk.NewCoin("foo", sdk.NewInt(1000000000))
+	suite.minBidIncrement = sdk.NewCoin("foo", sdk.NewInt(1000))
 
 	// Mock keepers set up
 	ctrl := gomock.NewController(suite.T())
@@ -155,7 +155,7 @@ func (suite *ABCITestSuite) createFilledMempool(numNormalTxs, numAuctionTxs, num
 		randomMsgs := testutils.CreateRandomMsgs(acc.Address, 3)
 
 		nonce := suite.nonces[acc.Address.String()]
-		randomTx, err := testutils.CreateTx(suite.encodingConfig.TxConfig, acc, nonce, randomMsgs)
+		randomTx, err := testutils.CreateTx(suite.encodingConfig.TxConfig, acc, nonce, 100, randomMsgs)
 		suite.Require().NoError(err)
 
 		suite.nonces[acc.Address.String()]++
@@ -180,7 +180,7 @@ func (suite *ABCITestSuite) createFilledMempool(numNormalTxs, numAuctionTxs, num
 
 		// create the auction tx
 		nonce = suite.nonces[acc.Address.String()]
-		auctionTx, err := testutils.CreateTx(suite.encodingConfig.TxConfig, acc, nonce, []sdk.Msg{bidMsg})
+		auctionTx, err := testutils.CreateTx(suite.encodingConfig.TxConfig, acc, nonce, 100, []sdk.Msg{bidMsg})
 		suite.Require().NoError(err)
 
 		// insert the auction tx into the global mempool
@@ -198,7 +198,7 @@ func (suite *ABCITestSuite) createFilledMempool(numNormalTxs, numAuctionTxs, num
 		}
 
 		// decrement the bid amount for the next auction tx
-		suite.auctionBidAmount = suite.auctionBidAmount.Sub(suite.minBidIncrement...)
+		suite.auctionBidAmount = suite.auctionBidAmount.Sub(suite.minBidIncrement)
 	}
 
 	numSeenGlobalTxs := 0
@@ -234,7 +234,7 @@ func (suite *ABCITestSuite) exportMempool(exportRefTxs bool) [][]byte {
 
 	auctionIterator := suite.mempool.AuctionBidSelect(suite.ctx)
 	for ; auctionIterator != nil; auctionIterator = auctionIterator.Next() {
-		auctionTx := auctionIterator.Tx().(*mempool.WrappedBidTx).Tx
+		auctionTx := auctionIterator.Tx()
 		txBz, err := suite.encodingConfig.TxConfig.TxEncoder()(auctionTx)
 		suite.Require().NoError(err)
 
@@ -276,8 +276,8 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 
 		// auction configuration
 		maxBundleSize          uint32 = 10
-		reserveFee                    = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
-		minBuyInFee                   = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
+		reserveFee                    = sdk.NewCoin("foo", sdk.NewInt(1000))
+		minBuyInFee                   = sdk.NewCoin("foo", sdk.NewInt(1000))
 		frontRunningProtection        = true
 	)
 
@@ -315,8 +315,8 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 		{
 			"single bundle in the mempool, not valid",
 			func() {
-				reserveFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100000)))
-				suite.auctionBidAmount = sdk.Coins{sdk.NewCoin("foo", sdk.NewInt(10000))} // this will fail the ante handler
+				reserveFee = sdk.NewCoin("foo", sdk.NewInt(100000))
+				suite.auctionBidAmount = sdk.NewCoin("foo", sdk.NewInt(10000)) // this will fail the ante handler
 				numNormalTxs = 0
 				numAuctionTxs = 1
 				numBundledTxs = 3
@@ -328,8 +328,8 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 		{
 			"single bundle in the mempool, not valid with ref txs in mempool",
 			func() {
-				reserveFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100000)))
-				suite.auctionBidAmount = sdk.Coins{sdk.NewCoin("foo", sdk.NewInt(10000))} // this will fail the ante handler
+				reserveFee = sdk.NewCoin("foo", sdk.NewInt(100000))
+				suite.auctionBidAmount = sdk.NewCoin("foo", sdk.NewInt(10000)) // this will fail the ante handler
 				numNormalTxs = 0
 				numAuctionTxs = 1
 				numBundledTxs = 3
@@ -342,15 +342,15 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 		{
 			"multiple bundles in the mempool, no normal txs + no ref txs in mempool",
 			func() {
-				reserveFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
-				suite.auctionBidAmount = sdk.Coins{sdk.NewCoin("foo", sdk.NewInt(10000000))}
+				reserveFee = sdk.NewCoin("foo", sdk.NewInt(1000))
+				suite.auctionBidAmount = sdk.NewCoin("foo", sdk.NewInt(10000000))
 				numNormalTxs = 0
 				numAuctionTxs = 10
 				numBundledTxs = 3
 				insertRefTxs = false
 			},
 			4,
-			1,
+			10,
 			true,
 		},
 		{
@@ -362,7 +362,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				insertRefTxs = true
 			},
 			31,
-			31,
+			40,
 			true,
 		},
 		{
@@ -417,8 +417,8 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				numAuctionTxs = 1
 				numBundledTxs = 3
 				insertRefTxs = true
-				suite.auctionBidAmount = sdk.Coins{sdk.NewCoin("foo", sdk.NewInt(2000))} // this will fail the ante handler
-				reserveFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000000000)))
+				suite.auctionBidAmount = sdk.NewCoin("foo", sdk.NewInt(2000)) // this will fail the ante handler
+				reserveFee = sdk.NewCoin("foo", sdk.NewInt(1000000000))
 			},
 			4,
 			4,
@@ -427,8 +427,8 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 		{
 			"many normal tx, single auction tx with no ref txs",
 			func() {
-				reserveFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
-				suite.auctionBidAmount = sdk.Coins{sdk.NewCoin("foo", sdk.NewInt(2000000))}
+				reserveFee = sdk.NewCoin("foo", sdk.NewInt(1000))
+				suite.auctionBidAmount = sdk.NewCoin("foo", sdk.NewInt(2000000))
 				numNormalTxs = 100
 				numAuctionTxs = 1
 				numBundledTxs = 0
@@ -470,7 +470,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				insertRefTxs = true
 			},
 			201,
-			201,
+			300,
 			true,
 		},
 	}
@@ -559,8 +559,8 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 
 		// auction set up
 		maxBundleSize          uint32 = 10
-		reserveFee                    = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
-		minBuyInFee                   = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
+		reserveFee                    = sdk.NewCoin("foo", sdk.NewInt(1000))
+		minBuyInFee                   = sdk.NewCoin("foo", sdk.NewInt(1000))
 		frontRunningProtection        = true
 	)
 
@@ -650,7 +650,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 				numNormalTxs = 100
 				numAuctionTxs = 1
 				numBundledTxs = 4
-				reserveFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(100000000000000000)))
+				reserveFee = sdk.NewCoin("foo", sdk.NewInt(100000000000000000))
 				insertRefTxs = true
 			},
 			false,
@@ -662,7 +662,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 				numNormalTxs = 0
 				numAuctionTxs = 1
 				numBundledTxs = 4
-				reserveFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
+				reserveFee = sdk.NewCoin("foo", sdk.NewInt(1000))
 				insertRefTxs = false
 				exportRefTxs = false
 			},
@@ -675,7 +675,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 				numNormalTxs = 100
 				numAuctionTxs = 1
 				numBundledTxs = 4
-				reserveFee = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000)))
+				reserveFee = sdk.NewCoin("foo", sdk.NewInt(1000))
 				insertRefTxs = false
 				exportRefTxs = false
 			},
@@ -687,9 +687,9 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			func() {
 				randomAccount := testutils.RandomAccounts(suite.random, 1)[0]
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(696969696969)))
+				bid := sdk.NewCoin("foo", sdk.NewInt(696969696969))
 				nonce := suite.nonces[bidder.Address.String()]
-				frontRunningTx, _ = testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, suite.accounts[0], bid, nonce+1, []testutils.Account{bidder, randomAccount})
+				frontRunningTx, _ = testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, suite.accounts[0], bid, nonce+1, 1000, []testutils.Account{bidder, randomAccount})
 				suite.Require().NotNil(frontRunningTx)
 
 				numNormalTxs = 100
@@ -706,9 +706,9 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			func() {
 				randomAccount := testutils.RandomAccounts(suite.random, 1)[0]
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(696969696969)))
+				bid := sdk.NewCoin("foo", sdk.NewInt(696969696969))
 				nonce := suite.nonces[bidder.Address.String()]
-				frontRunningTx, _ = testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, suite.accounts[0], bid, nonce+1, []testutils.Account{bidder, randomAccount})
+				frontRunningTx, _ = testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, suite.accounts[0], bid, nonce+1, 1000, []testutils.Account{bidder, randomAccount})
 				suite.Require().NotNil(frontRunningTx)
 
 				numAuctionTxs = 0
@@ -771,6 +771,6 @@ func (suite *ABCITestSuite) isTopBidValid() bool {
 	}
 
 	// check if the top bid is valid
-	_, err := suite.executeAnteHandler(iterator.Tx().(*mempool.WrappedBidTx).Tx)
+	_, err := suite.executeAnteHandler(iterator.Tx())
 	return err == nil
 }

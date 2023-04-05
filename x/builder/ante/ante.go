@@ -2,6 +2,7 @@ package ante
 
 import (
 	"bytes"
+	"fmt"
 
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -27,9 +28,29 @@ func NewBuilderDecorator(ak keeper.Keeper, txDecoder sdk.TxDecoder, txEncoder sd
 	}
 }
 
+type (
+	TxWithTimeoutHeight interface {
+		sdk.Tx
+
+		GetTimeoutHeight() uint64
+	}
+)
+
 // AnteHandle validates that the auction bid is valid if one exists. If valid it will deduct the entrance fee from the
 // bidder's account.
 func (ad BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (sdk.Context, error) {
+	// If comet is re-checking the transaction, we only need to check if the transaction is in the application-side mempool.
+	if ctx.IsReCheckTx() {
+		contains, err := ad.mempool.Contains(tx)
+		if err != nil {
+			return ctx, err
+		}
+
+		if !contains {
+			return ctx, fmt.Errorf("transaction not found in mempool")
+		}
+	}
+
 	auctionMsg, err := mempool.GetMsgAuctionBidFromTx(tx)
 	if err != nil {
 		return ctx, err
@@ -37,6 +58,16 @@ func (ad BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 
 	// Validate the auction bid if one exists.
 	if auctionMsg != nil {
+		auctionTx, ok := tx.(TxWithTimeoutHeight)
+		if !ok {
+			return ctx, fmt.Errorf("transaction does not implement TxWithTimeoutHeight")
+		}
+
+		timeout := auctionTx.GetTimeoutHeight()
+		if timeout == 0 {
+			return ctx, fmt.Errorf("timeout height cannot be zero")
+		}
+
 		bidder, err := sdk.AccAddressFromBech32(auctionMsg.Bidder)
 		if err != nil {
 			return ctx, errors.Wrapf(err, "invalid bidder address (%s)", auctionMsg.Bidder)
@@ -52,7 +83,7 @@ func (ad BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 			transactions[i] = decodedTx
 		}
 
-		topBid := sdk.NewCoins()
+		topBid := sdk.Coin{}
 
 		// If the current transaction is the highest bidding transaction, then the highest bid is empty.
 		isTopBidTx, err := ad.IsTopBidTx(ctx, tx)
@@ -77,13 +108,18 @@ func (ad BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 }
 
 // GetTopAuctionBid returns the highest auction bid if one exists.
-func (ad BuilderDecorator) GetTopAuctionBid(ctx sdk.Context) (sdk.Coins, error) {
+func (ad BuilderDecorator) GetTopAuctionBid(ctx sdk.Context) (sdk.Coin, error) {
 	auctionTx := ad.mempool.GetTopAuctionTx(ctx)
 	if auctionTx == nil {
-		return sdk.NewCoins(), nil
+		return sdk.Coin{}, nil
 	}
 
-	return auctionTx.(*mempool.WrappedBidTx).GetBid(), nil
+	auctionMsgBid, err := mempool.GetMsgAuctionBidFromTx(auctionTx)
+	if err != nil {
+		return sdk.Coin{}, err
+	}
+
+	return auctionMsgBid.Bid, nil
 }
 
 // IsTopBidTx returns true if the transaction inputted is the highest bidding auction transaction in the mempool.
@@ -93,8 +129,7 @@ func (ad BuilderDecorator) IsTopBidTx(ctx sdk.Context, tx sdk.Tx) (bool, error) 
 		return false, nil
 	}
 
-	topBidTx := mempool.UnwrapBidTx(auctionTx)
-	topBidBz, err := ad.txEncoder(topBidTx)
+	topBidBz, err := ad.txEncoder(auctionTx)
 	if err != nil {
 		return false, err
 	}

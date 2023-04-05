@@ -7,7 +7,7 @@ import (
 )
 
 // ValidateAuctionMsg validates that the MsgAuctionBid can be included in the auction.
-func (k Keeper) ValidateAuctionMsg(ctx sdk.Context, bidder sdk.AccAddress, bid, highestBid sdk.Coins, transactions []sdk.Tx) error {
+func (k Keeper) ValidateAuctionMsg(ctx sdk.Context, bidder sdk.AccAddress, bid, highestBid sdk.Coin, transactions []sdk.Tx) error {
 	// Validate the bundle size.
 	maxBundleSize, err := k.GetMaxBundleSize(ctx)
 	if err != nil {
@@ -40,26 +40,30 @@ func (k Keeper) ValidateAuctionMsg(ctx sdk.Context, bidder sdk.AccAddress, bid, 
 
 // ValidateAuctionBid validates that the bidder has sufficient funds to participate in the auction and that the bid amount
 // is sufficiently high enough.
-func (k Keeper) ValidateAuctionBid(ctx sdk.Context, bidder sdk.AccAddress, bid, highestBid sdk.Coins) error {
+func (k Keeper) ValidateAuctionBid(ctx sdk.Context, bidder sdk.AccAddress, bid, highestBid sdk.Coin) error {
 	// Get the bid floor.
 	reserveFee, err := k.GetReserveFee(ctx)
 	if err != nil {
 		return err
 	}
 
-	if !bid.IsAllGTE(reserveFee) {
+	if bid.IsNil() {
+		return fmt.Errorf("bid amount cannot be nil")
+	}
+
+	if !bid.IsGTE(reserveFee) {
 		return fmt.Errorf("bid amount (%s) is less than the reserve fee (%s)", bid, reserveFee)
 	}
 
-	if !highestBid.Empty() {
+	if !highestBid.IsNil() {
 		// Ensure the bid is greater than the highest bid + min bid increment.
 		minBidIncrement, err := k.GetMinBidIncrement(ctx)
 		if err != nil {
 			return err
 		}
 
-		minBid := highestBid.Add(minBidIncrement...)
-		if !bid.IsAllGTE(minBid) {
+		minBid := highestBid.Add(minBidIncrement)
+		if !bid.IsGTE(minBid) {
 			return fmt.Errorf("bid amount (%s) is less than the highest bid (%s) + min bid increment (%s)", bid, highestBid, minBidIncrement)
 		}
 	}
@@ -71,9 +75,9 @@ func (k Keeper) ValidateAuctionBid(ctx sdk.Context, bidder sdk.AccAddress, bid, 
 	}
 
 	// Ensure the bidder has enough funds to cover all the inclusion fees.
-	minBalance := bid.Add(minBuyInFee...)
+	minBalance := bid.Add(minBuyInFee)
 	balances := k.bankKeeper.GetAllBalances(ctx, bidder)
-	if !balances.IsAllGTE(minBalance) {
+	if !balances.IsAllGTE(sdk.NewCoins(minBalance)) {
 		return fmt.Errorf("insufficient funds to bid %s (reserve fee + bid) with balance %s", minBalance, balances)
 	}
 

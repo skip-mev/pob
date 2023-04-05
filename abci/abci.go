@@ -53,11 +53,14 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		bidTxIterator := h.mempool.AuctionBidSelect(ctx)
 		txsToRemove := make(map[sdk.Tx]struct{}, 0)
 
+		// countTx := h.mempool.CountTx()
+		// auctionTx := h.mempool.CountAuctionTx()
+
 		// Attempt to select the highest bid transaction that is valid and whose
 		// bundled transactions are valid.
 	selectBidTxLoop:
 		for ; bidTxIterator != nil; bidTxIterator = bidTxIterator.Next() {
-			tmpBidTx := mempool.UnwrapBidTx(bidTxIterator.Tx())
+			tmpBidTx := bidTxIterator.Tx()
 
 			bidTxBz, err := h.txVerifier.PrepareProposalVerifyTx(tmpBidTx)
 			if err != nil {
@@ -141,6 +144,18 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		for ; iterator != nil; iterator = iterator.Next() {
 			memTx := iterator.Tx()
 
+			isAuctionTx, err := h.IsAuctionTx(memTx)
+			if err != nil {
+				txsToRemove[memTx] = struct{}{}
+				continue selectTxLoop
+			}
+
+			if isAuctionTx {
+				// We've already selected the highest bid transaction, so we can skip
+				// all other auction transactions.
+				continue selectTxLoop
+			}
+
 			txBz, err := h.txVerifier.PrepareProposalVerifyTx(memTx)
 			if err != nil {
 				txsToRemove[memTx] = struct{}{}
@@ -167,6 +182,9 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		for tx := range txsToRemove {
 			h.RemoveTx(tx)
 		}
+
+		// log := fmt.Sprintf("\n\n\n\nselected %d txs\n\nbefore proposal: (global mempool, auction mempool) (%d, %d)\nafter proposal: (global mempool, auction mempool) (%d, %d)\n\n\n\n", len(selectedTxs), countTx, auctionTx, h.mempool.CountTx(), h.mempool.CountAuctionTx())
+		// fmt.Println(log)
 
 		return abci.ResponsePrepareProposal{Txs: selectedTxs}
 	}
@@ -215,4 +233,13 @@ func (h *ProposalHandler) RemoveTx(tx sdk.Tx) {
 	if err := h.mempool.RemoveWithoutRefTx(tx); err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
 		panic(fmt.Errorf("failed to remove invalid transaction from the mempool: %w", err))
 	}
+}
+
+func (h *ProposalHandler) IsAuctionTx(tx sdk.Tx) (bool, error) {
+	msgAuctionBid, err := mempool.GetMsgAuctionBidFromTx(tx)
+	if err != nil {
+		return false, err
+	}
+
+	return msgAuctionBid != nil, nil
 }

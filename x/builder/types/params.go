@@ -9,19 +9,19 @@ import (
 
 var (
 	DefaultMaxBundleSize          uint32 = 2
-	DefaultEscrowAccountAddress   string
-	DefaultReserveFee             = sdk.Coins{}
-	DefaultMinBuyInFee            = sdk.Coins{}
-	DefaultMinBidIncrement        = sdk.Coins{}
-	DefaultFrontRunningProtection = true
-	DefaultProposerFee            = sdk.ZeroDec()
+	DefaultEscrowAccountAddress   string = "cosmos13aysrj3fnmscsfshkxhrskeu6q6x837cvs78qd"
+	DefaultReserveFee                    = sdk.NewCoin("stake", sdk.NewInt(10_000_000))
+	DefaultMinBuyInFee                   = sdk.NewCoin("stake", sdk.NewInt(1_000_000))
+	DefaultMinBidIncrement               = sdk.NewCoin("stake", sdk.NewInt(20_000_000))
+	DefaultFrontRunningProtection        = true
+	DefaultProposerFee                   = sdk.NewDecWithPrec(1, 2)
 )
 
 // NewParams returns a new Params instance with the provided values.
 func NewParams(
 	maxBundleSize uint32,
 	escrowAccountAddress string,
-	reserveFee, minBuyInFee, minBidIncrement sdk.Coins,
+	reserveFee, minBuyInFee, minBidIncrement sdk.Coin,
 	frontRunningProtection bool,
 	proposerFee sdk.Dec,
 ) Params {
@@ -55,19 +55,27 @@ func (p Params) Validate() error {
 		return err
 	}
 
-	if err := p.ReserveFee.Validate(); err != nil {
+	if err := validateFee(p.ReserveFee); err != nil {
 		return fmt.Errorf("invalid reserve fee (%s)", err)
 	}
 
-	if err := p.MinBuyInFee.Validate(); err != nil {
+	if err := validateFee(p.MinBuyInFee); err != nil {
 		return fmt.Errorf("invalid minimum buy-in fee (%s)", err)
 	}
 
-	if err := p.MinBidIncrement.Validate(); err != nil {
+	if err := validateFee(p.MinBidIncrement); err != nil {
 		return fmt.Errorf("invalid minimum bid increment (%s)", err)
 	}
 
 	return validateProposerFee(p.ProposerFee)
+}
+
+func validateFee(fee sdk.Coin) error {
+	if fee.IsNil() {
+		return fmt.Errorf("fee cannot be nil: %s", fee)
+	}
+
+	return fee.Validate()
 }
 
 func validateProposerFee(v sdk.Dec) error {
