@@ -229,7 +229,7 @@ func (h *ProposalHandler) RemoveTx(tx sdk.Tx) {
 	}
 }
 
-func (h *ProposalHandler) IsAuctionTx(tx sdk.Tx) (bool, error) {
+func (h *ProposalHandler) isAuctionTx(tx sdk.Tx) (bool, error) {
 	msgAuctionBid, err := mempool.GetMsgAuctionBidFromTx(tx)
 	if err != nil {
 		return false, err
