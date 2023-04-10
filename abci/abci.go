@@ -98,14 +98,14 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 				selectedTxs = append(selectedTxs, bidMsg.Transactions...)
 
 				break selectBidTxLoop
-			} else {
-				txsToRemove[tmpBidTx] = struct{}{}
-				h.logger.Info(
-					"failed to select auction bid tx; tx size is too large; skipping auction",
-					"tx_size", bidTxSize,
-					"max_size", req.MaxTxBytes,
-				)
 			}
+
+			txsToRemove[tmpBidTx] = struct{}{}
+			h.logger.Info(
+				"failed to select auction bid tx; tx size is too large; skipping auction",
+				"tx_size", bidTxSize,
+				"max_size", req.MaxTxBytes,
+			)
 		}
 
 		// Remove all invalid transactions from the mempool.
