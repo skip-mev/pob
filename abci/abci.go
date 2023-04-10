@@ -63,11 +63,11 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 
 			bidTxSize := int64(len(bidTxBz))
 			if bidTxSize <= req.MaxTxBytes {
-				// This should never happen, as CheckTx will ensure only valid bids
-				// enter the mempool, but in case it does, we need to remove the
-				// transaction from the mempool.
 				bidMsg, err := mempool.GetMsgAuctionBidFromTx(tmpBidTx)
 				if err != nil {
+					// This should never happen, as CheckTx will ensure only valid bids
+					// enter the mempool, but in case it does, we need to remove the
+					// transaction from the mempool.
 					txsToRemove[tmpBidTx] = struct{}{}
 					continue selectBidTxLoop
 				}
@@ -191,13 +191,4 @@ func (h *ProposalHandler) RemoveTx(tx sdk.Tx) {
 	if err := h.mempool.RemoveWithoutRefTx(tx); err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
 		panic(fmt.Errorf("failed to remove invalid transaction from the mempool: %w", err))
 	}
-}
-
-func (h *ProposalHandler) isAuctionTx(tx sdk.Tx) (bool, error) {
-	msgAuctionBid, err := mempool.GetMsgAuctionBidFromTx(tx)
-	if err != nil {
-		return false, err
-	}
-
-	return msgAuctionBid != nil, nil
 }
