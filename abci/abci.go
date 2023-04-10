@@ -143,7 +143,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 
 			// We've already selected the highest bid transaction, so we can skip
 			// all other auction transactions.
-			isAuctionTx, err := h.IsAuctionTx(memTx)
+			isAuctionTx, err := h.isAuctionTx(memTx)
 			if err != nil {
 				txsToRemove[memTx] = struct{}{}
 				continue selectTxLoop
