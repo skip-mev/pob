@@ -127,8 +127,6 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 				continue selectTxLoop
 			}
 
-			// Referenced/bundled transaction may exist in the mempool, so we explicitly
-			// check prior to considering the transaction.
 			txSize := int64(len(txBz))
 			if totalTxBytes += txSize; totalTxBytes <= req.MaxTxBytes {
 				selectedTxs = append(selectedTxs, txBz)

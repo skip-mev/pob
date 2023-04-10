@@ -111,6 +111,7 @@ func (am *AuctionMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 		return err
 	}
 
+	// Insert the transactions into the appropriate index.
 	switch {
 	case msg == nil:
 		if err := am.globalIndex.Insert(ctx, tx); err != nil {
@@ -141,13 +142,14 @@ func (am *AuctionMempool) Remove(tx sdk.Tx) error {
 		return err
 	}
 
+	// Remove the transactions from the appropriate index.
 	switch {
 	case msg == nil:
 		am.removeTx(am.globalIndex, tx)
 	case msg != nil:
 		am.removeTx(am.auctionIndex, tx)
 
-		// remove all referenced transactions from the global mempool
+		// Remove all referenced transactions from the global mempool.
 		for _, refRawTx := range msg.GetTransactions() {
 			refTx, err := am.txDecoder(refRawTx)
 			if err != nil {
