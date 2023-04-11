@@ -94,14 +94,12 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 
 				// At this point, both the bid transaction itself and all the bundled
 				// transactions are valid. So we select the bid transaction along with
-				// all the bundled transactions. We also mark these transactions and
+				// all the bundled transactions. We also mark these transactions as seen and
 				// update the total size selected thus far.
 				totalTxBytes += bidTxSize
 				selectedTxs = append(selectedTxs, bidTxBz)
 				selectedTxs = append(selectedTxs, bidMsg.Transactions...)
 
-				// We also need to mark the bundled transactions as seen so that they
-				// are not selected again.
 				for _, refTxRaw := range bidMsg.Transactions {
 					hash := sha256.Sum256(refTxRaw)
 					txHash := hex.EncodeToString(hash[:])
