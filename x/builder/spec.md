@@ -157,7 +157,7 @@ message MsgAuctionBid {
 
 
 ### `MsgUpdateParams`
-The `MsgUpdateParams` message can be called only by an authority address that is defined by the application. This will typically be the address of the governance module account. This message handler is responsible for updating the configuration of the auction and `x/builder` module. 
+The `MsgUpdateParams` message can be executed only by an authority address that is defined by the application. This will typically be the address of the governance module account. This message handler is responsible for updating the configuration of the auction and `x/builder` module. 
 
 ```protobuf
 // MsgUpdateParams defines a request type for updating the x/builder module
