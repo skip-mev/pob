@@ -32,7 +32,7 @@ func TestMempoolTestSuite(t *testing.T) {
 func (suite *IntegrationTestSuite) SetupTest() {
 	// Mempool setup
 	suite.encCfg = testutils.CreateTestEncodingConfig()
-	suite.mempool = mempool.NewAuctionMempool(suite.encCfg.TxConfig.TxDecoder(), 0)
+	suite.mempool = mempool.NewAuctionMempool(suite.encCfg.TxConfig.TxDecoder(), suite.encCfg.TxConfig.TxEncoder(), 0)
 	suite.ctx = sdk.NewContext(nil, cmtproto.Header{}, false, log.NewNopLogger())
 
 	// Init accounts
@@ -58,12 +58,15 @@ func (suite *IntegrationTestSuite) CreateFilledMempool(numNormalTxs, numAuctionT
 		acc := suite.accounts[randomIndex]
 		nonce := suite.nonces[acc.Address.String()]
 		randomMsgs := testutils.CreateRandomMsgs(acc.Address, 3)
-		randomTx, err := testutils.CreateTx(suite.encCfg.TxConfig, acc, nonce, randomMsgs)
+		randomTx, err := testutils.CreateTx(suite.encCfg.TxConfig, acc, nonce, 100, randomMsgs)
 		suite.Require().NoError(err)
 
 		suite.nonces[acc.Address.String()]++
 		priority := suite.random.Int63n(100) + 1
 		suite.Require().NoError(suite.mempool.Insert(suite.ctx.WithPriority(priority), randomTx))
+		contains, err := suite.mempool.Contains(randomTx)
+		suite.Require().NoError(err)
+		suite.Require().True(contains)
 	}
 
 	suite.Require().Equal(numNormalTxs, suite.mempool.CountTx())
@@ -84,11 +87,14 @@ func (suite *IntegrationTestSuite) CreateFilledMempool(numNormalTxs, numAuctionT
 
 		// create the auction tx
 		nonce = suite.nonces[acc.Address.String()]
-		auctionTx, err := testutils.CreateTx(suite.encCfg.TxConfig, acc, nonce, []sdk.Msg{bidMsg})
+		auctionTx, err := testutils.CreateTx(suite.encCfg.TxConfig, acc, nonce, 1000, []sdk.Msg{bidMsg})
 		suite.Require().NoError(err)
 
 		// insert the auction tx into the global mempool
 		suite.Require().NoError(suite.mempool.Insert(suite.ctx.WithPriority(priority), auctionTx))
+		contains, err := suite.mempool.Contains(auctionTx)
+		suite.Require().NoError(err)
+		suite.Require().True(contains)
 		suite.nonces[acc.Address.String()]++
 
 		if insertRefTxs {
@@ -96,6 +102,9 @@ func (suite *IntegrationTestSuite) CreateFilledMempool(numNormalTxs, numAuctionT
 				refTx, err := suite.encCfg.TxConfig.TxDecoder()(refRawTx)
 				suite.Require().NoError(err)
 				suite.Require().NoError(suite.mempool.Insert(suite.ctx.WithPriority(priority), refTx))
+				contains, err = suite.mempool.Contains(refTx)
+				suite.Require().NoError(err)
+				suite.Require().True(contains)
 			}
 		}
 	}
@@ -130,6 +139,9 @@ func (suite *IntegrationTestSuite) TestAuctionMempoolRemove() {
 	// Ensure that the auction tx was removed from the auction and global mempool
 	suite.Require().Equal(numberAuctionTxs-1, suite.mempool.CountAuctionTx())
 	suite.Require().Equal(numMempoolTxs-1, suite.mempool.CountTx())
+	contains, err := suite.mempool.Contains(tx)
+	suite.Require().NoError(err)
+	suite.Require().False(contains)
 
 	// Attempt to remove again and ensure that the tx is not found
 	suite.Require().NoError(suite.mempool.RemoveWithoutRefTx(tx))
@@ -140,6 +152,14 @@ func (suite *IntegrationTestSuite) TestAuctionMempoolRemove() {
 	suite.Require().NoError(suite.mempool.Remove(tx))
 	suite.Require().Equal(numberAuctionTxs-1, suite.mempool.CountAuctionTx())
 	suite.Require().Equal(numMempoolTxs-numberBundledTxs-1, suite.mempool.CountTx())
+
+	auctionMsg, err := mempool.GetMsgAuctionBidFromTx(tx)
+	suite.Require().NoError(err)
+	for _, refTx := range auctionMsg.GetTransactions() {
+		tx, err := suite.encCfg.TxConfig.TxDecoder()(refTx)
+		suite.Require().NoError(err)
+		suite.Require().False(suite.mempool.Contains(tx))
+	}
 }
 
 func (suite *IntegrationTestSuite) TestAuctionMempoolSelect() {
