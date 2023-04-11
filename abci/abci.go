@@ -2,6 +2,8 @@ package abci
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -47,6 +49,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 
 		bidTxIterator := h.mempool.AuctionBidSelect(ctx)
 		txsToRemove := make(map[sdk.Tx]struct{}, 0)
+		seenTxs := make(map[string]struct{}, 0)
 
 		// Attempt to select the highest bid transaction that is valid and whose
 		// bundled transactions are valid.
@@ -91,21 +94,28 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 
 				// At this point, both the bid transaction itself and all the bundled
 				// transactions are valid. So we select the bid transaction along with
-				// all the bundled transactions. We also mark these transactions and
+				// all the bundled transactions. We also mark these transactions as seen and
 				// update the total size selected thus far.
 				totalTxBytes += bidTxSize
 				selectedTxs = append(selectedTxs, bidTxBz)
 				selectedTxs = append(selectedTxs, bidMsg.Transactions...)
 
+				for _, refTxRaw := range bidMsg.Transactions {
+					hash := sha256.Sum256(refTxRaw)
+					txHash := hex.EncodeToString(hash[:])
+					seenTxs[txHash] = struct{}{}
+				}
+
 				// Write the cache context to the original context when we know we have a
 				// valid top of block bundle.
 				write()
+
 				break selectBidTxLoop
 			}
 
 			txsToRemove[tmpBidTx] = struct{}{}
 			h.logger.Info(
-				"failed to select auction bid tx; tx size is too large; skipping auction",
+				"failed to select auction bid tx; tx size is too large",
 				"tx_size", bidTxSize,
 				"max_size", req.MaxTxBytes,
 			)
@@ -124,7 +134,21 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 	selectTxLoop:
 		for ; iterator != nil; iterator = iterator.Next() {
 			memTx := iterator.Tx()
-			txBz, err := h.PrepareProposalVerifyTx(ctx, memTx)
+
+			// If the transaction is already included in the proposal, then we skip it.
+			txBz, err := h.txEncoder(memTx)
+			if err != nil {
+				txsToRemove[memTx] = struct{}{}
+				continue selectTxLoop
+			}
+
+			hash := sha256.Sum256(txBz)
+			txHash := hex.EncodeToString(hash[:])
+			if _, ok := seenTxs[txHash]; ok {
+				continue selectTxLoop
+			}
+
+			txBz, err = h.txVerifier.PrepareProposalVerifyTx(memTx)
 			if err != nil {
 				txsToRemove[memTx] = struct{}{}
 				continue selectTxLoop
