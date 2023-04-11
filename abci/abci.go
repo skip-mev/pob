@@ -2,6 +2,8 @@ package abci
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -48,6 +50,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 
 		bidTxIterator := h.mempool.AuctionBidSelect(ctx)
 		txsToRemove := make(map[sdk.Tx]struct{}, 0)
+		seenTxs := make(map[string]struct{}, 0)
 
 		// Attempt to select the highest bid transaction that is valid and whose
 		// bundled transactions are valid.
@@ -97,12 +100,20 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 				selectedTxs = append(selectedTxs, bidTxBz)
 				selectedTxs = append(selectedTxs, bidMsg.Transactions...)
 
+				// We also need to mark the bundled transactions as seen so that they
+				// are not selected again.
+				for _, refTxRaw := range bidMsg.Transactions {
+					hash := sha256.Sum256(refTxRaw)
+					txHash := hex.EncodeToString(hash[:])
+					seenTxs[txHash] = struct{}{}
+				}
+
 				break selectBidTxLoop
 			}
 
 			txsToRemove[tmpBidTx] = struct{}{}
 			h.logger.Info(
-				"failed to select auction bid tx; tx size is too large; skipping auction",
+				"failed to select auction bid tx; tx size is too large",
 				"tx_size", bidTxSize,
 				"max_size", req.MaxTxBytes,
 			)
@@ -121,7 +132,21 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 	selectTxLoop:
 		for ; iterator != nil; iterator = iterator.Next() {
 			memTx := iterator.Tx()
-			txBz, err := h.txVerifier.PrepareProposalVerifyTx(memTx)
+
+			// If the transaction is already included in the proposal, then we skip it.
+			txBz, err := h.txEncoder(memTx)
+			if err != nil {
+				txsToRemove[memTx] = struct{}{}
+				continue selectTxLoop
+			}
+
+			hash := sha256.Sum256(txBz)
+			txHash := hex.EncodeToString(hash[:])
+			if _, ok := seenTxs[txHash]; ok {
+				continue selectTxLoop
+			}
+
+			txBz, err = h.txVerifier.PrepareProposalVerifyTx(memTx)
 			if err != nil {
 				txsToRemove[memTx] = struct{}{}
 				continue selectTxLoop
