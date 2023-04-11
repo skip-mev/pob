@@ -1,6 +1,8 @@
 # x/builder
 # Abstract
-The `x/builder` module is a new Cosmos SDK module that provides users a mechansim to participate in auctions for exclusive rights to top of block execution. The `x/builder` module introduces a new `MsgAuctionBid` message that allows users to submit special auction transactions that include a bundle of transactions alongside a bid. The `x/builder` module works alongside the `AuctionMempool` - a customized `PriorityNonce` mempool - to introduce state transitions. Auctions are held directly in the `AuctionMempool` where the winner is determined when the proposer proposes a new block in `PrepareProposal`. `x/builder` provides the necessary validation of auction bids and subsequent state transitions to extract bids. To read more about the `AuctionMempool` and how it conducts the auction, see the `POB` specification.
+The `x/builder` module is a new Cosmos SDK module that allows Cosmos chains to host top of block auctions directly in-protocol with auction revenue (MEV) being redistributed according to the preferences of the chain. The `x/builder` module introduces a new `MsgAuctionBid` message that allows users to submit a bid alongside an ordered list of transactions (**bundle**) that they want executed at the top of the block before any other transactions are executed for that block. The `x/builder` module works alongside the `AuctionMempool` such that
+- Auctions are held directly in the `AuctionMempool` - where a winner is determined when the proposer proposes a new block in `PrepareProposal`
+- `x/builder` provides the necessary validation of auction bids and subsequent state transitions to extract bids
 
 # Concepts
 ## Miner Extractable Value (MEV)
@@ -21,10 +23,9 @@ MEV refers to the potential profit that miners (or validators in a Proof-of-Stak
 MEV is a topic of concern in the blockchain community because it can lead to unfair advantages for validators, reduced trust in the system, and a potential concentration of power. Various approaches have been proposed to mitigate MEV, such as proposer-builder separation (described below) and transparent and fair transaction ordering mechanisms at the protocol-level (`POB`) to make MEV extraction more incentive aligned with the users and blockchain ecosystem.
 
 ## Proposer Builder Separation (PBS)
-Proposer-builder separation is a concept in the design of blockchain protocols, specifically in the context of transaction ordering within a block. In traditional blockchain systems, validators perform two main tasks: they create new blocks (acting as proposers) and determine the ordering of transactions within those blocks (acting as builders).
-
+Proposer-builder separation is a concept in the design of blockchain protocols, specifically in the context of transaction ordering within a block. In traditional blockchain systems, validators perform two main tasks: they create new blocks (acting as proposers) and determine the ordering of transactions within those blocks (acting as builders). 
 ### How PBS works
-**Proposers**: They are responsible for creating and broadcasting new blocks, just like in traditional blockchain systems. However, they no longer determine the ordering of transactions within those blocks.
+**Proposers**: They are responsible for creating and broadcasting new blocks, just like in traditional blockchain systems. *However, they no longer determine the ordering of transactions within those blocks.*
 
 **Builders**: They have the exclusive role of determining the order of transactions within a block - can be full or partial block. Builders submit their proposed transaction orderings to an auction mechanism, which selects the winning template based on predefined criteria (e.g., highest bid).
 
@@ -34,10 +35,21 @@ This dual role can lead to potential issues, such as front-running and other man
 - *Centralization risks*: With PBS, there's a risk that a few dominant builders may emerge, leading to centralization of transaction ordering. This centralization could result in a lack of diversity in transaction ordering algorithms and an increased potential for collusion or manipulation by the dominant builders.
 - *Incentive misalignments*: The bidding process may create perverse incentives for builders. For example, builders may be incentivized to include only high-fee transactions to maximize their profits, potentially leading to a neglect of lower-fee transactions. Additionally, builders may be incentivized to build blocks that include **bad-MEV** strategies because they are more profitable. 
 
+# Mempool
+As the lifeblood of blockchains, mempools serve as the intermediary space for pending transactions, playing a vital role in transaction management, fee markets, and network health. With ABCI++, mempools can be defined at the application layer (app.go) instead of the consensus layer (CometBFT). This means applications can define their own mempools that have their own custom verification, block building, and state transition logic. Adding on, these changes make it such that blocks are built (`PrepareProposal`) and verified (`ProcessProposal`) directly in the application layer.
+
+To that, `x/builder` utilizes two different application-side mempools: a general global mempool that accepts normal transactions and an `AuctionMempool` that only accepts auction transactions - where an auction transaction is defined to be a standard `sdk.Tx` transaction that includes a single `MsgAuctionBid` message. While the general mempool orders transactions on priority as given by the application, the `AuctionMempool` orders transactions relative to a bid. Both of these mempool's are modified versions of the out of the box `PriorityNonce` mempool that is provided by Cosmos SDK 0.47.0. 
+
+### Prepare Proposal
+After the proposer of the next block has been selected, the proposer will call `PrepareProposal` to build the next block. The block will be built in two stages. First, it will host the auction and include the winning bidder's bundle as the first set of transactions for the block. The auction currently supports only a single winner. Selecting the auction winner involves a greedy search for a valid auction transaction starting from highest paying bid (respecting user nonce) in the `AuctionMempool`. The `x/builder`'s antehandler is responsible for verifying the auction transaction based on the criteria described below (see **Ante Handler**).
+
+Then, it will build the rest of the block by reaping and validating the transactions in the normal global mempool. The second portion of block building iterates from highest to lowest priority transactions in the global mempool and adds them to the proposal if they are valid. If the proposer comes across a transaction that was already included in the top of block, it will be ignored.
 
 
-## Top of Block Auctions
-In a top-of-block auction system, builders compete to have their proposed transaction orderings included in the next block. They submit bids in a transparent, open auction, typically using a native cryptocurrency. The winning builder's transaction ordering is then used in the next block, and the builder receives a portion of the transaction fees as a reward.
+### Process Proposal
+After the proposer proposes a block of transactions for the next block, the block will be verifed by other nodes in the network in `ProcessProposal`. If there is an auction transaction in the proposal, it must be the first transaction in the proposal and all bundled transactions must follow the auction transaction in the exact order we would expect them to be seen. If this fails, the proposal is rejected. If this passes, the validator will then run `CheckTx` on all of the transactions in the block in the order in which they were provided in the proposal.
+
+
 
 # State
 ## State Objects
@@ -163,3 +175,16 @@ message MsgUpdateParams {
   Params params = 2 [ (gogoproto.nullable) = false ];
 }
 ```
+# Clients
+## gRPC & REST
+### Queries
+| Verb | Method | Description |
+| --- | --- | --- | 
+| gRPC | skipmev.pob.builder.v1.Query/Params | Retrieve the parameters for the `x/builder` module |
+| REST | /pob/builder/v1/params | Retrieve the parameters for the `x/builder` module |
+
+### Transactions
+| Verb | Method | Description |
+| --- | --- | --- | 
+| gRPC | skipmev.pob.builder.v1.Msg/AuctionBid | Submit bids to the auction to be considered for top of block execution |
+| REST | /pob/builder/v1/bid | Submit bids to the auction to be considered for top of block execution |
