@@ -148,7 +148,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 				continue selectTxLoop
 			}
 
-			txBz, err = h.txVerifier.PrepareProposalVerifyTx(memTx)
+			txBz, err = h.PrepareProposalVerifyTx(ctx, memTx)
 			if err != nil {
 				txsToRemove[memTx] = struct{}{}
 				continue selectTxLoop
