@@ -1,4 +1,4 @@
-# x/builder
+# POB Specification
 # Abstract
 The `x/builder` module is a new Cosmos SDK module that allows Cosmos chains to host top of block auctions directly in-protocol with auction revenue (MEV) being redistributed according to the preferences of the chain. The `x/builder` module introduces a new `MsgAuctionBid` message that allows users to submit a bid alongside an ordered list of transactions (**bundle**) that they want executed at the top of the block before any other transactions are executed for that block. The `x/builder` module works alongside the `AuctionMempool` such that
 - Auctions are held directly in the `AuctionMempool` - where a winner is determined when the proposer proposes a new block in `PrepareProposal`
