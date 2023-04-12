@@ -24,6 +24,26 @@ jobs:
           # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
           version: latest
           only-new-issues: true
-  markdown:
-    name: Markdown Linting Action
-    uses: avto-dev/markdown-lint@v1.5.0
+  lint-changelog:
+    name: Lint changelog file
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+
+    - name: Lint changelog file
+      uses: docker://avtodev/markdown-lint:v1 # fastest way
+      with:
+        rules: '/lint/rules/changelog.js'
+        config: '/lint/config/changelog.yml'
+        args: './CHANGELOG.md'
+        ignore: './one_file.md ./another_file.md' # multiple files must be separated with single space
+
+    # Or using current repository as action:
+
+    - name: Lint changelog file
+      uses: avto-dev/markdown-lint@v1
+      with:
+        rules: '/lint/rules/changelog.js'
+        config: '/lint/config/changelog.yml'
+        args: './CHANGELOG.md'
