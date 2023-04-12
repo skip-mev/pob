@@ -2,6 +2,9 @@ package abci_test
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"math/rand"
 	"testing"
 	"time"
@@ -30,6 +33,7 @@ type ABCITestSuite struct {
 	logger          log.Logger
 	encodingConfig  testutils.EncodingConfig
 	proposalHandler *abci.ProposalHandler
+	txs             map[string]struct{}
 
 	// auction bid setup
 	auctionBidAmount sdk.Coin
@@ -66,6 +70,7 @@ func (suite *ABCITestSuite) SetupTest() {
 
 	// Mempool set up
 	suite.mempool = mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), 0)
+	suite.txs = make(map[string]struct{})
 	suite.auctionBidAmount = sdk.NewCoin("foo", sdk.NewInt(1000000000))
 	suite.minBidIncrement = sdk.NewCoin("foo", sdk.NewInt(1000))
 
@@ -102,46 +107,37 @@ func (suite *ABCITestSuite) SetupTest() {
 
 	// Proposal handler set up
 	suite.logger = log.NewNopLogger()
-	suite.proposalHandler = abci.NewProposalHandler(suite.mempool, suite.logger, suite, suite.encodingConfig.TxConfig.TxEncoder(), suite.encodingConfig.TxConfig.TxDecoder())
+	suite.proposalHandler = abci.NewProposalHandler(suite.mempool, suite.logger, suite.anteHandler, suite.encodingConfig.TxConfig.TxEncoder(), suite.encodingConfig.TxConfig.TxDecoder())
 }
 
-func (suite *ABCITestSuite) PrepareProposalVerifyTx(tx sdk.Tx) ([]byte, error) {
-	_, err := suite.executeAnteHandler(tx)
-	if err != nil {
-		return nil, err
-	}
-
-	txBz, err := suite.encodingConfig.TxConfig.TxEncoder()(tx)
-	if err != nil {
-		return nil, err
-	}
-
-	return txBz, nil
-}
-
-func (suite *ABCITestSuite) ProcessProposalVerifyTx(txBz []byte) (sdk.Tx, error) {
-	tx, err := suite.encodingConfig.TxConfig.TxDecoder()(txBz)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = suite.executeAnteHandler(tx)
-	if err != nil {
-		return tx, err
-	}
-
-	return tx, nil
-}
-
-func (suite *ABCITestSuite) executeAnteHandler(tx sdk.Tx) (sdk.Context, error) {
+func (suite *ABCITestSuite) anteHandler(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
 	signer := tx.GetMsgs()[0].GetSigners()[0]
-	suite.bankKeeper.EXPECT().GetAllBalances(suite.ctx, signer).AnyTimes().Return(suite.balances)
+	suite.bankKeeper.EXPECT().GetAllBalances(ctx, signer).AnyTimes().Return(suite.balances)
 
 	next := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
 		return ctx, nil
 	}
 
-	return suite.builderDecorator.AnteHandle(suite.ctx, tx, false, next)
+	ctx, err := suite.builderDecorator.AnteHandle(ctx, tx, false, next)
+	if err != nil {
+		return ctx, err
+	}
+
+	bz, err := suite.encodingConfig.TxConfig.TxEncoder()(tx)
+	if err != nil {
+		return ctx, err
+	}
+
+	if !simulate {
+		hash := sha256.Sum256(bz)
+		txHash := hex.EncodeToString(hash[:])
+		if _, ok := suite.txs[txHash]; ok {
+			return ctx, fmt.Errorf("tx already in mempool")
+		}
+		suite.txs[txHash] = struct{}{}
+	}
+
+	return ctx, nil
 }
 
 func (suite *ABCITestSuite) createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs int, insertRefTxs bool) int {
@@ -214,11 +210,11 @@ func (suite *ABCITestSuite) createFilledMempool(numNormalTxs, numAuctionTxs, num
 	var totalNumTxs int
 	suite.Require().Equal(numAuctionTxs, suite.mempool.CountAuctionTx())
 	if insertRefTxs {
-		totalNumTxs = numNormalTxs + numAuctionTxs*(numBundledTxs+1)
+		totalNumTxs = numNormalTxs + numAuctionTxs*(numBundledTxs)
 		suite.Require().Equal(totalNumTxs, suite.mempool.CountTx())
 		suite.Require().Equal(totalNumTxs, numSeenGlobalTxs)
 	} else {
-		totalNumTxs = numNormalTxs + numAuctionTxs
+		totalNumTxs = numNormalTxs
 		suite.Require().Equal(totalNumTxs, suite.mempool.CountTx())
 		suite.Require().Equal(totalNumTxs, numSeenGlobalTxs)
 	}
@@ -297,7 +293,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				insertRefTxs = true
 			},
 			4,
-			4,
+			3,
 			true,
 		},
 		{
@@ -309,7 +305,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				insertRefTxs = false
 			},
 			4,
-			1,
+			0,
 			true,
 		},
 		{
@@ -350,7 +346,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				insertRefTxs = false
 			},
 			4,
-			10,
+			0,
 			true,
 		},
 		{
@@ -362,7 +358,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				insertRefTxs = true
 			},
 			31,
-			40,
+			30,
 			true,
 		},
 		{
@@ -395,7 +391,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				numBundledTxs = 0
 			},
 			2,
-			2,
+			1,
 			true,
 		},
 		{
@@ -407,7 +403,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				insertRefTxs = false
 			},
 			5,
-			2,
+			1,
 			true,
 		},
 		{
@@ -434,7 +430,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				numBundledTxs = 0
 			},
 			101,
-			101,
+			100,
 			true,
 		},
 		{
@@ -446,7 +442,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				insertRefTxs = true
 			},
 			104,
-			104,
+			103,
 			true,
 		},
 		{
@@ -458,7 +454,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				insertRefTxs = false
 			},
 			104,
-			101,
+			100,
 			true,
 		},
 		{
@@ -470,7 +466,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				insertRefTxs = true
 			},
 			201,
-			300,
+			200,
 			true,
 		},
 	}
@@ -771,6 +767,6 @@ func (suite *ABCITestSuite) isTopBidValid() bool {
 	}
 
 	// check if the top bid is valid
-	_, err := suite.executeAnteHandler(iterator.Tx())
+	_, err := suite.anteHandler(suite.ctx, iterator.Tx(), true)
 	return err == nil
 }
