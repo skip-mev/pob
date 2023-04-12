@@ -219,7 +219,7 @@ func (h *ProposalHandler) PrepareProposalVerifyTx(ctx sdk.Context, tx sdk.Tx) ([
 		return nil, err
 	}
 
-	return txBz, h.VerifyTx(ctx, tx)
+	return txBz, h.verifyTx(ctx, tx)
 }
 
 // ProcessProposalVerifyTx decodes a transaction and verifies it.
@@ -229,11 +229,11 @@ func (h *ProposalHandler) ProcessProposalVerifyTx(ctx sdk.Context, txBz []byte) 
 		return nil, err
 	}
 
-	return tx, h.VerifyTx(ctx, tx)
+	return tx, h.verifyTx(ctx, tx)
 }
 
 // VerifyTx verifies a transaction against the application's state.
-func (h *ProposalHandler) VerifyTx(ctx sdk.Context, tx sdk.Tx) error {
+func (h *ProposalHandler) verifyTx(ctx sdk.Context, tx sdk.Tx) error {
 	if h.anteHandler != nil {
 		_, err := h.anteHandler(ctx, tx, false)
 		return err
