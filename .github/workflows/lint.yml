@@ -36,4 +36,4 @@ jobs:
       with:
         rules: '/lint/rules/changelog.js'
         config: '/lint/config/changelog.yml'
-        args: './spec.md'
+        args: './*.md'
