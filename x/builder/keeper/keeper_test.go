@@ -7,7 +7,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/golang/mock/gomock"
-	"github.com/skip-mev/pob/mempool"
+	"github.com/skip-mev/pob/blockbuster"
 	testutils "github.com/skip-mev/pob/testutils"
 	"github.com/skip-mev/pob/x/builder/keeper"
 	"github.com/skip-mev/pob/x/builder/types"

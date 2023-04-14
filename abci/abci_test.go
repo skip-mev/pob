@@ -16,7 +16,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/golang/mock/gomock"
 	"github.com/skip-mev/pob/abci"
-	"github.com/skip-mev/pob/mempool"
+	"github.com/skip-mev/pob/blockbuster"
 	testutils "github.com/skip-mev/pob/testutils"
 	"github.com/skip-mev/pob/x/builder/ante"
 	"github.com/skip-mev/pob/x/builder/keeper"

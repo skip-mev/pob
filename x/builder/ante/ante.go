@@ -6,7 +6,7 @@ import (
 
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/skip-mev/pob/mempool"
+	"github.com/skip-mev/pob/blockbuster"
 	"github.com/skip-mev/pob/x/builder/keeper"
 )
 

@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/skip-mev/pob/blockbuster"
 	pobcodec "github.com/skip-mev/pob/codec"
-	"github.com/skip-mev/pob/mempool"
 	buildertypes "github.com/skip-mev/pob/x/builder/types"
 	"github.com/stretchr/testify/require"
 )
