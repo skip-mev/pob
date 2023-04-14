@@ -9,35 +9,49 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
+	"pkg.berachain.dev/polaris/cosmos/x/evm/types"
+	"pkg.berachain.dev/polaris/eth/common"
+	coretypes "pkg.berachain.dev/polaris/eth/core/types"
+	"pkg.berachain.dev/polaris/lib/utils"
 )
 
 var _ sdkmempool.Mempool = (*AuctionMempool)(nil)
 
-// AuctionMempool defines an auction mempool. It can be seen as an extension of
-// an SDK PriorityNonceMempool, i.e. a mempool that supports <sender, nonce>
-// two-dimensional priority ordering, with the additional support of prioritizing
-// and indexing auction bids.
-type AuctionMempool struct {
-	// globalIndex defines the index of all transactions in the mempool. It uses
-	// the SDK's builtin PriorityNonceMempool. Once a bid is selected for top-of-block,
-	// all subsequent transactions in the mempool will be selected from this index.
-	globalIndex *PriorityNonceMempool[int64]
+type (
+	// AuctionMempool defines an auction mempool. It can be seen as an extension of
+	// an SDK PriorityNonceMempool, i.e. a mempool that supports <sender, nonce>
+	// two-dimensional priority ordering, with the additional support of prioritizing
+	// and indexing auction bids.
+	AuctionMempool struct {
+		// globalIndex defines the index of all transactions in the mempool. It uses
+		// the SDK's builtin PriorityNonceMempool. Once a bid is selected for top-of-block,
+		// all subsequent transactions in the mempool will be selected from this index.
+		globalIndex *PriorityNonceMempool[int64]
 
-	// auctionIndex defines an index of auction bids.
-	auctionIndex *PriorityNonceMempool[string]
+		// auctionIndex defines an index of auction bids.
+		auctionIndex *PriorityNonceMempool[string]
 
-	// txDecoder defines the sdk.Tx decoder that allows us to decode transactions
-	// and construct sdk.Txs from the bundled transactions.
-	txDecoder sdk.TxDecoder
+		// txDecoder defines the sdk.Tx decoder that allows us to decode transactions
+		// and construct sdk.Txs from the bundled transactions.
+		txDecoder sdk.TxDecoder
 
-	// txEncoder defines the sdk.Tx encoder that allows us to encode transactions
-	// to bytes.
-	txEncoder sdk.TxEncoder
+		// txEncoder defines the sdk.Tx encoder that allows us to encode transactions
+		// to bytes.
+		txEncoder sdk.TxEncoder
 
-	// txIndex is a map of all transactions in the mempool. It is used
-	// to quickly check if a transaction is already in the mempool.
-	txIndex map[string]struct{}
-}
+		// txIndex is a map of all transactions in the mempool. It is used
+		// to quickly check if a transaction is already in the mempool.
+		txIndex map[string]struct{}
+
+		// ethTxCache caches transactions that are added to the mempool
+		// so that they can be retrieved later
+		ethTxCache map[common.Hash]*coretypes.Transaction
+	}
+
+	// AuctionMempoolOption defines a function type alias that is used to define
+	// options for the auction mempool.
+	MempoolOption func(*AuctionMempool)
+)
 
 // AuctionTxPriority returns a TxPriority over auction bid transactions only. It
 // is to be used in the auction index only.
@@ -96,9 +110,10 @@ func NewAuctionMempool(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx i
 				MaxTx:      maxTx,
 			},
 		),
-		txDecoder: txDecoder,
-		txEncoder: txEncoder,
-		txIndex:   make(map[string]struct{}),
+		txDecoder:  txDecoder,
+		txEncoder:  txEncoder,
+		txIndex:    make(map[string]struct{}),
+		ethTxCache: make(map[common.Hash]*coretypes.Transaction),
 	}
 }
 
@@ -130,7 +145,30 @@ func (am *AuctionMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 
 	am.txIndex[txHashStr] = struct{}{}
 
+	// We want to cache
+	etr, ok := utils.GetAs[*types.EthTransactionRequest](tx.GetMsgs()[0])
+	if !ok {
+		return nil
+	}
+
+	t := etr.AsTransaction()
+	am.ethTxCache[t.Hash()] = t
+
 	return nil
+}
+
+// GetTx is called when a transaction is retrieved from the mempool.
+func (am *AuctionMempool) GetTransaction(hash common.Hash) *coretypes.Transaction {
+	return am.ethTxCache[hash]
+}
+
+// GetPoolTransactions is called when the mempool is retrieved.
+func (am *AuctionMempool) GetPoolTransactions() coretypes.Transactions {
+	txs := make(coretypes.Transactions, 0, len(am.ethTxCache))
+	for _, tx := range am.ethTxCache {
+		txs = append(txs, tx)
+	}
+	return txs
 }
 
 // Remove removes a transaction from the mempool. If the transaction is a special
@@ -244,4 +282,12 @@ func (am *AuctionMempool) removeTx(mp sdkmempool.Mempool, tx sdk.Tx) {
 	}
 
 	delete(am.txIndex, txHashStr)
+
+	// We want to cache this tx.
+	etr, ok := utils.GetAs[*types.EthTransactionRequest](tx)
+	if !ok {
+		return
+	}
+
+	delete(am.ethTxCache, etr.AsTransaction().Hash())
 }

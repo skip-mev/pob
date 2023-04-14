@@ -6,6 +6,9 @@ import (
 	"fmt"
 
 	"cosmossdk.io/api/tendermint/abci"
+	"cosmossdk.io/core/appmodule"
+	"cosmossdk.io/depinject"
+	store "cosmossdk.io/store/types"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -13,6 +16,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	modulev1 "github.com/skip-mev/pob/api/pob/builder/module/v1"
 	"github.com/skip-mev/pob/x/builder/keeper"
 	"github.com/skip-mev/pob/x/builder/types"
 	"github.com/spf13/cobra"
@@ -115,9 +119,53 @@ func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, gs json.Ra
 	return []abci.ValidatorUpdate{}
 }
 
+// IsOnePerModuleType implements the depinject.OnePerModuleType interface.
+func (am AppModule) IsOnePerModuleType() {}
+
 // ExportGenesis returns the builder module's exported genesis state as raw
 // JSON bytes.
 func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.RawMessage {
 	genState := am.keeper.ExportGenesis(ctx)
 	return cdc.MustMarshalJSON(genState)
+}
+
+func init() {
+	appmodule.Register(&modulev1.Module{},
+		appmodule.Provide(ProvideModule),
+	)
+}
+
+type BuilderInputs struct {
+	depinject.In
+
+	Config *modulev1.Module
+	Cdc    codec.Codec
+	Key    *store.KVStoreKey
+
+	AccountKeeper      types.AccountKeeper
+	BankKeeper         types.BankKeeper
+	DistributionKeeper types.DistributionKeeper
+	StakingKeeper      types.StakingKeeper
+}
+
+type BuilderOutputs struct {
+	depinject.Out
+
+	BuilderKeeper keeper.Keeper
+	Module        AppModule
+}
+
+func ProvideModule(in BuilderInputs) BuilderOutputs {
+	builderKeeper := keeper.NewKeeper(
+		in.Cdc,
+		in.Key,
+		in.AccountKeeper,
+		in.BankKeeper,
+		in.DistributionKeeper,
+		in.StakingKeeper,
+		in.Config.Authority,
+	)
+	m := NewAppModule(in.Cdc, builderKeeper)
+
+	return BuilderOutputs{BuilderKeeper: builderKeeper, Module: m}
 }
