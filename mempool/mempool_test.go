@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cometbft/cometbft/libs/log"
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/mempool"
@@ -33,7 +32,7 @@ func (suite *IntegrationTestSuite) SetupTest() {
 	// Mempool setup
 	suite.encCfg = testutils.CreateTestEncodingConfig()
 	suite.mempool = mempool.NewAuctionMempool(suite.encCfg.TxConfig.TxDecoder(), suite.encCfg.TxConfig.TxEncoder(), 0)
-	suite.ctx = sdk.NewContext(nil, cmtproto.Header{}, false, log.NewNopLogger())
+	suite.ctx = sdk.NewContext(nil, cmtproto.Header{}, false, nil)
 
 	// Init accounts
 	suite.random = rand.New(rand.NewSource(time.Now().Unix()))
