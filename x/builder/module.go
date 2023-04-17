@@ -140,7 +140,7 @@ func init() {
 	)
 }
 
-type BuilderInputs struct {
+type Inputs struct {
 	depinject.In
 
 	Config *modulev1.Module
@@ -153,14 +153,14 @@ type BuilderInputs struct {
 	StakingKeeper      types.StakingKeeper
 }
 
-type BuilderOutputs struct {
+type Outputs struct {
 	depinject.Out
 
 	BuilderKeeper keeper.Keeper
 	Module        AppModule
 }
 
-func ProvideModule(in BuilderInputs) BuilderOutputs {
+func ProvideModule(in Inputs) Outputs {
 	// default to governance authority if not provided
 	authority := authtypes.NewModuleAddress(govtypes.ModuleName)
 	if in.Config.Authority != "" {
@@ -179,5 +179,5 @@ func ProvideModule(in BuilderInputs) BuilderOutputs {
 
 	m := NewAppModule(in.Cdc, builderKeeper)
 
-	return BuilderOutputs{BuilderKeeper: builderKeeper, Module: m}
+	return Outputs{BuilderKeeper: builderKeeper, Module: m}
 }
