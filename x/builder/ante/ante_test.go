@@ -9,7 +9,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/golang/mock/gomock"
-	"github.com/skip-mev/pob/blockbuster"
 	testutils "github.com/skip-mev/pob/testutils"
 	"github.com/skip-mev/pob/x/builder/ante"
 	"github.com/skip-mev/pob/x/builder/keeper"
@@ -244,7 +243,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 			suite.Require().NoError(err)
 
 			// Insert the top bid into the mempool
-			mempool := mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), 0)
+			mempool := mempool.NewAuctionLane(suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), 0)
 			if insertTopBid {
 				topAuctionTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, topBidder, topBid, 0, timeout, []testutils.Account{})
 				suite.Require().NoError(err)

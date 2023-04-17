@@ -1,4 +1,4 @@
-package mempool_test
+package blockbuster_test
 
 import (
 	"math/rand"
@@ -9,6 +9,7 @@ import (
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/blockbuster"
+	"github.com/skip-mev/pob/blockbuster/lanes/tob"
 	testutils "github.com/skip-mev/pob/testutils"
 	buildertypes "github.com/skip-mev/pob/x/builder/types"
 	"github.com/stretchr/testify/suite"
@@ -18,7 +19,7 @@ type IntegrationTestSuite struct {
 	suite.Suite
 
 	encCfg   testutils.EncodingConfig
-	mempool  *mempool.AuctionMempool
+	mempool  *blockbuster.AuctionLane
 	ctx      sdk.Context
 	random   *rand.Rand
 	accounts []testutils.Account
@@ -32,7 +33,7 @@ func TestMempoolTestSuite(t *testing.T) {
 func (suite *IntegrationTestSuite) SetupTest() {
 	// Mempool setup
 	suite.encCfg = testutils.CreateTestEncodingConfig()
-	suite.mempool = mempool.NewAuctionMempool(suite.encCfg.TxConfig.TxDecoder(), suite.encCfg.TxConfig.TxEncoder(), 0)
+	suite.mempool = blockbuster.NewAuctionLane(suite.encCfg.TxConfig.TxDecoder(), suite.encCfg.TxConfig.TxEncoder(), 0)
 	suite.ctx = sdk.NewContext(nil, cmtproto.Header{}, false, log.NewNopLogger())
 
 	// Init accounts
@@ -121,7 +122,7 @@ func (suite *IntegrationTestSuite) CreateFilledMempool(numNormalTxs, numAuctionT
 	return totalNumTxs
 }
 
-func (suite *IntegrationTestSuite) TestAuctionMempoolRemove() {
+func (suite *IntegrationTestSuite) TestAuctionLaneRemove() {
 	numberTotalTxs := 100
 	numberAuctionTxs := 10
 	numberBundledTxs := 5
@@ -152,7 +153,7 @@ func (suite *IntegrationTestSuite) TestAuctionMempoolRemove() {
 	suite.Require().Equal(numberAuctionTxs-1, suite.mempool.CountAuctionTx())
 	suite.Require().Equal(numMempoolTxs-numberBundledTxs, suite.mempool.CountTx())
 
-	auctionMsg, err := mempool.GetMsgAuctionBidFromTx(tx)
+	auctionMsg, err := tob.GetMsgAuctionBidFromTx(tx)
 	suite.Require().NoError(err)
 	for _, refTx := range auctionMsg.GetTransactions() {
 		tx, err := suite.encCfg.TxConfig.TxDecoder()(refTx)
@@ -161,7 +162,7 @@ func (suite *IntegrationTestSuite) TestAuctionMempoolRemove() {
 	}
 }
 
-func (suite *IntegrationTestSuite) TestAuctionMempoolSelect() {
+func (suite *IntegrationTestSuite) TestAuctionLaneSelect() {
 	numberTotalTxs := 100
 	numberAuctionTxs := 10
 	numberBundledTxs := 5

@@ -1,4 +1,4 @@
-package mempool
+package blockbuster
 
 import sdk "github.com/cosmos/cosmos-sdk/types"
 

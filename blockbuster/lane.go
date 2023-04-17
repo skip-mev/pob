@@ -1,247 +1,71 @@
-package mempool
+package blockbuster
 
 import (
-	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"errors"
-	"fmt"
-
+	"cosmossdk.io/api/tendermint/abci"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
-var _ sdkmempool.Mempool = (*AuctionMempool)(nil)
+// Lane defines the interface that a Lane must implement. Unit mempools are
+// mempools that are used to build blocks. All transactions in a unit mempool share the
+// same ordering, validation and prioritization rules.
+type (
+	LaneInterface interface {
+		// Define the mempool interface that is required
+		sdkmempool.Mempool
 
-// AuctionMempool defines an auction mempool. It can be seen as an extension of
-// an SDK PriorityNonceMempool, i.e. a mempool that supports <sender, nonce>
-// two-dimensional priority ordering, with the additional support of prioritizing
-// and indexing auction bids.
-type AuctionMempool struct {
-	// globalIndex defines the index of all transactions in the mempool. It uses
-	// the SDK's builtin PriorityNonceMempool. Once a bid is selected for top-of-block,
-	// all subsequent transactions in the mempool will be selected from this index.
-	globalIndex *PriorityNonceMempool[int64]
+		// Define the block building functionailty that is required
+		BlockBuilder
 
-	// auctionIndex defines an index of auction bids.
-	auctionIndex *PriorityNonceMempool[string]
+		// Contains returns true if the transaction is in the mempool. Otherwise, false is returned.
+		Contains(tx sdk.Tx) (bool, error)
 
-	// txDecoder defines the sdk.Tx decoder that allows us to decode transactions
-	// and construct sdk.Txs from the bundled transactions.
-	txDecoder sdk.TxDecoder
-
-	// txEncoder defines the sdk.Tx encoder that allows us to encode transactions
-	// to bytes.
-	txEncoder sdk.TxEncoder
-
-	// txIndex is a map of all transactions in the mempool. It is used
-	// to quickly check if a transaction is already in the mempool.
-	txIndex map[string]struct{}
-}
-
-// AuctionTxPriority returns a TxPriority over auction bid transactions only. It
-// is to be used in the auction index only.
-func AuctionTxPriority() TxPriority[string] {
-	return TxPriority[string]{
-		GetTxPriority: func(goCtx context.Context, tx sdk.Tx) string {
-			msgAuctionBid, err := GetMsgAuctionBidFromTx(tx)
-			if err != nil {
-				panic(err)
-			}
-
-			return msgAuctionBid.Bid.String()
-		},
-		Compare: func(a, b string) int {
-			aCoins, _ := sdk.ParseCoinsNormalized(a)
-			bCoins, _ := sdk.ParseCoinsNormalized(b)
-
-			switch {
-			case aCoins == nil && bCoins == nil:
-				return 0
-
-			case aCoins == nil:
-				return -1
-
-			case bCoins == nil:
-				return 1
-
-			default:
-				switch {
-				case aCoins.IsAllGT(bCoins):
-					return 1
-
-				case aCoins.IsAllLT(bCoins):
-					return -1
-
-				default:
-					return 0
-				}
-			}
-		},
-		MinValue: "",
-	}
-}
-
-func NewAuctionMempool(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int) *AuctionMempool {
-	return &AuctionMempool{
-		globalIndex: NewPriorityMempool(
-			PriorityNonceMempoolConfig[int64]{
-				TxPriority: NewDefaultTxPriority(),
-				MaxTx:      maxTx,
-			},
-		),
-		auctionIndex: NewPriorityMempool(
-			PriorityNonceMempoolConfig[string]{
-				TxPriority: AuctionTxPriority(),
-				MaxTx:      maxTx,
-			},
-		),
-		txDecoder: txDecoder,
-		txEncoder: txEncoder,
-		txIndex:   make(map[string]struct{}),
-	}
-}
-
-// Insert inserts a transaction into the mempool. If the transaction is a special
-// auction tx (tx that contains a single MsgAuctionBid), it will also insert the
-// transaction into the auction index.
-func (am *AuctionMempool) Insert(ctx context.Context, tx sdk.Tx) error {
-	msg, err := GetMsgAuctionBidFromTx(tx)
-	if err != nil {
-		return err
+		// Match returns true if the transaction should be inserted into the mempool. Otherwise, false is returned.
+		Match(tx sdk.Tx) bool
 	}
 
-	// Insert the transactions into the appropriate index.
-	switch {
-	case msg == nil:
-		if err := am.globalIndex.Insert(ctx, tx); err != nil {
-			return fmt.Errorf("failed to insert tx into global index: %w", err)
-		}
-	case msg != nil:
-		if err := am.auctionIndex.Insert(ctx, tx); err != nil {
-			return fmt.Errorf("failed to insert tx into auction index: %w", err)
-		}
+	// BlockBuilder defines the interface that a unit mempool must implement
+	// in order to be included in the block building process.
+	BlockBuilder interface {
+		// PrepareProposal returns a list of transactions that are ready to be included
+		// in a block proposal.
+		PrepareProposal(ctx sdk.Context, req abci.RequestPrepareProposal) ([][]byte, int64)
+
+		// ProcessProposal processes a block proposal and returns an error if the
+		// proposal is invalid.
+		ProcessProposal(ctx sdk.Context, req abci.RequestProcessProposal) error
+
+		// PrepareProposalVerifyTx encodes a transaction and verifies it.
+		PrepareProposalVerifyTx(ctx sdk.Context, tx sdk.Tx) ([]byte, error)
+
+		// ProcessProposalVerifyTx decodes a transaction and verifies it.
+		ProcessProposalVerifyTx(ctx sdk.Context, txBz []byte) (sdk.Tx, error)
 	}
 
-	txHashStr, err := am.getTxHashStr(tx)
-	if err != nil {
-		return err
+	// Lane defines a unit mempool that is used to build blocks. All transactions in a
+	// unit mempool share the same ordering, validation and prioritization rules.
+	LaneConfig[c comparable] struct {
+		// Can maybe store the
+		// globalIndex stores the global index of all transactions in this mempool.
+		GlobalIndex *PriorityNonceMempool[c]
+
+		// hooks
+		Hooks MultiUnitMempoolHooks
+
+		// anteHandler defines the ante handler used to validate transactions.
+		AnteHandler sdk.AnteHandler
+
+		// postHandler defines the post handler used to validate transactions.
+		PostHandler sdk.PostHandler
+
+		// config
+		// logger
 	}
+)
 
-	am.txIndex[txHashStr] = struct{}{}
-
-	return nil
-}
-
-// Remove removes a transaction from the mempool. If the transaction is a special
-// auction tx (tx that contains a single MsgAuctionBid), it will also remove all
-// referenced transactions from the global mempool.
-func (am *AuctionMempool) Remove(tx sdk.Tx) error {
-	msg, err := GetMsgAuctionBidFromTx(tx)
-	if err != nil {
-		return err
+func NewLaneConfig[c comparable](mempool *PriorityNonceMempool[c], hooks MultiUnitMempoolHooks) *LaneConfig[c] {
+	return &LaneConfig[c]{
+		GlobalIndex: mempool,
+		Hooks:       hooks,
 	}
-
-	// Remove the transactions from the appropriate index.
-	switch {
-	case msg == nil:
-		am.removeTx(am.globalIndex, tx)
-	case msg != nil:
-		am.removeTx(am.auctionIndex, tx)
-
-		// Remove all referenced transactions from the global mempool.
-		for _, refRawTx := range msg.GetTransactions() {
-			refTx, err := am.txDecoder(refRawTx)
-			if err != nil {
-				return fmt.Errorf("failed to decode referenced tx: %w", err)
-			}
-
-			am.removeTx(am.globalIndex, refTx)
-		}
-	}
-
-	return nil
-}
-
-// RemoveWithoutRefTx removes a transaction from the mempool without removing
-// any referenced transactions. Referenced transactions only exist in special
-// auction transactions (txs that only include a single MsgAuctionBid). This
-// API is used to ensure that searchers are unable to remove valid transactions
-// from the global mempool.
-func (am *AuctionMempool) RemoveWithoutRefTx(tx sdk.Tx) error {
-	msg, err := GetMsgAuctionBidFromTx(tx)
-	if err != nil {
-		return err
-	}
-
-	if msg != nil {
-		am.removeTx(am.auctionIndex, tx)
-	}
-
-	return nil
-}
-
-// GetTopAuctionTx returns the highest bidding transaction in the auction mempool.
-func (am *AuctionMempool) GetTopAuctionTx(ctx context.Context) sdk.Tx {
-	iterator := am.auctionIndex.Select(ctx, nil)
-	if iterator == nil {
-		return nil
-	}
-
-	return iterator.Tx()
-}
-
-// AuctionBidSelect returns an iterator over auction bids transactions only.
-func (am *AuctionMempool) AuctionBidSelect(ctx context.Context) sdkmempool.Iterator {
-	return am.auctionIndex.Select(ctx, nil)
-}
-
-func (am *AuctionMempool) Select(ctx context.Context, txs [][]byte) sdkmempool.Iterator {
-	return am.globalIndex.Select(ctx, txs)
-}
-
-func (am *AuctionMempool) CountAuctionTx() int {
-	return am.auctionIndex.CountTx()
-}
-
-func (am *AuctionMempool) CountTx() int {
-	return am.globalIndex.CountTx()
-}
-
-// Contains returns true if the transaction is contained in the mempool.
-func (am *AuctionMempool) Contains(tx sdk.Tx) (bool, error) {
-	txHashStr, err := am.getTxHashStr(tx)
-	if err != nil {
-		return false, fmt.Errorf("failed to get tx hash string: %w", err)
-	}
-
-	_, ok := am.txIndex[txHashStr]
-	return ok, nil
-}
-
-// getTxHashStr returns the transaction hash string for a given transaction.
-func (am *AuctionMempool) getTxHashStr(tx sdk.Tx) (string, error) {
-	txBz, err := am.txEncoder(tx)
-	if err != nil {
-		return "", fmt.Errorf("failed to encode transaction: %w", err)
-	}
-
-	txHash := sha256.Sum256(txBz)
-	txHashStr := hex.EncodeToString(txHash[:])
-
-	return txHashStr, nil
-}
-
-func (am *AuctionMempool) removeTx(mp sdkmempool.Mempool, tx sdk.Tx) {
-	err := mp.Remove(tx)
-	if err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
-		panic(fmt.Errorf("failed to remove invalid transaction from the mempool: %w", err))
-	}
-
-	txHashStr, err := am.getTxHashStr(tx)
-	if err != nil {
-		panic(fmt.Errorf("failed to get tx hash string: %w", err))
-	}
-
-	delete(am.txIndex, txHashStr)
 }

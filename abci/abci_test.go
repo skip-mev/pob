@@ -16,7 +16,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/golang/mock/gomock"
 	"github.com/skip-mev/pob/abci"
-	"github.com/skip-mev/pob/blockbuster"
 	testutils "github.com/skip-mev/pob/testutils"
 	"github.com/skip-mev/pob/x/builder/ante"
 	"github.com/skip-mev/pob/x/builder/keeper"
@@ -29,7 +28,7 @@ type ABCITestSuite struct {
 	ctx sdk.Context
 
 	// mempool setup
-	mempool         *mempool.AuctionMempool
+	mempool         *mempool.AuctionLane
 	logger          log.Logger
 	encodingConfig  testutils.EncodingConfig
 	proposalHandler *abci.ProposalHandler
@@ -69,7 +68,7 @@ func (suite *ABCITestSuite) SetupTest() {
 	suite.ctx = testCtx.Ctx
 
 	// Mempool set up
-	suite.mempool = mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), 0)
+	suite.mempool = mempool.NewAuctionLane(suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), 0)
 	suite.txs = make(map[string]struct{})
 	suite.auctionBidAmount = sdk.NewCoin("foo", sdk.NewInt(1000000000))
 	suite.minBidIncrement = sdk.NewCoin("foo", sdk.NewInt(1000))

@@ -6,7 +6,7 @@ import (
 
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/skip-mev/pob/blockbuster"
+	"github.com/skip-mev/pob/blockbuster/lanes/tob"
 	"github.com/skip-mev/pob/x/builder/keeper"
 )
 
@@ -17,7 +17,7 @@ type (
 		builderKeeper keeper.Keeper
 		txDecoder     sdk.TxDecoder
 		txEncoder     sdk.TxEncoder
-		mempool       *mempool.AuctionMempool
+		mempool       *tob.AuctionLane
 	}
 
 	TxWithTimeoutHeight interface {
@@ -27,7 +27,7 @@ type (
 	}
 )
 
-func NewBuilderDecorator(ak keeper.Keeper, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, mempool *mempool.AuctionMempool) BuilderDecorator {
+func NewBuilderDecorator(ak keeper.Keeper, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, mempool *tob.AuctionLane) BuilderDecorator {
 	return BuilderDecorator{
 		builderKeeper: ak,
 		txDecoder:     txDecoder,
@@ -51,7 +51,7 @@ func (ad BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 		}
 	}
 
-	auctionMsg, err := mempool.GetMsgAuctionBidFromTx(tx)
+	auctionMsg, err := tob.GetMsgAuctionBidFromTx(tx)
 	if err != nil {
 		return ctx, err
 	}
@@ -114,7 +114,7 @@ func (ad BuilderDecorator) GetTopAuctionBid(ctx sdk.Context) (sdk.Coin, error) {
 		return sdk.Coin{}, nil
 	}
 
-	msgAuctionBid, err := mempool.GetMsgAuctionBidFromTx(auctionTx)
+	msgAuctionBid, err := tob.GetMsgAuctionBidFromTx(auctionTx)
 	if err != nil {
 		return sdk.Coin{}, err
 	}

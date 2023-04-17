@@ -1,4 +1,4 @@
-package mempool
+package blockbuster
 
 import (
 	"context"
@@ -55,7 +55,6 @@ type (
 		senderIndices  map[string]*skiplist.SkipList
 		scores         map[txMeta[C]]txMeta[C]
 		cfg            PriorityNonceMempoolConfig[C]
-		hooks          UnitMempoolHooks
 	}
 
 	// PriorityNonceIterator defines an iterator that is used for mempool iteration
@@ -444,17 +443,6 @@ func (mp *PriorityNonceMempool[C]) Remove(tx sdk.Tx) error {
 	mp.priorityCounts[score.priority]--
 
 	return nil
-}
-
-// Set the mempool's hooks.
-func (mp *PriorityNonceMempool[C]) SetHooks(sh UnitMempoolHooks) UnitMempoolHooks {
-	if mp.hooks != nil {
-		panic("cannot set mempool hooks twice")
-	}
-
-	mp.hooks = sh
-
-	return sh
 }
 
 func IsEmpty[C comparable](mempool sdkmempool.Mempool) error {
