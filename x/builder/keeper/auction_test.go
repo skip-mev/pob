@@ -5,6 +5,7 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/skip-mev/pob/mempool"
 	testutils "github.com/skip-mev/pob/testutils"
 	"github.com/skip-mev/pob/x/builder/keeper"
 	buildertypes "github.com/skip-mev/pob/x/builder/types"
@@ -188,7 +189,12 @@ func (suite *KeeperTestSuite) TestValidateAuctionMsg() {
 				bundle = append(bundle, tx)
 			}
 
-			err := suite.builderKeeper.ValidateAuctionMsg(suite.ctx, bidder.Address, bid, highestBid, bundle)
+			bidInfo := mempool.BidInfo{
+				Bidder:       bidder.Address,
+				Bid:          bid,
+				Transactions: bundle,
+			}
+			err := suite.builderKeeper.ValidateAuctionMsg(suite.ctx, highestBid, bidInfo)
 			if tc.pass {
 				suite.Require().NoError(err)
 			} else {

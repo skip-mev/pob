@@ -3,6 +3,7 @@ package mempool
 import (
 	"context"
 
+	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -19,12 +20,22 @@ type (
 	// in the bundle into a sdk.Tx.
 	WrapBundleTransaction func(tx []byte) (sdk.Tx, error)
 
+	// GetBidder defines a function that returns the bidder of a transaction.
+	GetBidder func(tx sdk.Tx) (sdk.AccAddress, error)
+
 	// GetBid defines a function that returns the bid of a transaction.
 	GetBid func(tx sdk.Tx) (sdk.Coin, error)
 
 	// GetBundledTransactions defines a function that returns the bundled transactions
 	// that the user wants to execute at the top of the block.
 	GetBundledTransactions func(tx sdk.Tx) ([]sdk.Tx, error)
+
+	// BidInfo defines the information about a bid.
+	BidInfo struct {
+		Bidder       sdk.AccAddress
+		Bid          sdk.Coin
+		Transactions []sdk.Tx
+	}
 )
 
 // NewDefaultIsAuctionTx defines a default function that returns true if a transaction
@@ -65,6 +76,23 @@ func NewDefaultGetTransactionSigners(txDecoder sdk.TxDecoder) GetTransactionSign
 func NewDefaultWrapBundleTransaction(txDecoder sdk.TxDecoder) WrapBundleTransaction {
 	return func(tx []byte) (sdk.Tx, error) {
 		return txDecoder(tx)
+	}
+}
+
+// NewDefaultGetBidder defines a default function that returns the bidder of a transaction.
+func NewDefaultGetBidder() GetBidder {
+	return func(tx sdk.Tx) (sdk.AccAddress, error) {
+		msg, err := GetMsgAuctionBidFromTx(tx)
+		if err != nil {
+			return nil, err
+		}
+
+		bidder, err := sdk.AccAddressFromBech32(msg.Bidder)
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid bidder address")
+		}
+
+		return bidder, nil
 	}
 }
 

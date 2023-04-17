@@ -51,6 +51,9 @@ type (
 		// in the bundle into a sdk.Tx.
 		wrapBundleTransaction WrapBundleTransaction
 
+		// getBidder defines a function that returns the bidder of a transaction.
+		getBidder GetBidder
+
 		// getBid defines a function that returns the bid of a transaction.
 		getBid GetBid
 
@@ -80,6 +83,7 @@ func NewAuctionMempool(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx i
 		isAuctionTx:            NewDefaultIsAuctionTx(),
 		getTransactionSigners:  NewDefaultGetTransactionSigners(txDecoder),
 		wrapBundleTransaction:  NewDefaultWrapBundleTransaction(txDecoder),
+		getBidder:              NewDefaultGetBidder(),
 		getBid:                 NewDefaultGetBid(),
 		getBundledTransactions: NewDefaultGetBundledTransactions(txDecoder),
 	}
@@ -216,6 +220,34 @@ func (am *AuctionMempool) GetTransactionSigners(tx []byte) (map[string]bool, err
 // WrapBundleTransaction wraps a transaction with a bundle transaction.
 func (am *AuctionMempool) WrapBundleTransaction(tx []byte) (sdk.Tx, error) {
 	return am.wrapBundleTransaction(tx)
+}
+
+func (am *AuctionMempool) GetBidInfo(tx sdk.Tx) (BidInfo, error) {
+	bidder, err := am.getBidder(tx)
+	if err != nil {
+		return BidInfo{}, err
+	}
+
+	bid, err := am.getBid(tx)
+	if err != nil {
+		return BidInfo{}, err
+	}
+
+	transactions, err := am.getBundledTransactions(tx)
+	if err != nil {
+		return BidInfo{}, err
+	}
+
+	return BidInfo{
+		Bidder:       bidder,
+		Bid:          bid,
+		Transactions: transactions,
+	}, nil
+}
+
+// GetBidder returns the bidder from a transaction.
+func (am *AuctionMempool) GetBidder(tx sdk.Tx) (sdk.AccAddress, error) {
+	return am.getBidder(tx)
 }
 
 // GetBid returns the bid from a transaction.

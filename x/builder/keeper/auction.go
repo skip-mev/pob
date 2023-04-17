@@ -4,22 +4,23 @@ import (
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/skip-mev/pob/mempool"
 )
 
 // ValidateAuctionMsg validates that the MsgAuctionBid can be included in the auction.
-func (k Keeper) ValidateAuctionMsg(ctx sdk.Context, bidder sdk.AccAddress, bid, highestBid sdk.Coin, transactions []sdk.Tx) error {
+func (k Keeper) ValidateAuctionMsg(ctx sdk.Context, highestBid sdk.Coin, bidInfo mempool.BidInfo) error {
 	// Validate the bundle size.
 	maxBundleSize, err := k.GetMaxBundleSize(ctx)
 	if err != nil {
 		return err
 	}
 
-	if uint32(len(transactions)) > maxBundleSize {
-		return fmt.Errorf("bundle size (%d) exceeds max bundle size (%d)", len(transactions), maxBundleSize)
+	if uint32(len(bidInfo.Transactions)) > maxBundleSize {
+		return fmt.Errorf("bundle size (%d) exceeds max bundle size (%d)", len(bidInfo.Transactions), maxBundleSize)
 	}
 
 	// Validate the bid amount.
-	if err := k.ValidateAuctionBid(ctx, bidder, bid, highestBid); err != nil {
+	if err := k.ValidateAuctionBid(ctx, bidInfo.Bidder, bidInfo.Bid, highestBid); err != nil {
 		return err
 	}
 
@@ -30,7 +31,7 @@ func (k Keeper) ValidateAuctionMsg(ctx sdk.Context, bidder sdk.AccAddress, bid, 
 	}
 
 	if protectionEnabled {
-		if err := k.ValidateAuctionBundle(bidder, transactions); err != nil {
+		if err := k.ValidateAuctionBundle(bidInfo.Bidder, bidInfo.Transactions); err != nil {
 			return err
 		}
 	}
