@@ -30,7 +30,7 @@ vary depending on one's perspective.
 **Good MEV** refers to the value that validators can extract while contributing
 positively to the blockchain ecosystem. This typically includes activities that
 enhance network efficiency, maintain fairness, and align incentives with the
-intended use of the system.
+intended use of the system. Examples of good MEV include:
 
 * **Back-running**: Validators can place their own transactions immediately
   after a profitable transaction, capitalizing on the changes caused by the
@@ -42,35 +42,65 @@ intended use of the system.
   specific threshold, validators can liquidate these positions, thereby maintaining
   the overall health of the platform and protecting its users from insolvency risks.
 
-**Bad MEV** refers to the value that validators can extract through activities that harm the blockchain ecosystem, lead to unfair advantages, or exploit users. Examples of bad MEV include:
+**Bad MEV** refers to the value that validators can extract through activities
+that harm the blockchain ecosystem, lead to unfair advantages, or exploit users.
+Examples of bad MEV include:
 
-- **Front-running**: Validators can observe pending transactions in the mempool (the pool of unconfirmed transactions) and insert their own transactions ahead of them. This can be particularly profitable in decentralized finance (DeFi) applications, where a validator could front-run a large trade to take advantage of price movements.
-- **Sandwich attacks**: Validators can surround a user's transaction with their own transactions, effectively manipulating the market price for their benefit.
-- **Censorship**: Validators can selectively exclude certain transactions from blocks to benefit their own transactions or to extract higher fees from users.
+* **Front-running**: Validators can observe pending transactions in the mempool
+  (the pool of unconfirmed transactions) and insert their own transactions ahead
+  of them. This can be particularly profitable in decentralized finance (DeFi)
+  applications, where a validator could front-run a large trade to take advantage
+  of price movements.
+* **Sandwich attacks**: Validators can surround a user's transaction with their
+  own transactions, effectively manipulating the market price for their benefit.
+* **Censorship**: Validators can selectively exclude certain transactions from
+  blocks to benefit their own transactions or to extract higher fees from users.
 
-MEV is a topic of concern in the blockchain community because it can lead to unfair advantages for validators, reduced trust in the system, and a potential concentration of power. Various approaches have been proposed to mitigate MEV, such as proposer-builder separation (described below) and transparent and fair transaction ordering mechanisms at the protocol-level (`POB`) to make MEV extraction more incentive aligned with the users and blockchain ecosystem.
-
----
+MEV is a topic of concern in the blockchain community because it can lead to
+unfair advantages for validators, reduced trust in the system, and a potential
+concentration of power. Various approaches have been proposed to mitigate MEV,
+such as proposer-builder separation (described below) and transparent and fair
+transaction ordering mechanisms at the protocol-level (`POB`) to make MEV
+extraction more incentive aligned with the users and blockchain ecosystem.
 
 ### Proposer Builder Separation (PBS)
 
-Proposer-builder separation is a concept in the design of blockchain protocols, specifically in the context of transaction ordering within a block. In traditional blockchain systems, validators perform two main tasks: they create new blocks (acting as proposers) and determine the ordering of transactions within those blocks (acting as builders).
+Proposer-builder separation is a concept in the design of blockchain protocols,
+specifically in the context of transaction ordering within a block. In traditional
+blockchain systems, validators perform two main tasks: they create new blocks
+(acting as proposers) and determine the ordering of transactions within those
+blocks (acting as builders).
 
-### How PBS works
 
-**Proposers**: They are responsible for creating and broadcasting new blocks, just like in traditional blockchain systems. *However, they no longer determine the ordering of transactions within those blocks.*
+**Proposers**: They are responsible for creating and broadcasting new blocks,
+just like in traditional blockchain systems. *However, they no longer determine
+the ordering of transactions within those blocks*.
 
-**Builders**: They have the exclusive role of determining the order of transactions within a block - can be full or partial block. Builders submit their proposed transaction orderings to an auction mechanism, which selects the winning template based on predefined criteria (e.g., highest bid).
+**Builders**: They have the exclusive role of determining the order of transactions
+within a block - can be full or partial block. Builders submit their proposed
+transaction orderings to an auction mechanism, which selects the winning template
+based on predefined criteria, e.g. highest bid.
 
-This dual role can lead to potential issues, such as front-running and other manipulations that benefit the miners/builders themselves.
+This dual role can lead to potential issues, such as front-running and other
+manipulations that benefit the miners/builders themselves.
 
-- *Increased complexity*: Introducing PBS adds an extra layer of complexity to the blockchain protocol. Designing, implementing, and maintaining an auction mechanism for transaction ordering requires additional resources and may introduce new vulnerabilities or points of failure in the system.
-- *Centralization risks*: With PBS, there's a risk that a few dominant builders may emerge, leading to centralization of transaction ordering. This centralization could result in a lack of diversity in transaction ordering algorithms and an increased potential for collusion or manipulation by the dominant builders.
-- *Incentive misalignments*: The bidding process may create perverse incentives for builders. For example, builders may be incentivized to include only high-fee transactions to maximize their profits, potentially leading to a neglect of lower-fee transactions. Additionally, builders may be incentivized to build blocks that include **bad-MEV** strategies because they are more profitable.
+* *Increased complexity*: Introducing PBS adds an extra layer of complexity to
+  the blockchain protocol. Designing, implementing, and maintaining an auction
+  mechanism for transaction ordering requires additional resources and may
+  introduce new vulnerabilities or points of failure in the system.
+* *Centralization risks*: With PBS, there's a risk that a few dominant builders
+  may emerge, leading to centralization of transaction ordering. This centralization
+  could result in a lack of diversity in transaction ordering algorithms and an
+  increased potential for collusion or manipulation by the dominant builders.
+* *Incentive misalignments*: The bidding process may create perverse incentives
+  for builders. For example, builders may be incentivized to include only high-fee
+  transactions to maximize their profits, potentially leading to a neglect of
+  lower-fee transactions. Additionally, builders may be incentivized to build
+  blocks that include **bad-MEV** strategies because they are more profitable.
 
----
+## Specification
 
-### Mempool
+## Mempool
 
 As the lifeblood of blockchains, mempools serve as the intermediary space for pending transactions, playing a vital role in transaction management, fee markets, and network health. With ABCI++, mempools can be defined at the application layer (app.go) instead of the consensus layer (CometBFT). This means applications can define their own mempools that have their own custom verification, block building, and state transition logic. Adding on, these changes make it such that blocks are built (`PrepareProposal`) and verified (`ProcessProposal`) directly in the application layer.
 
