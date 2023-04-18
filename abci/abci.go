@@ -11,11 +11,12 @@ import (
 	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
-	"github.com/skip-mev/pob/mempool"
+	"github.com/skip-mev/pob/blockbuster"
+	"github.com/skip-mev/pob/blockbuster/lanes/tob"
 )
 
 type ProposalHandler struct {
-	mempool     *mempool.AuctionMempool
+	mempool     *blockbuster.AuctionLane
 	logger      log.Logger
 	anteHandler sdk.AnteHandler
 	txEncoder   sdk.TxEncoder
@@ -23,7 +24,7 @@ type ProposalHandler struct {
 }
 
 func NewProposalHandler(
-	mp *mempool.AuctionMempool,
+	mp *blockbuster.AuctionLane,
 	logger log.Logger,
 	anteHandler sdk.AnteHandler,
 	txEncoder sdk.TxEncoder,
@@ -66,7 +67,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 
 			bidTxSize := int64(len(bidTxBz))
 			if bidTxSize <= req.MaxTxBytes {
-				bidMsg, err := mempool.GetMsgAuctionBidFromTx(tmpBidTx)
+				bidMsg, err := tob.GetMsgAuctionBidFromTx(tmpBidTx)
 				if err != nil {
 					// This should never happen, as CheckTx will ensure only valid bids
 					// enter the mempool, but in case it does, we need to remove the
@@ -183,7 +184,7 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 				return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 			}
 
-			msgAuctionBid, err := mempool.GetMsgAuctionBidFromTx(tx)
+			msgAuctionBid, err := tob.GetMsgAuctionBidFromTx(tx)
 			if err != nil {
 				return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 			}

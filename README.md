@@ -26,7 +26,7 @@ Skip's POB provides developers with a set of a few core primitives:
   methods that give applications the ability to perform top-of-block auctions,
   which enables recapturing, redistributing and control over MEV. These methods
   are responsible for block proposal construction and validation.
-* `AuctionMempool`: An MEV-aware mempool that enables searchers to submit bundled
+* `AuctionLane`: An MEV-aware mempool that enables searchers to submit bundled
   transactions to the mempool and have them bundled into blocks via a top-of-block
   auction. Searchers include a bid in their bundled transactions and the highest
   bid wins the auction. Application devs have control over levers that control
@@ -55,7 +55,7 @@ $ go install github.com/skip-mev/pob
    ```go
    import (
      proposalhandler "github.com/skip-mev/pob/abci"
-     "github.com/skip-mev/pob/mempool"
+     "github.com/skip-mev/pob/blockbuster"
      "github.com/skip-mev/pob/x/builder"
      builderkeeper "github.com/skip-mev/pob/x/builder/keeper"
      buildertypes "github.com/skip-mev/pob/x/builder/types"
@@ -137,12 +137,12 @@ $ go install github.com/skip-mev/pob
     tracking valid bids, it is unable to correctly sequence the auction
     transactions alongside the normal transactions without having access to the
     application’s mempool. As such, we have to instantiate POB’s custom
-    `AuctionMempool` - a modified version of the SDK’s priority sender-nonce
+    `AuctionLane` - a modified version of the SDK’s priority sender-nonce
     mempool - into the application. Note, this should be done after `BaseApp` is
     instantiated.
 
     ```go
-    mempool := mempool.NewAuctionMempool(txConfig.TxDecoder(), GetMaxMempoolSize())
+    mempool := mempool.NewAuctionLane(txConfig.TxDecoder(), GetMaxMempoolSize())
     bApp.SetMempool(mempool)
     ```
 
@@ -151,7 +151,7 @@ $ go install github.com/skip-mev/pob
     When a new block is requested, the proposer for that height will utilize the
     `PrepareProposal` handler to build a block while the `ProcessProposal` handler
     will verify the contents of the block proposal by all validators. The
-    combination of the `AuctionMempool`, `PrepareProposal` and `ProcessProposal`
+    combination of the `AuctionLane`, `PrepareProposal` and `ProcessProposal`
     handlers allows the application to verifiably build valid blocks with
     top-of-block block space reserved for auctions.
 
