@@ -58,7 +58,6 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 			cacheCtx, write := ctx.CacheContext()
 			tmpBidTx := bidTxIterator.Tx()
 
-			// Ensure that the auction transaction is valid
 			bidTxBz, err := h.PrepareProposalVerifyTx(cacheCtx, tmpBidTx)
 			if err != nil {
 				txsToRemove[tmpBidTx] = struct{}{}
@@ -75,14 +74,14 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 					continue selectBidTxLoop
 				}
 
-				// store the bytes of each ref tx as sdk.Tx bytes
+				// store the bytes of each ref tx as sdk.Tx bytes in order to build a valid proposal
 				sdkTxBytes := make([][]byte, len(bundledTransactions))
 
 				// Ensure that the bundled transactions are valid
 				for index, rawRefTx := range bundledTransactions {
 					refTx, err := h.mempool.WrapBundleTransaction(rawRefTx)
 					if err != nil {
-						// Invalid bundled transaction, so we remove the bid transaction
+						// Malformed bundled transaction, so we remove the bid transaction
 						// and try the next top bid.
 						txsToRemove[tmpBidTx] = struct{}{}
 						continue selectBidTxLoop

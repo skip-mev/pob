@@ -1,6 +1,8 @@
 package mempool
 
 import (
+	"fmt"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -46,16 +48,28 @@ func (am *AuctionMempool) GetBidInfo(tx sdk.Tx) (BidInfo, error) {
 
 // GetBidder returns the bidder from a transaction.
 func (am *AuctionMempool) GetBidder(tx sdk.Tx) (sdk.AccAddress, error) {
+	if isAuctionTx, err := am.IsAuctionTx(tx); err != nil || !isAuctionTx {
+		return nil, fmt.Errorf("transaction is not an auction transaction")
+	}
+
 	return am.txConfig.getBidder(tx)
 }
 
 // GetBid returns the bid from a transaction.
 func (am *AuctionMempool) GetBid(tx sdk.Tx) (sdk.Coin, error) {
+	if isAuctionTx, err := am.IsAuctionTx(tx); err != nil || !isAuctionTx {
+		return sdk.Coin{}, fmt.Errorf("transaction is not an auction transaction")
+	}
+
 	return am.txConfig.getBid(tx)
 }
 
 // GetBundledTransactions returns the transactions that are bundled in a transaction.
 func (am *AuctionMempool) GetBundledTransactions(tx sdk.Tx) ([][]byte, error) {
+	if isAuctionTx, err := am.IsAuctionTx(tx); err != nil || !isAuctionTx {
+		return nil, fmt.Errorf("transaction is not an auction transaction")
+	}
+
 	return am.txConfig.getBundledTxs(tx)
 }
 
