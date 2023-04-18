@@ -8,6 +8,15 @@ import (
 )
 
 type (
+	TransactionConfig struct {
+		isAuctionTx            IsAuctionTx
+		getTransactionSigners  GetTransactionSigners
+		wrapBundleTransaction  WrapBundleTransaction
+		getBidder              GetBidder
+		getBid                 GetBid
+		getBundledTransactions GetBundledTransactions
+	}
+
 	// isAuctionTx defines a function that returns true iff a transaction is an
 	// auction bid transaction.
 	IsAuctionTx func(tx sdk.Tx) (bool, error)
@@ -37,6 +46,17 @@ type (
 		Transactions []sdk.Tx
 	}
 )
+
+func NewDefaultTransactionConfig(txDecoder sdk.TxDecoder) TransactionConfig {
+	return TransactionConfig{
+		isAuctionTx:            NewDefaultIsAuctionTx(),
+		getTransactionSigners:  NewDefaultGetTransactionSigners(txDecoder),
+		wrapBundleTransaction:  NewDefaultWrapBundleTransaction(txDecoder),
+		getBidder:              NewDefaultGetBidder(),
+		getBid:                 NewDefaultGetBid(),
+		getBundledTransactions: NewDefaultGetBundledTransactions(txDecoder),
+	}
+}
 
 // NewDefaultIsAuctionTx defines a default function that returns true if a transaction
 // is an auction bid transaction.
