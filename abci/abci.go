@@ -55,19 +55,8 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		// bundled transactions are valid.
 	selectBidTxLoop:
 		for ; bidTxIterator != nil; bidTxIterator = bidTxIterator.Next() {
-			selectedTxs = make([][]byte, 0)
-			totalTxBytes = 0
 			cacheCtx, write := ctx.CacheContext()
 			tmpBidTx := bidTxIterator.Tx()
-
-			isAuctionTx, err := h.mempool.IsAuctionTx(tmpBidTx)
-			if err != nil || !isAuctionTx {
-				// This should never happen, as CheckTx will ensure only valid bids
-				// enter the mempool, but in case it does, we need to remove the
-				// transaction from the mempool.
-				txsToRemove[tmpBidTx] = struct{}{}
-				continue selectBidTxLoop
-			}
 
 			// Ensure that the auction transaction is valid
 			bidTxBz, err := h.PrepareProposalVerifyTx(cacheCtx, tmpBidTx)
@@ -75,9 +64,8 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 				txsToRemove[tmpBidTx] = struct{}{}
 				continue selectBidTxLoop
 			}
-			selectedTxs = append(selectedTxs, bidTxBz)
-			bidTxSize := int64(len(bidTxBz))
 
+			bidTxSize := int64(len(bidTxBz))
 			if bidTxSize <= req.MaxTxBytes {
 				bundledTransactions, err := h.mempool.GetBundledTransactions(tmpBidTx)
 				if err != nil {
@@ -87,8 +75,11 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 					continue selectBidTxLoop
 				}
 
+				// store the bytes of each ref tx as sdk.Tx bytes
+				sdkTxBytes := make([][]byte, len(bundledTransactions))
+
 				// Ensure that the bundled transactions are valid
-				for _, rawRefTx := range bundledTransactions {
+				for index, rawRefTx := range bundledTransactions {
 					refTx, err := h.mempool.WrapBundleTransaction(rawRefTx)
 					if err != nil {
 						// Invalid bundled transaction, so we remove the bid transaction
@@ -105,12 +96,19 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 						continue selectBidTxLoop
 					}
 
-					selectedTxs = append(selectedTxs, txBz)
-					totalTxBytes += bidTxSize
+					sdkTxBytes[index] = txBz
+				}
 
-					// Mark the transaction as seen so we don't consider it in the
-					// second half of the block building process.
-					hash := sha256.Sum256(txBz)
+				// At this point, both the bid transaction itself and all the bundled
+				// transactions are valid. So we select the bid transaction along with
+				// all the bundled transactions. We also mark these transactions as seen and
+				// update the total size selected thus far.
+				totalTxBytes += bidTxSize
+				selectedTxs = append(selectedTxs, bidTxBz)
+				selectedTxs = append(selectedTxs, sdkTxBytes...)
+
+				for _, refTxRaw := range sdkTxBytes {
+					hash := sha256.Sum256(refTxRaw)
 					txHash := hex.EncodeToString(hash[:])
 					seenTxs[txHash] = struct{}{}
 				}
