@@ -100,11 +100,57 @@ manipulations that benefit the miners/builders themselves.
 
 ## Specification
 
+## Messages
+
+POB defines a new Cosmos SDK `Message`, `MsgAuctionBid`, that allows users to
+create an auction bid and participate in a top-of-block auction. The `MsgAuctionBid`
+message defines a bidder and a series of embedded transactions, i.e. the bundle.
+
+```protobuf
+message MsgAuctionBid {
+  option (cosmos.msg.v1.signer) = "bidder";
+  option (amino.name) = "pob/x/builder/MsgAuctionBid";
+
+  option (gogoproto.equal) = false;
+
+  // bidder is the address of the account that is submitting a bid to the
+  // auction.
+  string bidder = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+  // bid is the amount of coins that the bidder is bidding to participate in the
+  // auction.
+  cosmos.base.v1beta1.Coin bid = 3
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+  // transactions are the bytes of the transactions that the bidder wants to
+  // bundle together.
+  repeated bytes transactions = 4;
+}
+```
+
+Note, the `transactions` may or may not exist in a node's application mempool. If
+a transaction containing a single `MsgAuctionBid` wins the auction, the block
+proposal will automatically include the `MsgAuctionBid` transaction along with
+injecting all the bundled transactions such that they are executed in the same
+order after the `MsgAuctionBid` transaction.
+
 ## Mempool
 
-As the lifeblood of blockchains, mempools serve as the intermediary space for pending transactions, playing a vital role in transaction management, fee markets, and network health. With ABCI++, mempools can be defined at the application layer (app.go) instead of the consensus layer (CometBFT). This means applications can define their own mempools that have their own custom verification, block building, and state transition logic. Adding on, these changes make it such that blocks are built (`PrepareProposal`) and verified (`ProcessProposal`) directly in the application layer.
+As the lifeblood of blockchains, mempools serve as the intermediary space for
+pending transactions, playing a vital role in transaction management, fee markets,
+and network health. With ABCI++, mempools can be defined at the application layer
+instead of the consensus layer (CometBFT). This means applications can define
+their own mempools that have their own custom verification, block building, and
+state transition logic. Adding on, these changes make it such that blocks are
+built (`PrepareProposal`) and verified (`ProcessProposal`) directly in the
+application layer.
 
-To that, `x/builder` utilizes two different application-side mempools: a general global mempool that accepts normal transactions and an `AuctionMempool` that only accepts auction transactions - where an auction transaction is defined to be a standard `sdk.Tx` transaction that includes a single `MsgAuctionBid` message. While the general mempool orders transactions on priority as given by the application, the `AuctionMempool` orders transactions relative to a bid. Both of these mempool's are modified versions of the out of the box `PriorityNonce` mempool that is provided by Cosmos SDK 0.47.0.
+The `x/builder` module implements an application-side mempool, `AuctionMempool`,
+that implements the `sdk.Mempool` interface. The mempool is composed of two
+primary indexes, a global index that contains all non-auction transactions and
+an index that only contains auction transactions, i.e. transactions with a single
+`MsgAuctionBid` message. Both indexes order transactions based on priority respecting
+the sender's sequence number. The global index prioritizes transactions based on
+`ctx.Priority()` and the auction index prioritizes transactions based on the
+bid.
 
 ### Prepare Proposal
 
