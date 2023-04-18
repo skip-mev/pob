@@ -3,24 +3,44 @@
 
 ## Abstract
 
-The `x/builder` module is a new Cosmos SDK module that allows Cosmos chains to host top of block auctions directly in-protocol with auction revenue (MEV) being redistributed according to the preferences of the chain. The `x/builder` module introduces a new `MsgAuctionBid` message that allows users to submit a bid alongside an ordered list of transactions (**bundle**) that they want executed at the top of the block before any other transactions are executed for that block. The `x/builder` module works alongside the `AuctionMempool` such that
+The `x/builder` module is a Cosmos SDK module that allows Cosmos chains to host
+top-of-block auctions directly in-protocol with auction revenue (MEV) being
+redistributed according to the preferences of the chain. The `x/builder` module
+introduces a new `MsgAuctionBid` message that allows users to submit a bid
+alongside an ordered list of transactions, i.e. a **bundle**, that they want
+executed at top-of-block before any other transactions are executed for that
+block. The `x/builder` module works alongside the `AuctionMempool` such that:
 
-- Auctions are held directly in the `AuctionMempool` - where a winner is determined when the proposer proposes a new block in `PrepareProposal`
-- `x/builder` provides the necessary validation of auction bids and subsequent state transitions to extract bids
-
----
+* Auctions are held directly in the `AuctionMempool`, where a winner is determined
+  when the proposer proposes a new block in `PrepareProposal`.
+* `x/builder` provides the necessary validation of auction bids and subsequent
+  state transitions to extract bids.
 
 ## Concepts
 
 ### Miner Extractable Value (MEV)
 
-MEV refers to the potential profit that miners (or validators in a Proof-of-Stake system) can make by strategically ordering, selecting, or even censoring transactions in the blocks they produce. MEV can be classified into "good MEV" and "bad MEV" based on the effects it has on the blockchain ecosystem and its users. It's important to note that these classifications are subjective and may vary depending on one's perspective.
+MEV refers to the potential profit that miners, or validators in a Proof-of-Stake
+system, can make by strategically ordering, selecting, or even censoring
+transactions in the blocks they produce. MEV can be classified into "good MEV"
+and "bad MEV" based on the effects it has on the blockchain ecosystem and its
+users. It's important to note that these classifications are subjective and may
+vary depending on one's perspective.
 
-**Good MEV** refers to the value that validators can extract while contributing positively to the blockchain ecosystem. This typically includes activities that enhance network efficiency, maintain fairness, and align incentives with the intended use of the system.
+**Good MEV** refers to the value that validators can extract while contributing
+positively to the blockchain ecosystem. This typically includes activities that
+enhance network efficiency, maintain fairness, and align incentives with the
+intended use of the system.
 
-- **Back-running**: Validators can place their own transactions immediately after a profitable transaction, capitalizing on the changes caused by the preceding transaction.
-- **Arbitrage**: By exploiting price differences across decentralized exchanges or other DeFi platforms, validators help maintain more consistent price levels across the ecosystem, ultimately contributing to its stability.
-- **Liquidations**: In DeFi platforms, when users' collateral falls below a specific threshold, validators can liquidate these positions, thereby maintaining the overall health of the platform and protecting its users from insolvency risks.
+* **Back-running**: Validators can place their own transactions immediately
+  after a profitable transaction, capitalizing on the changes caused by the
+  preceding transaction.
+* **Arbitrage**: By exploiting price differences across decentralized exchanges
+  or other DeFi platforms, validators help maintain more consistent price levels
+  across the ecosystem, ultimately contributing to its stability.
+* **Liquidations**: In DeFi platforms, when users' collateral falls below a
+  specific threshold, validators can liquidate these positions, thereby maintaining
+  the overall health of the platform and protecting its users from insolvency risks.
 
 **Bad MEV** refers to the value that validators can extract through activities that harm the blockchain ecosystem, lead to unfair advantages, or exploit users. Examples of bad MEV include:
 
