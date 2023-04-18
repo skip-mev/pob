@@ -175,9 +175,13 @@ included in the top of block, it will be ignored.
 
 ### ProcessProposal
 
-After the proposer proposes a block of transactions for the next block, the block will be verifed by other nodes in the network in `ProcessProposal`. If there is an auction transaction in the proposal, it must be the first transaction in the proposal and all bundled transactions must follow the auction transaction in the exact order we would expect them to be seen. If this fails, the proposal is rejected. If this passes, the validator will then run `CheckTx` on all of the transactions in the block in the order in which they were provided in the proposal.
-
----
+After the proposer proposes a block of transactions for the next block, the
+block will be verified by other nodes in the network in `ProcessProposal`. If
+there is an auction transaction in the proposal, it must be the first transaction
+in the proposal and all bundled transactions must follow the auction transaction
+in the exact order we would expect them to be seen. If this fails, the proposal
+is rejected. If this passes, the validator will then run `CheckTx` on all of the
+transactions in the block in the order in which they were provided in the proposal.
 
 ## State
 
