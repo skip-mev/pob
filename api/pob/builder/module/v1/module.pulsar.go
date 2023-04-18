@@ -446,7 +446,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Module is the config object of the bank module.
+// Module is the config object of the builder module.
 type Module struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

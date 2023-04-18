@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"cosmossdk.io/api/tendermint/abci"
 	"cosmossdk.io/core/appmodule"
 	"cosmossdk.io/depinject"
+	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -89,6 +89,8 @@ type AppModule struct {
 	keeper keeper.Keeper
 }
 
+var _ appmodule.AppModule = AppModule{}
+
 // NewAppModule creates a new AppModule object.
 func NewAppModule(cdc codec.Codec, keeper keeper.Keeper) AppModule {
 	return AppModule{
@@ -96,6 +98,9 @@ func NewAppModule(cdc codec.Codec, keeper keeper.Keeper) AppModule {
 		keeper:         keeper,
 	}
 }
+
+// IsAppModule implements the appmodule.AppModule interface.
+func (am AppModule) IsAppModule() {}
 
 // IsOnePerModuleType implements the depinject.OnePerModuleType interface.
 func (am AppModule) IsOnePerModuleType() {}
@@ -135,7 +140,8 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 }
 
 func init() {
-	appmodule.Register(&modulev1.Module{},
+	appmodule.Register(
+		&modulev1.Module{},
 		appmodule.Provide(ProvideModule),
 	)
 }
@@ -157,7 +163,7 @@ type Outputs struct {
 	depinject.Out
 
 	BuilderKeeper keeper.Keeper
-	Module        AppModule
+	Module        appmodule.AppModule
 }
 
 func ProvideModule(in Inputs) Outputs {
