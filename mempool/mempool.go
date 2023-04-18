@@ -113,7 +113,7 @@ func (am *AuctionMempool) Remove(tx sdk.Tx) error {
 		am.removeTx(am.auctionIndex, tx)
 
 		// Remove all referenced transactions from the global mempool.
-		bundleTransactions, err := am.txConfig.getBundledTransactions(tx)
+		bundleTransactions, err := am.txConfig.getBundledTxs(tx)
 		if err != nil {
 			return err
 		}
@@ -190,12 +190,12 @@ func (am *AuctionMempool) IsAuctionTx(tx sdk.Tx) (bool, error) {
 
 // GetTransactionSigners returns the signers of a transaction.
 func (am *AuctionMempool) GetTransactionSigners(tx []byte) (map[string]bool, error) {
-	return am.txConfig.getTransactionSigners(tx)
+	return am.txConfig.getTxSigners(tx)
 }
 
 // WrapBundleTransaction wraps a transaction with a bundle transaction.
 func (am *AuctionMempool) WrapBundleTransaction(tx []byte) (sdk.Tx, error) {
-	return am.txConfig.wrapBundleTransaction(tx)
+	return am.txConfig.wrapBundleTx(tx)
 }
 
 func (am *AuctionMempool) GetBidInfo(tx sdk.Tx) (BidInfo, error) {
@@ -209,7 +209,7 @@ func (am *AuctionMempool) GetBidInfo(tx sdk.Tx) (BidInfo, error) {
 		return BidInfo{}, err
 	}
 
-	transactions, err := am.txConfig.getBundledTransactions(tx)
+	transactions, err := am.txConfig.getBundledTxs(tx)
 	if err != nil {
 		return BidInfo{}, err
 	}
@@ -233,7 +233,7 @@ func (am *AuctionMempool) GetBid(tx sdk.Tx) (sdk.Coin, error) {
 
 // GetBundledTransactions returns the transactions that are bundled in a transaction.
 func (am *AuctionMempool) GetBundledTransactions(tx sdk.Tx) ([]sdk.Tx, error) {
-	return am.txConfig.getBundledTransactions(tx)
+	return am.txConfig.getBundledTxs(tx)
 }
 
 // getTxHashStr returns the transaction hash string for a given transaction.

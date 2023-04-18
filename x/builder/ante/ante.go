@@ -98,12 +98,12 @@ func (ad BuilderDecorator) GetTopAuctionBid(ctx sdk.Context) (sdk.Coin, error) {
 		return sdk.Coin{}, nil
 	}
 
-	msgAuctionBid, err := mempool.GetMsgAuctionBidFromTx(auctionTx)
+	bid, err := ad.mempool.GetBid(auctionTx)
 	if err != nil {
 		return sdk.Coin{}, err
 	}
 
-	return msgAuctionBid.Bid, nil
+	return bid, nil
 }
 
 // IsTopBidTx returns true if the transaction inputted is the highest bidding auction transaction in the mempool.
