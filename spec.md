@@ -152,13 +152,28 @@ the sender's sequence number. The global index prioritizes transactions based on
 `ctx.Priority()` and the auction index prioritizes transactions based on the
 bid.
 
-### Prepare Proposal
+### PrepareProposal
 
-After the proposer of the next block has been selected, the proposer will call `PrepareProposal` to build the next block. The block will be built in two stages. First, it will host the auction and include the winning bidder's bundle as the first set of transactions for the block. The auction currently supports only a single winner. Selecting the auction winner involves a greedy search for a valid auction transaction starting from highest paying bid (respecting user nonce) in the `AuctionMempool`. The `x/builder`'s antehandler is responsible for verifying the auction transaction based on the criteria described below (see **Ante Handler**).
+After the proposer of the next block has been selected, the CometBFT client will
+call `PrepareProposal` to build the next block. The block will be built in two
+stages. First, it will host the auction and include the winning bidder's bundle
+as the first set of transactions for the block, i.e. it will select the bid
+transaction itself along with automatically including all the bundled transactions
+in the specified order they appear in the bid's `transactions` field.
 
-Then, it will build the rest of the block by reaping and validating the transactions in the normal global mempool. The second portion of block building iterates from highest to lowest priority transactions in the global mempool and adds them to the proposal if they are valid. If the proposer comes across a transaction that was already included in the top of block, it will be ignored.
+The auction currently supports only a single winner. Selecting the auction winner
+involves a greedy search for a valid auction transaction starting from highest
+paying bid, respecting user nonce, in the `AuctionMempool`. The `x/builder`'s
+ante handler is responsible for verifying the auction transaction based on the
+criteria described below (see **Ante Handler**).
 
-### Process Proposal
+Then, it will build the rest of the block by reaping and validating the transactions
+in the global index. The second portion of block building iterates from highest
+to lowest priority transactions in the global index and adds them to the proposal
+if they are valid. If the proposer comes across a transaction that was already
+included in the top of block, it will be ignored.
+
+### ProcessProposal
 
 After the proposer proposes a block of transactions for the next block, the block will be verifed by other nodes in the network in `ProcessProposal`. If there is an auction transaction in the proposal, it must be the first transaction in the proposal and all bundled transactions must follow the auction transaction in the exact order we would expect them to be seen. If this fails, the proposal is rejected. If this passes, the validator will then run `CheckTx` on all of the transactions in the block in the order in which they were provided in the proposal.
 
