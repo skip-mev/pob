@@ -151,19 +151,29 @@ in the exact order we would expect them to be seen. If this fails, the proposal
 is rejected. If this passes, the validator will then run `CheckTx` on all of the
 transactions in the block in the order in which they were provided in the proposal.
 
-
 ### Ante Handler
 
-As described, when users want to bid for the rights for top of block execution they will submit a special `AuctionTx` which is just a normal `sdk.Tx` transaction with a single `MsgAuctionBid`. The ante handler is responsible for verification of this `AuctionTx`. The ante handler will verify that:
+When users want to bid for the rights for top-of-block execution they will submit
+a normal `sdk.Tx` transaction with a single `MsgAuctionBid`. The ante handler is
+responsible for verification of this transaction. The ante handler will verify that:
 
-1. The auction transaction specifies a timeout height where the bid is no longer considered valid.
-2. The auction transaction includes less than MaxBundleSize transactions in its bundle.
-3. The auction transaction includes ***only*** a single `MsgAuctionBid` message. We enforce that no other messages are included to prevent front-running.
-4. Enforce that the user has sufficient funds to pay the bid they entered while covering all auction fees.
-5. Enforce that the `AuctionTx` is min bid increment greater than the next closest bid.
-6. Enforce that the bundle of transactions the bidder provided does not front-run or sandwich (if enabled).
+1. The auction transaction specifies a timeout height where the bid is no longer
+   considered valid. Note, it is REQUIRED that all bid transactions include a
+   height timeout.
+2. The auction transaction includes less than `MaxBundleSize` transactions in
+   its bundle.
+3. The auction transaction includes only a SINGLE `MsgAuctionBid` message. We
+   enforce that no other messages are included to prevent front-running.
+4. Enforce that the user has sufficient funds to pay the bid they entered while
+   covering all relevant auction fees.
+5. Enforce that the transaction's min bid increment greater than the local highest
+   bid in the mempool.
+6. Enforce that the bundle of transactions the bidder provided does not front-run
+   or sandwich (if enabled).
 
-Note, the process of selecting auction winners occurs in a greedy manner. In `PrepareProposal`, the `AuctionMempool` will iterate from largest to smallest bidding transaction until it finds the first valid `AuctionTx`. This means that all other bids will be rolled over into the auction in the next block unless if they specified a timeout height.
+Note, the process of selecting auction winners occurs in a greedy manner. In
+`PrepareProposal`, the `AuctionMempool` will iterate from largest to smallest
+bidding transaction until it finds the first valid bid transaction.
 
 ### State
 
