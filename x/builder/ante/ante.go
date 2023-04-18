@@ -63,7 +63,7 @@ func (ad BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 			return ctx, err
 		}
 
-		bidInfo, err := ad.mempool.GetBidInfo(tx)
+		bidInfo, err := ad.mempool.GetAuctionBidInfo(tx)
 		if err != nil {
 			return ctx, err
 		}

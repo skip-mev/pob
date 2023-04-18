@@ -8,7 +8,7 @@ import (
 )
 
 // ValidateBidInfo validates that the bid can be included in the auction.
-func (k Keeper) ValidateBidInfo(ctx sdk.Context, highestBid sdk.Coin, bidInfo mempool.BidInfo, signers []map[string]bool) error {
+func (k Keeper) ValidateBidInfo(ctx sdk.Context, highestBid sdk.Coin, bidInfo mempool.AuctionBidInfo, signers []map[string]struct{}) error {
 	// Validate the bundle size.
 	maxBundleSize, err := k.GetMaxBundleSize(ctx)
 	if err != nil {
@@ -101,14 +101,14 @@ func (k Keeper) ValidateAuctionBid(ctx sdk.Context, bidder sdk.AccAddress, bid, 
 //  2. valid: [tx1, tx2, tx3, tx4] where tx1 - tx4 are signed by the bidder.
 //  3. invalid: [tx1, tx2, tx3] where tx1 and tx3 are signed by the bidder and tx2 is signed by some other signer. (possible sandwich attack)
 //  4. invalid: [tx1, tx2, tx3] where tx1 is signed by the bidder, and tx2 - tx3 are signed by some other signer. (possible front-running attack)
-func (k Keeper) ValidateAuctionBundle(bidder sdk.AccAddress, bundleSigners []map[string]bool) error {
+func (k Keeper) ValidateAuctionBundle(bidder sdk.AccAddress, bundleSigners []map[string]struct{}) error {
 	if len(bundleSigners) <= 1 {
 		return nil
 	}
 
 	// prevSigners is used to track whether the signers of the current transaction overlap.
 	prevSigners := bundleSigners[0]
-	seenBidder := prevSigners[bidder.String()]
+	_, seenBidder := prevSigners[bidder.String()]
 
 	// Check that all subsequent transactions are signed by either
 	// 1. the same party as the first transaction
@@ -125,7 +125,7 @@ func (k Keeper) ValidateAuctionBundle(bidder sdk.AccAddress, bundleSigners []map
 			}
 
 			seenBidder = true
-			prevSigners = map[string]bool{bidder.String(): true}
+			prevSigners = map[string]struct{}{bidder.String(): {}}
 			filterSigners(prevSigners, txSigners)
 
 			if len(prevSigners) == 0 {
@@ -138,7 +138,7 @@ func (k Keeper) ValidateAuctionBundle(bidder sdk.AccAddress, bundleSigners []map
 }
 
 // filterSigners removes any signers from the currentSigners map that are not in the txSigners map.
-func filterSigners(currentSigners, txSigners map[string]bool) {
+func filterSigners(currentSigners, txSigners map[string]struct{}) {
 	for signer := range currentSigners {
 		if _, ok := txSigners[signer]; !ok {
 			delete(currentSigners, signer)

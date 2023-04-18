@@ -154,12 +154,12 @@ func (am *AuctionMempool) Remove(tx sdk.Tx) error {
 		am.removeTx(am.auctionIndex, tx)
 
 		// Remove all referenced transactions from the global mempool.
-		bundleTransactions, err := am.GetBundledTransactions(tx)
+		bundleTxs, err := am.GetBundledTransactions(tx)
 		if err != nil {
 			return err
 		}
 
-		for _, refTx := range bundleTransactions {
+		for _, refTx := range bundleTxs {
 			wrappedRefTx, err := am.WrapBundleTransaction(refTx)
 			if err != nil {
 				return err
