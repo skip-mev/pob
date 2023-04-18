@@ -67,7 +67,7 @@ func NewDefaultTransactionConfig(txDecoder sdk.TxDecoder) TransactionConfig {
 		wrapBundleTx:  NewDefaultWrapBundleTransaction(txDecoder),
 		getBidder:     NewDefaultGetBidder(),
 		getBid:        NewDefaultGetBid(),
-		getBundledTxs: NewDefaultGetBundledTransactions(txDecoder),
+		getBundledTxs: NewDefaultGetBundledTransactions(),
 	}
 }
 
@@ -147,7 +147,7 @@ func NewDefaultGetBid() GetBid {
 // NewDefaultGetBundledTransactions defines a default function that returns the bundled
 // transactions that the user wants to execute at the top of the block. In the default case,
 // the bundled transactions will be the raw bytes of sdk.Tx's.
-func NewDefaultGetBundledTransactions(txDecoder sdk.TxDecoder) GetBundledTransactions {
+func NewDefaultGetBundledTransactions() GetBundledTransactions {
 	return func(tx sdk.Tx) ([][]byte, error) {
 		msg, err := GetMsgAuctionBidFromTx(tx)
 		if err != nil {
