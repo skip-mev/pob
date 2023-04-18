@@ -38,8 +38,8 @@ type AuctionMempool struct {
 	// to quickly check if a transaction is already in the mempool.
 	txIndex map[string]struct{}
 
-	// txConfig defines the transaction configuration for processing auction transactions.
-	txConfig TransactionConfig
+	// config defines the transaction configuration for processing auction transactions.
+	config Config
 }
 
 // AuctionTxPriority returns a TxPriority over auction bid transactions only. It
@@ -102,7 +102,7 @@ func NewAuctionMempool(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx i
 		txDecoder: txDecoder,
 		txEncoder: txEncoder,
 		txIndex:   make(map[string]struct{}),
-		txConfig:  NewDefaultTransactionConfig(txDecoder),
+		config:    NewDefaultConfig(txDecoder),
 	}
 }
 

@@ -6,26 +6,25 @@ import (
 )
 
 type (
-	// isAuctionTx defines a function that returns true iff a transaction is an
+	// IsAuctionTx defines a function that returns true iff a transaction is an
 	// auction bid transaction.
 	IsAuctionTx func(tx sdk.Tx) (bool, error)
 
-	// getTransactionSigners defines a function that returns the signers of a
-	// transaction.
+	// GetTransactionSigners defines a function that returns the signers of a
+	// bundle transaction i.e. transaction that was included in the auction transaction's bundle.
 	GetTransactionSigners func(tx []byte) (map[string]bool, error)
 
-	// wrapBundleTransaction defines a function that wraps a transaction that is included
-	// in the bundle into a sdk.Tx.
+	// WrapBundleTransaction defines a function that wraps a bundle transaction into a sdk.Tx.
 	WrapBundleTransaction func(tx []byte) (sdk.Tx, error)
 
-	// GetBidder defines a function that returns the bidder of a transaction.
+	// GetBidder defines a function that returns the bidder of an auction transaction transaction.
 	GetBidder func(tx sdk.Tx) (sdk.AccAddress, error)
 
-	// GetBid defines a function that returns the bid of a transaction.
+	// GetBid defines a function that returns the bid of an auction transaction.
 	GetBid func(tx sdk.Tx) (sdk.Coin, error)
 
 	// GetBundledTransactions defines a function that returns the bundled transactions
-	// that the user wants to execute at the top of the block.
+	// that the user wants to execute at the top of the block given an auction transaction.
 	GetBundledTransactions func(tx sdk.Tx) ([][]byte, error)
 
 	// BidInfo defines the information about a bid.
@@ -35,10 +34,10 @@ type (
 		Transactions [][]byte
 	}
 
-	// TransactionConfig defines the configuration for processing auction transactions. It is
+	// Config defines the configuration for processing auction transactions. It is
 	// a wrapper around all of the functionality that each application chain must implement
 	// in order for auction processing to work.
-	TransactionConfig struct {
+	Config struct {
 		isAuctionTx   IsAuctionTx
 		getTxSigners  GetTransactionSigners
 		wrapBundleTx  WrapBundleTransaction
@@ -48,8 +47,9 @@ type (
 	}
 )
 
-func NewTransactionConfig(isAuctionTx IsAuctionTx, getTxSigners GetTransactionSigners, wrapBundleTx WrapBundleTransaction, getBidder GetBidder, getBid GetBid, getBundledTxs GetBundledTransactions) TransactionConfig {
-	return TransactionConfig{
+// NewConfig returns a new transaction configuration.
+func NewConfig(isAuctionTx IsAuctionTx, getTxSigners GetTransactionSigners, wrapBundleTx WrapBundleTransaction, getBidder GetBidder, getBid GetBid, getBundledTxs GetBundledTransactions) Config {
+	return Config{
 		isAuctionTx:   isAuctionTx,
 		getTxSigners:  getTxSigners,
 		wrapBundleTx:  wrapBundleTx,
@@ -59,9 +59,9 @@ func NewTransactionConfig(isAuctionTx IsAuctionTx, getTxSigners GetTransactionSi
 	}
 }
 
-// NewDefaultTransactionConfig returns a default transaction configuration.
-func NewDefaultTransactionConfig(txDecoder sdk.TxDecoder) TransactionConfig {
-	return TransactionConfig{
+// NewDefaultConfig returns a default transaction configuration.
+func NewDefaultConfig(txDecoder sdk.TxDecoder) Config {
+	return Config{
 		isAuctionTx:   NewDefaultIsAuctionTx(),
 		getTxSigners:  NewDefaultGetTransactionSigners(txDecoder),
 		wrapBundleTx:  NewDefaultWrapBundleTransaction(txDecoder),
@@ -86,7 +86,7 @@ func NewDefaultIsAuctionTx() IsAuctionTx {
 }
 
 // NewDefaultGetTransactionSigners defines a default function that returns the signers
-// of a transaction. In the default case, the transaction will be an sdk.Tx and the
+// of a transaction. In the default case, each bundle transaction will be an sdk.Tx and the
 // signers are the signers of each sdk.Msg in the transaction.
 func NewDefaultGetTransactionSigners(txDecoder sdk.TxDecoder) GetTransactionSigners {
 	return func(tx []byte) (map[string]bool, error) {
@@ -108,14 +108,16 @@ func NewDefaultGetTransactionSigners(txDecoder sdk.TxDecoder) GetTransactionSign
 
 // NewDefaultWrapBundleTransaction defines a default function that wraps a transaction
 // that is included in the bundle into a sdk.Tx. In the default case, the transaction
-// that is included in the bundle will be the raw bytes of an sdk.Tx.
+// that is included in the bundle will be the raw bytes of an sdk.Tx so we can just
+// decode it.
 func NewDefaultWrapBundleTransaction(txDecoder sdk.TxDecoder) WrapBundleTransaction {
 	return func(tx []byte) (sdk.Tx, error) {
 		return txDecoder(tx)
 	}
 }
 
-// NewDefaultGetBidder defines a default function that returns the bidder of a transaction.
+// NewDefaultGetBidder defines a default function that returns the bidder of an auction transaction.
+// In the default case, the bidder is the address defined in MsgAuctionBid.
 func NewDefaultGetBidder() GetBidder {
 	return func(tx sdk.Tx) (sdk.AccAddress, error) {
 		msg, err := GetMsgAuctionBidFromTx(tx)
@@ -132,7 +134,8 @@ func NewDefaultGetBidder() GetBidder {
 	}
 }
 
-// NewDefaultGetBid defines a default function that returns the bid of a transaction.
+// NewDefaultGetBid defines a default function that returns the bid of an auction transaction.
+// In the default case, the bid is the amount defined in MsgAuctionBid.
 func NewDefaultGetBid() GetBid {
 	return func(tx sdk.Tx) (sdk.Coin, error) {
 		msg, err := GetMsgAuctionBidFromTx(tx)
@@ -146,7 +149,8 @@ func NewDefaultGetBid() GetBid {
 
 // NewDefaultGetBundledTransactions defines a default function that returns the bundled
 // transactions that the user wants to execute at the top of the block. In the default case,
-// the bundled transactions will be the raw bytes of sdk.Tx's.
+// the bundled transactions will be the raw bytes of sdk.Tx's that are included in the
+// MsgAuctionBid.
 func NewDefaultGetBundledTransactions() GetBundledTransactions {
 	return func(tx sdk.Tx) ([][]byte, error) {
 		msg, err := GetMsgAuctionBidFromTx(tx)
