@@ -100,39 +100,7 @@ manipulations that benefit the miners/builders themselves.
 
 ## Specification
 
-## Messages
-
-POB defines a new Cosmos SDK `Message`, `MsgAuctionBid`, that allows users to
-create an auction bid and participate in a top-of-block auction. The `MsgAuctionBid`
-message defines a bidder and a series of embedded transactions, i.e. the bundle.
-
-```protobuf
-message MsgAuctionBid {
-  option (cosmos.msg.v1.signer) = "bidder";
-  option (amino.name) = "pob/x/builder/MsgAuctionBid";
-
-  option (gogoproto.equal) = false;
-
-  // bidder is the address of the account that is submitting a bid to the
-  // auction.
-  string bidder = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
-  // bid is the amount of coins that the bidder is bidding to participate in the
-  // auction.
-  cosmos.base.v1beta1.Coin bid = 3
-      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
-  // transactions are the bytes of the transactions that the bidder wants to
-  // bundle together.
-  repeated bytes transactions = 4;
-}
-```
-
-Note, the `transactions` may or may not exist in a node's application mempool. If
-a transaction containing a single `MsgAuctionBid` wins the auction, the block
-proposal will automatically include the `MsgAuctionBid` transaction along with
-injecting all the bundled transactions such that they are executed in the same
-order after the `MsgAuctionBid` transaction.
-
-## Mempool
+### Mempool
 
 As the lifeblood of blockchains, mempools serve as the intermediary space for
 pending transactions, playing a vital role in transaction management, fee markets,
@@ -183,20 +151,25 @@ in the exact order we would expect them to be seen. If this fails, the proposal
 is rejected. If this passes, the validator will then run `CheckTx` on all of the
 transactions in the block in the order in which they were provided in the proposal.
 
-## State
 
-### State Objects
+### Ante Handler
 
-| State Object | Description | Key | Values | Store |
-| --- | --- | --- | --- | --- |
-| Params | Tracks the parameters of the module | []byte{0} | []byte{buildertypes.Params} | KV |
+As described, when users want to bid for the rights for top of block execution they will submit a special `AuctionTx` which is just a normal `sdk.Tx` transaction with a single `MsgAuctionBid`. The ante handler is responsible for verification of this `AuctionTx`. The ante handler will verify that:
 
-#### Params
+1. The auction transaction specifies a timeout height where the bid is no longer considered valid.
+2. The auction transaction includes less than MaxBundleSize transactions in its bundle.
+3. The auction transaction includes ***only*** a single `MsgAuctionBid` message. We enforce that no other messages are included to prevent front-running.
+4. Enforce that the user has sufficient funds to pay the bid they entered while covering all auction fees.
+5. Enforce that the `AuctionTx` is min bid increment greater than the next closest bid.
+6. Enforce that the bundle of transactions the bidder provided does not front-run or sandwich (if enabled).
 
-This state object contains the `x/builder` module parameters and auction configuration desired by the application. All of these parameters are customizable through governance.
+Note, the process of selecting auction winners occurs in a greedy manner. In `PrepareProposal`, the `AuctionMempool` will iterate from largest to smallest bidding transaction until it finds the first valid `AuctionTx`. This means that all other bids will be rolled over into the auction in the next block unless if they specified a timeout height.
+
+### State
+
+The `x/builder` module stores the following state objects:
 
 ```protobuf
-// Params defines the parameters of the x/builder module.
 message Params {
   option (amino.name) = "cosmos-sdk/x/builder/Params";
 
@@ -235,62 +208,15 @@ message Params {
 }
 ```
 
-#### **Max Bundle Size**
-
-This is the maximum number of transactions that can be bundled together into a single bundle.
-
-#### **Escrow Account Address**
-
-This is the address of the auction house that will be receiving and accuring auction revenue.
-
-#### **Reserve Fee**
-
-This specifics the minimum bid (bid floor) needed to enter the auction.
-
-#### **Min Buy In Fee**
-
-This specifics the minimum the auction winner must pay to have their bundle included at the top of the block.
-
-#### **Min Bid Increment**
-
-This specifies the epsilon bid that each subsequent must be greater than to be considered in the auction i.e. if we see a bid of 10 and the min bid increment is 10 the next bid must be at least 20.
-
-#### **Frontrunning Protection**
-
-This specifies whether front-running and sandwich protection is enabled in the auction.
-
-#### **Proposer Fee**
-
-This specifies the portion of auction bid that goes to the block proposer that proposed the block.
-
----
-
-## State Transitions
-
-The `x/builder` module works alongside the `AuctionMempool` - a customized `PriorityNonce` mempool - to introduce state transitions. Auctions are held directly in the `AuctionMempool` where the winner is determined when the proposer proposes a new block in `PrepareProposal`. `x/builder` provides the necessary validation of auction bids and subsequent state transitions to extract bids.
-
-### Ante Handler
-
-As described, when users want to bid for the rights for top of block execution they will submit a special `AuctionTx` which is just a normal `sdk.Tx` transaction with a single `MsgAuctionBid`. The ante handler is responsible for verification of this `AuctionTx`. The ante handler will verify that:
-
-1. The auction transaction specifies a timeout height where the bid is no longer considered valid.
-2. The auction transaction includes less than MaxBundleSize transactions in its bundle.
-3. The auction transaction includes ***only*** a single `MsgAuctionBid` message. We enforce that no other messages are included to prevent front-running.
-4. Enforce that the user has sufficient funds to pay the bid they entered while covering all auction fees.
-5. Enforce that the `AuctionTx` is min bid increment greater than the next closest bid.
-6. Enforce that the bundle of transactions the bidder provided does not front-run or sandwich (if enabled).
-
-Note, the process of selecting auction winners occurs in a greedy manner. In `PrepareProposal`, the `AuctionMempool` will iterate from largest to smallest bidding transaction until it finds the first valid `AuctionTx`. This means that all other bids will be rolled over into the auction in the next block unless if they specified a timeout height.
-
 ## Messages
 
-### `MsgAuctionBid`
+### MsgAuctionBid
 
-As mentioned, the `MsgAuctionBid` sdk message is the gateway for participating in the auction. The message handler for `MsgAuctionBid` will be called at most one time per block (for the winning auction transaction). The message handler will verify bid one last time and then distribute the bid to the auction house (escrow address) and proposer of the block where the auction transaction was included.
+POB defines a new Cosmos SDK `Message`, `MsgAuctionBid`, that allows users to
+create an auction bid and participate in a top-of-block auction. The `MsgAuctionBid`
+message defines a bidder and a series of embedded transactions, i.e. the bundle.
 
 ```protobuf
-// MsgAuctionBid defines a request type for sending bids to the x/builder
-// module.
 message MsgAuctionBid {
   option (cosmos.msg.v1.signer) = "bidder";
   option (amino.name) = "pob/x/builder/MsgAuctionBid";
@@ -310,15 +236,26 @@ message MsgAuctionBid {
 }
 ```
 
-*Note: User's must also specify a timeout height when creating the transaction otherwise it will always fail `CheckTx`.*
+Note, the `transactions` may or may not exist in a node's application mempool. If
+a transaction containing a single `MsgAuctionBid` wins the auction, the block
+proposal will automatically include the `MsgAuctionBid` transaction along with
+injecting all the bundled transactions such that they are executed in the same
+order after the `MsgAuctionBid` transaction.
 
-### `MsgUpdateParams`
+When processing a `MsgAuctionBid`, the `x/builder` module will perform two primary
+actions:
 
-The `MsgUpdateParams` message can be executed only by an authority address that is defined by the application. This will typically be the address of the governance module account. This message handler is responsible for updating the configuration of the auction and `x/builder` module.
+1. Ensure the bid is valid per the module's parameters and configuration.
+2. Extract fee payments from the bidder's account and escrow them to the module's
+   escrow account and the proposer that included the winning bid in the block
+   proposal.
+
+### MsgUpdateParams
+
+The `MsgUpdateParams` message allows for an authority, typically the `x/gov`
+module account, to update the `x/builder`'s parameters.
 
 ```protobuf
-// MsgUpdateParams defines a request type for updating the x/builder module
-// parameters.
 message MsgUpdateParams {
   option (cosmos.msg.v1.signer) = "authority";
   option (amino.name) = "pob/x/builder/MsgUpdateParams";
@@ -332,35 +269,3 @@ message MsgUpdateParams {
   Params params = 2 [ (gogoproto.nullable) = false ];
 }
 ```
-
-## Clients
-
-### CLI
-
-#### CLI Queries
-
-Information about how the `x/builder` module can be queried using the CLI.
-
-| Command | Subcommand | Description |
-| --- | --- | --- |
-| query builder | `params` | Retrieve the parameters for the `x/builder` module |
-
-### gRPC & REST
-
-#### Queries
-
-Information about how the `x/builder` module can be queried using gRPC and REST endpoints.
-
-| Verb | Method | Description |
-| --- | --- | --- |
-| gRPC | skipmev.pob.builder.v1.Query/Params | Retrieve the parameters for the `x/builder` module |
-| REST | /pob/builder/v1/params | Retrieve the parameters for the `x/builder` module |
-
-#### Transactions
-
-Information about how the `x/builder` module can be interacted with using gRPC and REST endpoints.
-
-| Verb | Method | Description |
-| --- | --- | --- |
-| gRPC | skipmev.pob.builder.v1.Msg/AuctionBid | Submit bids to the auction to be considered for top of block execution |
-| REST | /pob/builder/v1/bid | Submit bids to the auction to be considered for top of block execution |
