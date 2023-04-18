@@ -1,5 +1,7 @@
 <h1 align="center">Protocol-Owned Builder</h1>
 
+<!-- markdownlint-disable MD013 -->
+<!-- markdownlint-disable MD041 -->
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#wip)
 [![GoDoc](https://img.shields.io/badge/godoc-reference-blue?style=flat-square&logo=go)](https://godoc.org/github.com/skip-mev/pob)
 [![Go Report Card](https://goreportcard.com/badge/github.com/skip-mev/pob?style=flat-square)](https://goreportcard.com/report/github.com/skip-mev/pob)
@@ -146,7 +148,8 @@ $ go install github.com/skip-mev/pob
 
     e. With Cosmos SDK version 0.47.0, the process of building blocks has been
     updated and moved from the consensus layer, CometBFT, to the application layer.
-    When a new block is requested, the proposer for that height will utilize the `PrepareProposal` handler to build a block while the `ProcessProposal` handler
+    When a new block is requested, the proposer for that height will utilize the
+    `PrepareProposal` handler to build a block while the `ProcessProposal` handler
     will verify the contents of the block proposal by all validators. The
     combination of the `AuctionMempool`, `PrepareProposal` and `ProcessProposal`
     handlers allows the application to verifiably build valid blocks with
