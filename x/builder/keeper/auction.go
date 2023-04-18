@@ -7,8 +7,8 @@ import (
 	"github.com/skip-mev/pob/mempool"
 )
 
-// ValidateAuctionMsg validates that the MsgAuctionBid can be included in the auction.
-func (k Keeper) ValidateAuctionMsg(ctx sdk.Context, highestBid sdk.Coin, bidInfo mempool.BidInfo) error {
+// ValidateBidInfo validates that the bid can be included in the auction.
+func (k Keeper) ValidateBidInfo(ctx sdk.Context, highestBid sdk.Coin, bidInfo mempool.BidInfo, signers []map[string]bool) error {
 	// Validate the bundle size.
 	maxBundleSize, err := k.GetMaxBundleSize(ctx)
 	if err != nil {
@@ -31,7 +31,7 @@ func (k Keeper) ValidateAuctionMsg(ctx sdk.Context, highestBid sdk.Coin, bidInfo
 	}
 
 	if protectionEnabled {
-		if err := k.ValidateAuctionBundle(bidInfo.Bidder, bidInfo.Transactions); err != nil {
+		if err := k.ValidateAuctionBundle(bidInfo.Bidder, signers); err != nil {
 			return err
 		}
 	}
@@ -101,27 +101,19 @@ func (k Keeper) ValidateAuctionBid(ctx sdk.Context, bidder sdk.AccAddress, bid, 
 //  2. valid: [tx1, tx2, tx3, tx4] where tx1 - tx4 are signed by the bidder.
 //  3. invalid: [tx1, tx2, tx3] where tx1 and tx3 are signed by the bidder and tx2 is signed by some other signer. (possible sandwich attack)
 //  4. invalid: [tx1, tx2, tx3] where tx1 is signed by the bidder, and tx2 - tx3 are signed by some other signer. (possible front-running attack)
-func (k Keeper) ValidateAuctionBundle(bidder sdk.AccAddress, transactions []sdk.Tx) error {
-	if len(transactions) <= 1 {
+func (k Keeper) ValidateAuctionBundle(bidder sdk.AccAddress, bundleSigners []map[string]bool) error {
+	if len(bundleSigners) <= 1 {
 		return nil
 	}
 
 	// prevSigners is used to track whether the signers of the current transaction overlap.
-	prevSigners, err := k.getTxSigners(transactions[0])
-	if err != nil {
-		return err
-	}
+	prevSigners := bundleSigners[0]
 	seenBidder := prevSigners[bidder.String()]
 
 	// Check that all subsequent transactions are signed by either
 	// 1. the same party as the first transaction
 	// 2. the same party for some arbitrary number of txs and then are all remaining txs are signed by the bidder.
-	for _, refTx := range transactions[1:] {
-		txSigners, err := k.getTxSigners(refTx)
-		if err != nil {
-			return err
-		}
-
+	for _, txSigners := range bundleSigners[1:] {
 		// Filter the signers to only those that signed the current transaction.
 		filterSigners(prevSigners, txSigners)
 
@@ -143,20 +135,6 @@ func (k Keeper) ValidateAuctionBundle(bidder sdk.AccAddress, transactions []sdk.
 	}
 
 	return nil
-}
-
-// getTxSigners returns the signers of a transaction.
-func (k Keeper) getTxSigners(tx sdk.Tx) (map[string]bool, error) {
-	signers := make(map[string]bool, 0)
-	for _, msg := range tx.GetMsgs() {
-		for _, signer := range msg.GetSigners() {
-			// TODO: check for multi-sig accounts
-			// https://github.com/skip-mev/pob/issues/14
-			signers[signer.String()] = true
-		}
-	}
-
-	return signers, nil
 }
 
 // filterSigners removes any signers from the currentSigners map that are not in the txSigners map.

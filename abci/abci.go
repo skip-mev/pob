@@ -55,7 +55,6 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		// bundled transactions are valid.
 	selectBidTxLoop:
 		for ; bidTxIterator != nil; bidTxIterator = bidTxIterator.Next() {
-			// Reinitialize all temporary variables.
 			selectedTxs = make([][]byte, 0)
 			totalTxBytes = 0
 			cacheCtx, write := ctx.CacheContext()
@@ -89,7 +88,15 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 				}
 
 				// Ensure that the bundled transactions are valid
-				for _, refTx := range bundledTransactions {
+				for _, rawRefTx := range bundledTransactions {
+					refTx, err := h.mempool.WrapBundleTransaction(rawRefTx)
+					if err != nil {
+						// Invalid bundled transaction, so we remove the bid transaction
+						// and try the next top bid.
+						txsToRemove[tmpBidTx] = struct{}{}
+						continue selectBidTxLoop
+					}
+
 					txBz, err := h.PrepareProposalVerifyTx(cacheCtx, refTx)
 					if err != nil {
 						// Invalid bundled transaction, so we remove the bid transaction
@@ -98,12 +105,10 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 						continue selectBidTxLoop
 					}
 
-					// Append the transaction to the selected transactions and update the
-					// total transaction size.
 					selectedTxs = append(selectedTxs, txBz)
 					totalTxBytes += bidTxSize
 
-					// Mark the transaction as seen so we don't include it in the
+					// Mark the transaction as seen so we don't consider it in the
 					// second half of the block building process.
 					hash := sha256.Sum256(txBz)
 					txHash := hex.EncodeToString(hash[:])
@@ -208,13 +213,20 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 					return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 				}
 
-				for i, refTx := range bundledTransactions {
-					refTxRaw, err := h.txEncoder(refTx)
+				for i, refTxRaw := range bundledTransactions {
+					// Wrap and then encode the bundled transaction to ensure that the underlying
+					// reference transaction can be processed as an sdk.Tx.
+					wrappedTx, err := h.mempool.WrapBundleTransaction(refTxRaw)
 					if err != nil {
 						return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 					}
 
-					if !bytes.Equal(refTxRaw, req.Txs[i+1]) {
+					refTxBz, err := h.txEncoder(wrappedTx)
+					if err != nil {
+						return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
+					}
+
+					if !bytes.Equal(refTxBz, req.Txs[i+1]) {
 						return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 					}
 				}

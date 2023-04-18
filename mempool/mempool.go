@@ -13,36 +13,77 @@ import (
 
 var _ sdkmempool.Mempool = (*AuctionMempool)(nil)
 
-type (
-	// AuctionMempool defines an auction mempool. It can be seen as an extension of
-	// an SDK PriorityNonceMempool, i.e. a mempool that supports <sender, nonce>
-	// two-dimensional priority ordering, with the additional support of prioritizing
-	// and indexing auction bids.
-	AuctionMempool struct {
-		// globalIndex defines the index of all transactions in the mempool. It uses
-		// the SDK's builtin PriorityNonceMempool. Once a bid is selected for top-of-block,
-		// all subsequent transactions in the mempool will be selected from this index.
-		globalIndex *PriorityNonceMempool[int64]
+// AuctionMempool defines an auction mempool. It can be seen as an extension of
+// an SDK PriorityNonceMempool, i.e. a mempool that supports <sender, nonce>
+// two-dimensional priority ordering, with the additional support of prioritizing
+// and indexing auction bids.
+type AuctionMempool struct {
+	// globalIndex defines the index of all transactions in the mempool. It uses
+	// the SDK's builtin PriorityNonceMempool. Once a bid is selected for top-of-block,
+	// all subsequent transactions in the mempool will be selected from this index.
+	globalIndex *PriorityNonceMempool[int64]
 
-		// auctionIndex defines an index of auction bids.
-		auctionIndex *PriorityNonceMempool[string]
+	// auctionIndex defines an index of auction bids.
+	auctionIndex *PriorityNonceMempool[string]
 
-		// txDecoder defines the sdk.Tx decoder that allows us to decode transactions
-		// and construct sdk.Txs from the bundled transactions.
-		txDecoder sdk.TxDecoder
+	// txDecoder defines the sdk.Tx decoder that allows us to decode transactions
+	// and construct sdk.Txs from the bundled transactions.
+	txDecoder sdk.TxDecoder
 
-		// txEncoder defines the sdk.Tx encoder that allows us to encode transactions
-		// to bytes.
-		txEncoder sdk.TxEncoder
+	// txEncoder defines the sdk.Tx encoder that allows us to encode transactions
+	// to bytes.
+	txEncoder sdk.TxEncoder
 
-		// txIndex is a map of all transactions in the mempool. It is used
-		// to quickly check if a transaction is already in the mempool.
-		txIndex map[string]struct{}
+	// txIndex is a map of all transactions in the mempool. It is used
+	// to quickly check if a transaction is already in the mempool.
+	txIndex map[string]struct{}
 
-		// txConfig defines the transaction configuration for processing auction transactions.
-		txConfig TransactionConfig
+	// txConfig defines the transaction configuration for processing auction transactions.
+	txConfig TransactionConfig
+}
+
+// AuctionTxPriority returns a TxPriority over auction bid transactions only. It
+// is to be used in the auction index only.
+func AuctionTxPriority() TxPriority[string] {
+	return TxPriority[string]{
+		GetTxPriority: func(goCtx context.Context, tx sdk.Tx) string {
+			msgAuctionBid, err := GetMsgAuctionBidFromTx(tx)
+			if err != nil {
+				panic(err)
+			}
+
+			return msgAuctionBid.Bid.String()
+		},
+		Compare: func(a, b string) int {
+			aCoins, _ := sdk.ParseCoinsNormalized(a)
+			bCoins, _ := sdk.ParseCoinsNormalized(b)
+
+			switch {
+			case aCoins == nil && bCoins == nil:
+				return 0
+
+			case aCoins == nil:
+				return -1
+
+			case bCoins == nil:
+				return 1
+
+			default:
+				switch {
+				case aCoins.IsAllGT(bCoins):
+					return 1
+
+				case aCoins.IsAllLT(bCoins):
+					return -1
+
+				default:
+					return 0
+				}
+			}
+		},
+		MinValue: "",
 	}
-)
+}
 
 func NewAuctionMempool(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int) *AuctionMempool {
 	return &AuctionMempool{
@@ -69,7 +110,7 @@ func NewAuctionMempool(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx i
 // auction tx (tx that contains a single MsgAuctionBid), it will also insert the
 // transaction into the auction index.
 func (am *AuctionMempool) Insert(ctx context.Context, tx sdk.Tx) error {
-	isAuctionTx, err := am.txConfig.isAuctionTx(tx)
+	isAuctionTx, err := am.IsAuctionTx(tx)
 	if err != nil {
 		return err
 	}
@@ -100,7 +141,7 @@ func (am *AuctionMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 // auction tx (tx that contains a single MsgAuctionBid), it will also remove all
 // referenced transactions from the global mempool.
 func (am *AuctionMempool) Remove(tx sdk.Tx) error {
-	isAuctionTx, err := am.txConfig.isAuctionTx(tx)
+	isAuctionTx, err := am.IsAuctionTx(tx)
 	if err != nil {
 		return err
 	}
@@ -113,13 +154,18 @@ func (am *AuctionMempool) Remove(tx sdk.Tx) error {
 		am.removeTx(am.auctionIndex, tx)
 
 		// Remove all referenced transactions from the global mempool.
-		bundleTransactions, err := am.txConfig.getBundledTxs(tx)
+		bundleTransactions, err := am.GetBundledTransactions(tx)
 		if err != nil {
 			return err
 		}
 
 		for _, refTx := range bundleTransactions {
-			am.removeTx(am.globalIndex, refTx)
+			wrappedRefTx, err := am.WrapBundleTransaction(refTx)
+			if err != nil {
+				return err
+			}
+
+			am.removeTx(am.globalIndex, wrappedRefTx)
 		}
 	}
 
@@ -132,7 +178,7 @@ func (am *AuctionMempool) Remove(tx sdk.Tx) error {
 // API is used to ensure that searchers are unable to remove valid transactions
 // from the global mempool.
 func (am *AuctionMempool) RemoveWithoutRefTx(tx sdk.Tx) error {
-	isAuctionTx, err := am.txConfig.isAuctionTx(tx)
+	isAuctionTx, err := am.IsAuctionTx(tx)
 	if err != nil {
 		return err
 	}
@@ -182,58 +228,18 @@ func (am *AuctionMempool) Contains(tx sdk.Tx) (bool, error) {
 	return ok, nil
 }
 
-// IsAuctionTx returns true if the transaction is a transaction that is attempting to
-// bid on an auction.
-func (am *AuctionMempool) IsAuctionTx(tx sdk.Tx) (bool, error) {
-	return am.txConfig.isAuctionTx(tx)
-}
-
-// GetTransactionSigners returns the signers of a transaction.
-func (am *AuctionMempool) GetTransactionSigners(tx []byte) (map[string]bool, error) {
-	return am.txConfig.getTxSigners(tx)
-}
-
-// WrapBundleTransaction wraps a transaction with a bundle transaction.
-func (am *AuctionMempool) WrapBundleTransaction(tx []byte) (sdk.Tx, error) {
-	return am.txConfig.wrapBundleTx(tx)
-}
-
-func (am *AuctionMempool) GetBidInfo(tx sdk.Tx) (BidInfo, error) {
-	bidder, err := am.txConfig.getBidder(tx)
-	if err != nil {
-		return BidInfo{}, err
+func (am *AuctionMempool) removeTx(mp sdkmempool.Mempool, tx sdk.Tx) {
+	err := mp.Remove(tx)
+	if err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
+		panic(fmt.Errorf("failed to remove invalid transaction from the mempool: %w", err))
 	}
 
-	bid, err := am.txConfig.getBid(tx)
+	txHashStr, err := am.getTxHashStr(tx)
 	if err != nil {
-		return BidInfo{}, err
+		panic(fmt.Errorf("failed to get tx hash string: %w", err))
 	}
 
-	transactions, err := am.txConfig.getBundledTxs(tx)
-	if err != nil {
-		return BidInfo{}, err
-	}
-
-	return BidInfo{
-		Bidder:       bidder,
-		Bid:          bid,
-		Transactions: transactions,
-	}, nil
-}
-
-// GetBidder returns the bidder from a transaction.
-func (am *AuctionMempool) GetBidder(tx sdk.Tx) (sdk.AccAddress, error) {
-	return am.txConfig.getBidder(tx)
-}
-
-// GetBid returns the bid from a transaction.
-func (am *AuctionMempool) GetBid(tx sdk.Tx) (sdk.Coin, error) {
-	return am.txConfig.getBid(tx)
-}
-
-// GetBundledTransactions returns the transactions that are bundled in a transaction.
-func (am *AuctionMempool) GetBundledTransactions(tx sdk.Tx) ([]sdk.Tx, error) {
-	return am.txConfig.getBundledTxs(tx)
+	delete(am.txIndex, txHashStr)
 }
 
 // getTxHashStr returns the transaction hash string for a given transaction.
@@ -247,18 +253,4 @@ func (am *AuctionMempool) getTxHashStr(tx sdk.Tx) (string, error) {
 	txHashStr := hex.EncodeToString(txHash[:])
 
 	return txHashStr, nil
-}
-
-func (am *AuctionMempool) removeTx(mp sdkmempool.Mempool, tx sdk.Tx) {
-	err := mp.Remove(tx)
-	if err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
-		panic(fmt.Errorf("failed to remove invalid transaction from the mempool: %w", err))
-	}
-
-	txHashStr, err := am.getTxHashStr(tx)
-	if err != nil {
-		panic(fmt.Errorf("failed to get tx hash string: %w", err))
-	}
-
-	delete(am.txIndex, txHashStr)
 }

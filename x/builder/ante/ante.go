@@ -83,7 +83,13 @@ func (ad BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 			}
 		}
 
-		if err := ad.builderKeeper.ValidateAuctionMsg(ctx, topBid, bidInfo); err != nil {
+		// Extract signers from bundle for verification.
+		signers, err := ad.mempool.GetBundleSigners(bidInfo.Transactions)
+		if err != nil {
+			return ctx, errors.Wrap(err, "failed to get bundle signers")
+		}
+
+		if err := ad.builderKeeper.ValidateBidInfo(ctx, topBid, bidInfo, signers); err != nil {
 			return ctx, errors.Wrap(err, "failed to validate auction bid")
 		}
 	}

@@ -1,8 +1,6 @@
 package mempool
 
 import (
-	"context"
-
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -28,13 +26,13 @@ type (
 
 	// GetBundledTransactions defines a function that returns the bundled transactions
 	// that the user wants to execute at the top of the block.
-	GetBundledTransactions func(tx sdk.Tx) ([]sdk.Tx, error)
+	GetBundledTransactions func(tx sdk.Tx) ([][]byte, error)
 
 	// BidInfo defines the information about a bid.
 	BidInfo struct {
 		Bidder       sdk.AccAddress
 		Bid          sdk.Coin
-		Transactions []sdk.Tx
+		Transactions [][]byte
 	}
 
 	// TransactionConfig defines the configuration for processing auction transactions. It is
@@ -97,7 +95,7 @@ func NewDefaultGetTransactionSigners(txDecoder sdk.TxDecoder) GetTransactionSign
 			return nil, err
 		}
 
-		signers := make(map[string]bool, 0)
+		signers := make(map[string]bool)
 		for _, msg := range sdkTx.GetMsgs() {
 			for _, signer := range msg.GetSigners() {
 				signers[signer.String()] = true
@@ -150,66 +148,12 @@ func NewDefaultGetBid() GetBid {
 // transactions that the user wants to execute at the top of the block. In the default case,
 // the bundled transactions will be the raw bytes of sdk.Tx's.
 func NewDefaultGetBundledTransactions(txDecoder sdk.TxDecoder) GetBundledTransactions {
-	return func(tx sdk.Tx) ([]sdk.Tx, error) {
+	return func(tx sdk.Tx) ([][]byte, error) {
 		msg, err := GetMsgAuctionBidFromTx(tx)
 		if err != nil {
 			return nil, err
 		}
 
-		wrap := NewDefaultWrapBundleTransaction(txDecoder)
-		wrappedTxs := make([]sdk.Tx, len(msg.Transactions))
-		for i, txBz := range msg.Transactions {
-			tx, err := wrap(txBz)
-			if err != nil {
-				return nil, err
-			}
-
-			wrappedTxs[i] = tx
-		}
-
-		return wrappedTxs, nil
-	}
-}
-
-// AuctionTxPriority returns a TxPriority over auction bid transactions only. It
-// is to be used in the auction index only.
-func AuctionTxPriority() TxPriority[string] {
-	return TxPriority[string]{
-		GetTxPriority: func(goCtx context.Context, tx sdk.Tx) string {
-			msgAuctionBid, err := GetMsgAuctionBidFromTx(tx)
-			if err != nil {
-				panic(err)
-			}
-
-			return msgAuctionBid.Bid.String()
-		},
-		Compare: func(a, b string) int {
-			aCoins, _ := sdk.ParseCoinsNormalized(a)
-			bCoins, _ := sdk.ParseCoinsNormalized(b)
-
-			switch {
-			case aCoins == nil && bCoins == nil:
-				return 0
-
-			case aCoins == nil:
-				return -1
-
-			case bCoins == nil:
-				return 1
-
-			default:
-				switch {
-				case aCoins.IsAllGT(bCoins):
-					return 1
-
-				case aCoins.IsAllLT(bCoins):
-					return -1
-
-				default:
-					return 0
-				}
-			}
-		},
-		MinValue: "",
+		return msg.Transactions, nil
 	}
 }

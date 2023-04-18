@@ -526,9 +526,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				suite.Require().NoError(err)
 
 				for index, tx := range bidInfo.Transactions {
-					txBz, err := suite.encodingConfig.TxConfig.TxEncoder()(tx)
-					suite.Require().NoError(err)
-					suite.Require().Equal(txBz, res.Txs[index+1])
+					suite.Require().Equal(tx, res.Txs[index+1])
 				}
 			}
 

@@ -182,11 +182,14 @@ func (suite *KeeperTestSuite) TestValidateAuctionMsg() {
 			suite.builderKeeper.SetParams(suite.ctx, params)
 
 			// Create the bundle of transactions ordered by accounts
-			bundle := make([]sdk.Tx, 0)
+			bundle := make([][]byte, 0)
 			for _, acc := range accounts {
 				tx, err := testutils.CreateRandomTx(suite.encCfg.TxConfig, acc, 0, 1, 100)
 				suite.Require().NoError(err)
-				bundle = append(bundle, tx)
+
+				txBz, err := suite.encCfg.TxConfig.TxEncoder()(tx)
+				suite.Require().NoError(err)
+				bundle = append(bundle, txBz)
 			}
 
 			bidInfo := mempool.BidInfo{
@@ -194,7 +197,11 @@ func (suite *KeeperTestSuite) TestValidateAuctionMsg() {
 				Bid:          bid,
 				Transactions: bundle,
 			}
-			err := suite.builderKeeper.ValidateAuctionMsg(suite.ctx, highestBid, bidInfo)
+
+			signers, err := suite.mempool.GetBundleSigners(bundle)
+			suite.Require().NoError(err)
+
+			err = suite.builderKeeper.ValidateBidInfo(suite.ctx, highestBid, bidInfo, signers)
 			if tc.pass {
 				suite.Require().NoError(err)
 			} else {
@@ -296,16 +303,22 @@ func (suite *KeeperTestSuite) TestValidateBundle() {
 			tc.malleate()
 
 			// Create the bundle of transactions ordered by accounts
-			bundle := make([]sdk.Tx, 0)
+			bundle := make([][]byte, 0)
 			for _, acc := range accounts {
 				// Create a random tx
 				tx, err := testutils.CreateRandomTx(suite.encCfg.TxConfig, acc, 0, 1, 1000)
 				suite.Require().NoError(err)
-				bundle = append(bundle, tx)
+
+				txBz, err := suite.encCfg.TxConfig.TxEncoder()(tx)
+				suite.Require().NoError(err)
+				bundle = append(bundle, txBz)
 			}
 
+			signers, err := suite.mempool.GetBundleSigners(bundle)
+			suite.Require().NoError(err)
+
 			// Validate the bundle
-			err := suite.builderKeeper.ValidateAuctionBundle(bidder.Address, bundle)
+			err = suite.builderKeeper.ValidateAuctionBundle(bidder.Address, signers)
 			if tc.pass {
 				suite.Require().NoError(err)
 			} else {
