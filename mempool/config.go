@@ -1,13 +1,14 @@
 package mempool
 
 import (
-	"cosmossdk.io/errors"
+	"fmt"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 type (
-	// BidInfo defines the information about a bid.
-	BidInfo struct {
+	// AuctionBidInfo defines the information about a bid to the auction house.
+	AuctionBidInfo struct {
 		Bidder       sdk.AccAddress
 		Bid          sdk.Coin
 		Transactions [][]byte
@@ -23,7 +24,7 @@ type (
 
 		// GetTransactionSigners defines a function that returns the signers of a
 		// bundle transaction i.e. transaction that was included in the auction transaction's bundle.
-		GetTransactionSigners(tx []byte) (map[string]bool, error)
+		GetTransactionSigners(tx []byte) (map[string]struct{}, error)
 
 		// WrapBundleTransaction defines a function that wraps a bundle transaction into a sdk.Tx.
 		WrapBundleTransaction(tx []byte) (sdk.Tx, error)
@@ -69,16 +70,16 @@ func (config *DefaultConfig) IsAuctionTx(tx sdk.Tx) (bool, error) {
 // GetTransactionSigners defines a default function that returns the signers
 // of a transaction. In the default case, each bundle transaction will be an sdk.Tx and the
 // signers are the signers of each sdk.Msg in the transaction.
-func (config *DefaultConfig) GetTransactionSigners(tx []byte) (map[string]bool, error) {
+func (config *DefaultConfig) GetTransactionSigners(tx []byte) (map[string]struct{}, error) {
 	sdkTx, err := config.txDecoder(tx)
 	if err != nil {
 		return nil, err
 	}
 
-	signers := make(map[string]bool)
+	signers := make(map[string]struct{})
 	for _, msg := range sdkTx.GetMsgs() {
 		for _, signer := range msg.GetSigners() {
-			signers[signer.String()] = true
+			signers[signer.String()] = struct{}{}
 		}
 	}
 
@@ -103,7 +104,7 @@ func (config *DefaultConfig) GetBidder(tx sdk.Tx) (sdk.AccAddress, error) {
 
 	bidder, err := sdk.AccAddressFromBech32(msg.Bidder)
 	if err != nil {
-		return nil, errors.Wrap(err, "invalid bidder address")
+		return nil, fmt.Errorf("invalid bidder address (%s): %w", msg.Bidder, err)
 	}
 
 	return bidder, nil

@@ -192,7 +192,7 @@ func (suite *KeeperTestSuite) TestValidateAuctionMsg() {
 				bundle = append(bundle, txBz)
 			}
 
-			bidInfo := mempool.BidInfo{
+			bidInfo := mempool.AuctionBidInfo{
 				Bidder:       bidder.Address,
 				Bid:          bid,
 				Transactions: bundle,

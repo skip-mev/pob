@@ -106,22 +106,6 @@ func NewAuctionMempool(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx i
 	}
 }
 
-func NewAuctionMempoolWithIndex(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int, config Config, globalIndex sdkmempool.Mempool) *AuctionMempool {
-	return &AuctionMempool{
-		globalIndex: globalIndex,
-		auctionIndex: NewPriorityMempool(
-			PriorityNonceMempoolConfig[string]{
-				TxPriority: AuctionTxPriority(),
-				MaxTx:      maxTx,
-			},
-		),
-		txDecoder: txDecoder,
-		txEncoder: txEncoder,
-		txIndex:   make(map[string]struct{}),
-		config:    config,
-	}
-}
-
 // Insert inserts a transaction into the mempool. If the transaction is a special
 // auction tx (tx that contains a single MsgAuctionBid), it will also insert the
 // transaction into the auction index.
@@ -170,12 +154,12 @@ func (am *AuctionMempool) Remove(tx sdk.Tx) error {
 		am.removeTx(am.auctionIndex, tx)
 
 		// Remove all referenced transactions from the global mempool.
-		bundleTransactions, err := am.GetBundledTransactions(tx)
+		bundleTxs, err := am.GetBundledTransactions(tx)
 		if err != nil {
 			return err
 		}
 
-		for _, refTx := range bundleTransactions {
+		for _, refTx := range bundleTxs {
 			wrappedRefTx, err := am.WrapBundleTransaction(refTx)
 			if err != nil {
 				return err

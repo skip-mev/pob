@@ -13,7 +13,7 @@ func (am *AuctionMempool) IsAuctionTx(tx sdk.Tx) (bool, error) {
 }
 
 // GetTransactionSigners returns the signers of the bundle transaction.
-func (am *AuctionMempool) GetTransactionSigners(tx []byte) (map[string]bool, error) {
+func (am *AuctionMempool) GetTransactionSigners(tx []byte) (map[string]struct{}, error) {
 	return am.config.GetTransactionSigners(tx)
 }
 
@@ -22,24 +22,24 @@ func (am *AuctionMempool) WrapBundleTransaction(tx []byte) (sdk.Tx, error) {
 	return am.config.WrapBundleTransaction(tx)
 }
 
-// GetBidInfo returns the bid info from an auction transaction.
-func (am *AuctionMempool) GetBidInfo(tx sdk.Tx) (BidInfo, error) {
+// GetAuctionBidInfo returns the bid info from an auction transaction.
+func (am *AuctionMempool) GetAuctionBidInfo(tx sdk.Tx) (AuctionBidInfo, error) {
 	bidder, err := am.GetBidder(tx)
 	if err != nil {
-		return BidInfo{}, err
+		return AuctionBidInfo{}, err
 	}
 
 	bid, err := am.GetBid(tx)
 	if err != nil {
-		return BidInfo{}, err
+		return AuctionBidInfo{}, err
 	}
 
 	transactions, err := am.GetBundledTransactions(tx)
 	if err != nil {
-		return BidInfo{}, err
+		return AuctionBidInfo{}, err
 	}
 
-	return BidInfo{
+	return AuctionBidInfo{
 		Bidder:       bidder,
 		Bid:          bid,
 		Transactions: transactions,
@@ -74,8 +74,8 @@ func (am *AuctionMempool) GetBundledTransactions(tx sdk.Tx) ([][]byte, error) {
 }
 
 // GetBundleSigners returns all of the signers for each transaction in the bundle.
-func (am *AuctionMempool) GetBundleSigners(txs [][]byte) ([]map[string]bool, error) {
-	signers := make([]map[string]bool, len(txs))
+func (am *AuctionMempool) GetBundleSigners(txs [][]byte) ([]map[string]struct{}, error) {
+	signers := make([]map[string]struct{}, len(txs))
 
 	for index, tx := range txs {
 		txSigners, err := am.GetTransactionSigners(tx)

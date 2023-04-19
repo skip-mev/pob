@@ -523,7 +523,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				auctionTx, err := suite.encodingConfig.TxConfig.TxDecoder()(res.Txs[0])
 				suite.Require().NoError(err)
 
-				bidInfo, err := suite.mempool.GetBidInfo(auctionTx)
+				bidInfo, err := suite.mempool.GetAuctionBidInfo(auctionTx)
 				suite.Require().NoError(err)
 
 				for index, tx := range bidInfo.Transactions {
