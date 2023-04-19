@@ -73,6 +73,15 @@ func (am *AuctionMempool) GetBundledTransactions(tx sdk.Tx) ([][]byte, error) {
 	return am.config.GetBundledTransactions(tx)
 }
 
+// HasValidTimeout returns true if the auction transaction has a valid timeout.
+func (am *AuctionMempool) HasValidTimeout(ctx sdk.Context, tx sdk.Tx) error {
+	if isAuctionTx, err := am.IsAuctionTx(tx); err != nil || !isAuctionTx {
+		return fmt.Errorf("transaction is not an auction transaction")
+	}
+
+	return am.config.HasValidTimeout(ctx, tx)
+}
+
 // GetBundleSigners returns all of the signers for each transaction in the bundle.
 func (am *AuctionMempool) GetBundleSigners(txs [][]byte) ([]map[string]struct{}, error) {
 	signers := make([]map[string]struct{}, len(txs))
