@@ -106,6 +106,22 @@ func NewAuctionMempool(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx i
 	}
 }
 
+func NewAuctionMempoolWithIndex(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int, config Config, globalIndex sdkmempool.Mempool) *AuctionMempool {
+	return &AuctionMempool{
+		globalIndex: globalIndex,
+		auctionIndex: NewPriorityMempool(
+			PriorityNonceMempoolConfig[string]{
+				TxPriority: AuctionTxPriority(),
+				MaxTx:      maxTx,
+			},
+		),
+		txDecoder: txDecoder,
+		txEncoder: txEncoder,
+		txIndex:   make(map[string]struct{}),
+		config:    config,
+	}
+}
+
 // Insert inserts a transaction into the mempool. If the transaction is a special
 // auction tx (tx that contains a single MsgAuctionBid), it will also insert the
 // transaction into the auction index.
