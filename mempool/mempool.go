@@ -21,10 +21,10 @@ type AuctionMempool struct {
 	// globalIndex defines the index of all transactions in the mempool. It uses
 	// the SDK's builtin PriorityNonceMempool. Once a bid is selected for top-of-block,
 	// all subsequent transactions in the mempool will be selected from this index.
-	globalIndex *PriorityNonceMempool[int64]
+	globalIndex sdkmempool.Mempool
 
 	// auctionIndex defines an index of auction bids.
-	auctionIndex *PriorityNonceMempool[string]
+	auctionIndex sdkmempool.Mempool
 
 	// txDecoder defines the sdk.Tx decoder that allows us to decode transactions
 	// and construct sdk.Txs from the bundled transactions.
