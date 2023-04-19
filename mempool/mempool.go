@@ -44,15 +44,15 @@ type AuctionMempool struct {
 
 // AuctionTxPriority returns a TxPriority over auction bid transactions only. It
 // is to be used in the auction index only.
-func AuctionTxPriority() TxPriority[string] {
+func AuctionTxPriority(config Config) TxPriority[string] {
 	return TxPriority[string]{
 		GetTxPriority: func(goCtx context.Context, tx sdk.Tx) string {
-			msgAuctionBid, err := GetMsgAuctionBidFromTx(tx)
+			bid, err := config.GetBid(tx)
 			if err != nil {
 				panic(err)
 			}
 
-			return msgAuctionBid.Bid.String()
+			return bid.String()
 		},
 		Compare: func(a, b string) int {
 			aCoins, _ := sdk.ParseCoinsNormalized(a)
@@ -85,18 +85,38 @@ func AuctionTxPriority() TxPriority[string] {
 	}
 }
 
-func NewAuctionMempool(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int, config Config) *AuctionMempool {
-	return &AuctionMempool{
-		globalIndex: NewPriorityMempool(
+// NewAuctionMempool returns a new AuctionMempool. The parameters are as follows:
+//   - globalIndex: defines the index of all transactions in the mempool. If nil, it
+//     will default to a PriorityNonceMempool with a default TxPriority.
+//   - maxGlobalTxs: defines the maximum number of transactions allowed in the global
+//     index.
+//   - maxAuctionTxs: defines the maximum number of transactions allowed in the auction
+//     index.
+//   - txDecoder: defines the sdk.Tx decoder that allows us to decode transactions
+//     and construct sdk.Txs from the bundled transactions.
+//   - txEncoder: defines the sdk.Tx encoder that allows us to encode transactions
+//     to bytes.
+//   - config: defines the transaction configuration for processing auction transactions.
+func NewAuctionMempool(globalIndex sdkmempool.Mempool, maxGlobalTxs, maxAuctionTxs int, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, config Config) *AuctionMempool {
+	if config == nil {
+		config = NewDefaultConfig(txDecoder)
+	}
+
+	if globalIndex == nil {
+		globalIndex = NewPriorityMempool(
 			PriorityNonceMempoolConfig[int64]{
 				TxPriority: NewDefaultTxPriority(),
-				MaxTx:      maxTx,
+				MaxTx:      maxGlobalTxs,
 			},
-		),
+		)
+	}
+
+	return &AuctionMempool{
+		globalIndex: globalIndex,
 		auctionIndex: NewPriorityMempool(
 			PriorityNonceMempoolConfig[string]{
-				TxPriority: AuctionTxPriority(),
-				MaxTx:      maxTx,
+				TxPriority: AuctionTxPriority(config),
+				MaxTx:      maxAuctionTxs,
 			},
 		),
 		txDecoder: txDecoder,

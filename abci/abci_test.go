@@ -70,7 +70,7 @@ func (suite *ABCITestSuite) SetupTest() {
 
 	// Mempool set up
 	config := mempool.NewDefaultConfig(suite.encodingConfig.TxConfig.TxDecoder())
-	suite.mempool = mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), 0, config)
+	suite.mempool = mempool.NewAuctionMempool(nil, 0, 0, suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), config)
 	suite.txs = make(map[string]struct{})
 	suite.auctionBidAmount = sdk.NewCoin("foo", sdk.NewInt(1000000000))
 	suite.minBidIncrement = sdk.NewCoin("foo", sdk.NewInt(1000))
