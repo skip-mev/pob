@@ -175,6 +175,8 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 			h.RemoveTx(tx)
 		}
 
+		fmt.Printf("\n\n\n\nselectedTxs num: %s\n\n\n\n", len(selectedTxs))
+
 		return abci.ResponsePrepareProposal{Txs: selectedTxs}
 	}
 }

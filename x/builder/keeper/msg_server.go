@@ -23,6 +23,8 @@ func NewMsgServerImpl(keeper Keeper) *MsgServer {
 func (m MsgServer) AuctionBid(goCtx context.Context, msg *types.MsgAuctionBid) (*types.MsgAuctionBidResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
+	fmt.Printf("\n\n\n WE OUT HERE WITH AN AUCTION BID OF %s \n\n\n", msg)
+
 	// This should never return an error because the address was validated when
 	// the message was ingressed.
 	bidder, err := sdk.AccAddressFromBech32(msg.Bidder)
