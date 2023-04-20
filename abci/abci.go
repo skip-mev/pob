@@ -58,6 +58,8 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 			cacheCtx, write := ctx.CacheContext()
 			tmpBidTx := bidTxIterator.Tx()
 
+			h.DisplayTx(tmpBidTx)
+
 			bidTxBz, err := h.PrepareProposalVerifyTx(cacheCtx, tmpBidTx)
 			if err != nil {
 				txsToRemove[tmpBidTx] = struct{}{}
@@ -67,6 +69,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 			bidTxSize := int64(len(bidTxBz))
 			if bidTxSize <= req.MaxTxBytes {
 				bundledTransactions, err := h.mempool.GetBundledTransactions(tmpBidTx)
+				fmt.Println("Error in getting bundled transactions: ", err)
 				if err != nil {
 					// Some transactions in the bundle may be malformatted or invalid, so
 					// we remove the bid transaction and try the next top bid.
@@ -80,6 +83,8 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 				// Ensure that the bundled transactions are valid
 				for index, rawRefTx := range bundledTransactions {
 					refTx, err := h.mempool.WrapBundleTransaction(rawRefTx)
+					h.DisplayTx(refTx)
+					fmt.Println("Error in wrapping bundle transaction: ", err)
 					if err != nil {
 						// Malformed bundled transaction, so we remove the bid transaction
 						// and try the next top bid.
@@ -88,6 +93,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 					}
 
 					txBz, err := h.PrepareProposalVerifyTx(cacheCtx, refTx)
+					fmt.Println("Error in preparing proposal verify tx: ", err)
 					if err != nil {
 						// Invalid bundled transaction, so we remove the bid transaction
 						// and try the next top bid.
@@ -175,8 +181,11 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 			h.RemoveTx(tx)
 		}
 
-		fmt.Printf("\n\n\n\nselectedTxs num: %s\n\n\n\n", len(selectedTxs))
-
+		fmt.Println("\n\nSelected transactions: ")
+		for _, tx := range selectedTxs {
+			h.DisplayTxBz(tx)
+		}
+		fmt.Println("\n\n")
 		return abci.ResponsePrepareProposal{Txs: selectedTxs}
 	}
 }
@@ -271,4 +280,35 @@ func (h *ProposalHandler) RemoveTx(tx sdk.Tx) {
 	if err := h.mempool.RemoveWithoutRefTx(tx); err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
 		panic(fmt.Errorf("failed to remove invalid transaction from the mempool: %w", err))
 	}
+}
+
+func (h *ProposalHandler) getTxHash(tx sdk.Tx) string {
+	txBz, err := h.txEncoder(tx)
+	if err != nil {
+		panic(err)
+	}
+
+	hash := sha256.Sum256(txBz)
+	txHash := hex.EncodeToString(hash[:])
+
+	return txHash
+}
+
+func (h *ProposalHandler) getTxHashFromBz(txBz []byte) string {
+	hash := sha256.Sum256(txBz)
+	txHash := hex.EncodeToString(hash[:])
+
+	return txHash
+}
+
+func (h *ProposalHandler) DisplayTx(tx sdk.Tx) {
+	hash := h.getTxHash(tx)
+	log := fmt.Sprintf("\n\nTHE CURRENT TX IS %s", hash)
+	fmt.Println(log)
+}
+
+func (h *ProposalHandler) DisplayTxBz(txBz []byte) {
+	hash := h.getTxHashFromBz(txBz)
+	log := fmt.Sprintf("\n\nTHE CURRENT TX IS %s", hash)
+	fmt.Println(log)
 }

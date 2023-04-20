@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	DefaultMaxBundleSize          uint32 = 2
+	DefaultMaxBundleSize          uint32 = 4
 	DefaultEscrowAccountAddress   string = "polar1p6x3hq7t74ets28w39k8sld7plh4z9e83xtjqr"
 	DefaultReserveFee                    = sdk.NewCoin("abera", sdk.NewInt(1000000))
 	DefaultMinBuyInFee                   = sdk.NewCoin("abera", sdk.NewInt(1000000))
