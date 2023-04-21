@@ -12,6 +12,7 @@ import (
 )
 
 var _ sdkmempool.Mempool = (*AuctionMempool)(nil)
+var _ Config = (*AuctionMempool)(nil)
 
 // AuctionMempool defines an auction mempool. It can be seen as an extension of
 // an SDK PriorityNonceMempool, i.e. a mempool that supports <sender, nonce>
@@ -85,34 +86,22 @@ func AuctionTxPriority(config Config) TxPriority[string] {
 	}
 }
 
-func NewAuctionMempool(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int, config Config) *AuctionMempool {
-	return &AuctionMempool{
-		globalIndex: NewPriorityMempool(
+func NewAuctionMempool(globalIndex sdkmempool.Mempool, maxTx, maxAuctionTx int, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, config Config) *AuctionMempool {
+	if globalIndex == nil {
+		globalIndex = NewPriorityMempool(
 			PriorityNonceMempoolConfig[int64]{
 				TxPriority: NewDefaultTxPriority(),
 				MaxTx:      maxTx,
 			},
-		),
-		auctionIndex: NewPriorityMempool(
-			PriorityNonceMempoolConfig[string]{
-				TxPriority: AuctionTxPriority(config),
-				MaxTx:      maxTx,
-			},
-		),
-		txDecoder: txDecoder,
-		txEncoder: txEncoder,
-		txIndex:   make(map[string]struct{}),
-		config:    config,
+		)
 	}
-}
 
-func NewAuctionMempoolWithIndex(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int, config Config, globalIndex sdkmempool.Mempool) *AuctionMempool {
 	return &AuctionMempool{
 		globalIndex: globalIndex,
 		auctionIndex: NewPriorityMempool(
 			PriorityNonceMempoolConfig[string]{
 				TxPriority: AuctionTxPriority(config),
-				MaxTx:      maxTx,
+				MaxTx:      maxAuctionTx,
 			},
 		),
 		txDecoder: txDecoder,

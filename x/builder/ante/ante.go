@@ -2,6 +2,7 @@ package ante
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 
 	"cosmossdk.io/errors"
@@ -12,14 +13,26 @@ import (
 
 var _ sdk.AnteDecorator = BuilderDecorator{}
 
-type BuilderDecorator struct {
-	builderKeeper keeper.Keeper
-	txDecoder     sdk.TxDecoder
-	txEncoder     sdk.TxEncoder
-	mempool       *mempool.AuctionMempool
-}
+type (
+	Mempool interface {
+		Contains(tx sdk.Tx) (bool, error)
+		IsAuctionTx(tx sdk.Tx) (bool, error)
+		GetAuctionBidInfo(tx sdk.Tx) (mempool.AuctionBidInfo, error)
+		GetBidder(tx sdk.Tx) (sdk.AccAddress, error)
+		GetTopAuctionTx(ctx context.Context) sdk.Tx
+		GetBundleSigners(txs [][]byte) ([]map[string]struct{}, error)
+		GetTimeoutHeight(tx sdk.Tx) (uint64, error)
+	}
 
-func NewBuilderDecorator(ak keeper.Keeper, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, mempool *mempool.AuctionMempool) BuilderDecorator {
+	BuilderDecorator struct {
+		builderKeeper keeper.Keeper
+		txDecoder     sdk.TxDecoder
+		txEncoder     sdk.TxEncoder
+		mempool       Mempool
+	}
+)
+
+func NewBuilderDecorator(ak keeper.Keeper, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, mempool Mempool) BuilderDecorator {
 	return BuilderDecorator{
 		builderKeeper: ak,
 		txDecoder:     txDecoder,
@@ -51,7 +64,7 @@ func (ad BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 	// Validate the auction bid if one exists.
 	if isAuctionTx {
 		// Auction transactions must have a timeout set to a valid block height.
-		if err := ad.mempool.HasValidTimeout(ctx, tx); err != nil {
+		if err := ad.HasValidTimeout(ctx, tx); err != nil {
 			return ctx, err
 		}
 
@@ -96,12 +109,12 @@ func (ad BuilderDecorator) GetTopAuctionBid(ctx sdk.Context) (sdk.Coin, error) {
 		return sdk.Coin{}, nil
 	}
 
-	bid, err := ad.mempool.GetBid(auctionTx)
+	auctionBidInfo, err := ad.mempool.GetAuctionBidInfo(auctionTx)
 	if err != nil {
 		return sdk.Coin{}, err
 	}
 
-	return bid, nil
+	return auctionBidInfo.Bid, nil
 }
 
 // IsTopBidTx returns true if the transaction inputted is the highest bidding auction transaction in the mempool.
@@ -122,4 +135,22 @@ func (ad BuilderDecorator) IsTopBidTx(ctx sdk.Context, tx sdk.Tx) (bool, error) 
 	}
 
 	return bytes.Equal(topBidBz, currentTxBz), nil
+}
+
+// HasValidTimeout returns true if the transaction has a valid timeout height.
+func (ad BuilderDecorator) HasValidTimeout(ctx sdk.Context, tx sdk.Tx) error {
+	timeout, err := ad.mempool.GetTimeoutHeight(tx)
+	if err != nil {
+		return err
+	}
+
+	if timeout == 0 {
+		return fmt.Errorf("timeout height cannot be zero")
+	}
+
+	if timeout < uint64(ctx.BlockHeight()) {
+		return fmt.Errorf("timeout height cannot be less than the current block height")
+	}
+
+	return nil
 }

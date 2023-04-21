@@ -12,6 +12,7 @@ type (
 		Bidder       sdk.AccAddress
 		Bid          sdk.Coin
 		Transactions [][]byte
+		Timeout      uint64
 	}
 
 	// Config defines the configuration for processing auction transactions. It is
@@ -39,9 +40,8 @@ type (
 		// that the user wants to execute at the top of the block given an auction transaction.
 		GetBundledTransactions(tx sdk.Tx) ([][]byte, error)
 
-		// HasValidTimeout defines a function that returns true iff the auction transaction
-		// has a valid timeout.
-		HasValidTimeout(ctx sdk.Context, tx sdk.Tx) error
+		// GetTimeoutHeight defines a function that returns the timeout height of an auction transaction.
+		GetTimeoutHeight(tx sdk.Tx) (uint64, error)
 	}
 
 	// DefaultConfig defines a default configuration for processing auction transactions.
@@ -144,21 +144,14 @@ func (config *DefaultConfig) GetBundledTransactions(tx sdk.Tx) ([][]byte, error)
 	return msg.Transactions, nil
 }
 
-// HasValidTimeout returns true if the transaction has a valid timeout height.
-func (config DefaultConfig) HasValidTimeout(ctx sdk.Context, tx sdk.Tx) error {
+// GetTimeoutHeight defines a default function that returns the timeout height
+// of an auction transaction. In the default case, the timeout height is defined on
+// the transaction itself.
+func (config *DefaultConfig) GetTimeoutHeight(tx sdk.Tx) (uint64, error) {
 	auctionTx, ok := tx.(TxWithTimeoutHeight)
 	if !ok {
-		return fmt.Errorf("transaction does not implement TxWithTimeoutHeight")
+		return 0, fmt.Errorf("transaction does not implement TxWithTimeoutHeight")
 	}
 
-	timeout := auctionTx.GetTimeoutHeight()
-	if timeout == 0 {
-		return fmt.Errorf("timeout height cannot be zero")
-	}
-
-	if timeout < uint64(ctx.BlockHeight()) {
-		return fmt.Errorf("timeout height cannot be less than the current block height")
-	}
-
-	return nil
+	return auctionTx.GetTimeoutHeight(), nil
 }
