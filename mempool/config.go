@@ -39,15 +39,15 @@ type (
 		// GetBid defines a function that returns the bid of an auction transaction.
 		GetBid(tx sdk.Tx) (sdk.Coin, error)
 
-		// GetAuctionBidInfo defines a function that returns the bid info from an auction transaction.
-		GetAuctionBidInfo(tx sdk.Tx) (AuctionBidInfo, error)
-
 		// GetBundledTransactions defines a function that returns the bundled transactions
 		// that the user wants to execute at the top of the block given an auction transaction.
 		GetBundledTransactions(tx sdk.Tx) ([][]byte, error)
 
 		// GetTimeout defines a function that returns the timeout of an auction transaction.
 		GetTimeout(tx sdk.Tx) (uint64, error)
+
+		// GetAuctionBidInfo defines a function that returns the bid info from an auction transaction.
+		GetAuctionBidInfo(tx sdk.Tx) (AuctionBidInfo, error)
 	}
 
 	// DefaultConfig defines a default configuration for processing auction transactions.
@@ -214,7 +214,7 @@ func (config *DefaultConfig) GetTimeout(tx sdk.Tx) (uint64, error) {
 	return auctionTx.GetTimeoutHeight(), nil
 }
 
-// GetAuctionBidInfo returns the auction bid info from a transaction.
+// GetAuctionBidInfo returns the auction bid info from an auction transaction.
 func (config *DefaultConfig) GetAuctionBidInfo(tx sdk.Tx) (AuctionBidInfo, error) {
 	bid, err := config.GetBid(tx)
 	if err != nil {
