@@ -49,6 +49,8 @@ type (
 		txDecoder sdk.TxDecoder
 	}
 
+	// TxWithTimeoutHeight is used to extract timeouts from sdk.Tx transactions. In the case where,
+	// timeouts are explicitly set on the sdk.Tx, we can use this interface to extract the timeout.
 	TxWithTimeoutHeight interface {
 		sdk.Tx
 
@@ -146,10 +148,10 @@ func (config *DefaultConfig) GetBundledTransactions(tx sdk.Tx) ([][]byte, error)
 
 // GetTimeout defines a default function that returns the timeout of an auction transaction.
 func (config *DefaultConfig) GetTimeout(tx sdk.Tx) (uint64, error) {
-	auctionTx, ok := tx.(TxWithTimeoutHeight)
+	timeoutTx, ok := tx.(TxWithTimeoutHeight)
 	if !ok {
 		return 0, fmt.Errorf("transaction does not implement TxWithTimeoutHeight")
 	}
 
-	return auctionTx.GetTimeoutHeight(), nil
+	return timeoutTx.GetTimeoutHeight(), nil
 }
