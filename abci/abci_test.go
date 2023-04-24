@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
-	"github.com/cometbft/cometbft/libs/log"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/golang/mock/gomock"
