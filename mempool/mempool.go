@@ -185,6 +185,8 @@ func (am *AuctionMempool) RemoveWithoutRefTx(tx sdk.Tx) error {
 
 	if isAuctionTx {
 		am.removeTx(am.auctionIndex, tx)
+	} else {
+		am.removeTx(am.globalIndex, tx)
 	}
 
 	return nil
