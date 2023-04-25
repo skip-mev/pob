@@ -120,6 +120,8 @@ the sender's sequence number. The global index prioritizes transactions based on
 `ctx.Priority()` and the auction index prioritizes transactions based on the
 bid.
 
+### Configuration
+
 ### PrepareProposal
 
 After the proposer of the next block has been selected, the CometBFT client will
