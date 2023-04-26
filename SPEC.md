@@ -122,6 +122,50 @@ bid.
 
 ### Configuration
 
+The `AuctionMempool` mempool implementation accepts a `Config` interface that
+allows the mempool to be generic across many Cosmos SDK applications, such that
+it allows the ability for the application developer to define their business logic
+in terms of how to perform things such as the following:
+
+* Getting tx signers
+* Getting bundled tx signers
+* Retrieving bid information
+
+
+```go
+	Config interface {
+		// IsAuctionTx defines a function that returns true iff a transaction is an
+		// auction bid transaction.
+		IsAuctionTx(tx sdk.Tx) (bool, error)
+
+		// GetTransactionSigners defines a function that returns the signers of a
+		// bundle transaction i.e. transaction that was included in the auction transaction's bundle.
+		GetTransactionSigners(tx []byte) (map[string]struct{}, error)
+
+		// GetBundleSigners defines a function that returns the signers of every transaction in a bundle.
+		GetBundleSigners(tx [][]byte) ([]map[string]struct{}, error)
+
+		// WrapBundleTransaction defines a function that wraps a bundle transaction into a sdk.Tx.
+		WrapBundleTransaction(tx []byte) (sdk.Tx, error)
+
+		// GetBidder defines a function that returns the bidder of an auction transaction transaction.
+		GetBidder(tx sdk.Tx) (sdk.AccAddress, error)
+
+		// GetBid defines a function that returns the bid of an auction transaction.
+		GetBid(tx sdk.Tx) (sdk.Coin, error)
+
+		// GetBundledTransactions defines a function that returns the bundled transactions
+		// that the user wants to execute at the top of the block given an auction transaction.
+		GetBundledTransactions(tx sdk.Tx) ([][]byte, error)
+
+		// GetTimeout defines a function that returns the timeout of an auction transaction.
+		GetTimeout(tx sdk.Tx) (uint64, error)
+
+		// GetAuctionBidInfo defines a function that returns the bid info from an auction transaction.
+		GetAuctionBidInfo(tx sdk.Tx) (AuctionBidInfo, error)
+	}
+```
+
 ### PrepareProposal
 
 After the proposer of the next block has been selected, the CometBFT client will
