@@ -28,6 +28,8 @@ type (
 	}
 )
 
+// NewABCIHandler returns an ABCIHandler that contains the functionality and handlers
+// required to process, validate and build blocks.
 func NewABCIHandler(
 	mp Mempool,
 	logger log.Logger,
@@ -44,6 +46,7 @@ func NewABCIHandler(
 	}
 }
 
+// RemoveTx removes a transaction from the application-side mempool.
 func (h *ABCIHandler) RemoveTx(tx sdk.Tx) {
 	if err := h.mempool.Remove(tx); err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
 		panic(fmt.Errorf("failed to remove invalid transaction from the mempool: %w", err))
