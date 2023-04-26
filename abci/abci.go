@@ -19,6 +19,7 @@ type (
 		IsAuctionTx(tx sdk.Tx) (bool, error)
 	}
 
+	//nolint:all
 	ABCIHandler struct {
 		mempool     Mempool
 		logger      log.Logger

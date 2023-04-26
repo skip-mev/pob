@@ -12,7 +12,7 @@ func (h *ABCIHandler) ExtendVoteHandler() ExtendVoteHandler {
 }
 
 // VerifyVoteExtensionHandler returns the VerifyVoteExtensionHandler ABCI handler
-// that verifies the vote extension returned by the ExtendVoteHandler.
+// that verifies the vote extension included in RequestVerifyVoteExtension.
 // In particular, it verifies that the vote extension is a valid auction transaction.
 func (h *ABCIHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionHandler {
 	return func(ctx sdk.Context, req *RequestVerifyVoteExtension) (*ResponseVerifyVoteExtension, error) {
