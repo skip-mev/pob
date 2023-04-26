@@ -68,3 +68,10 @@ func (h *ProposalHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionHandle
 		}, nil
 	}
 }
+
+// HostVoteExtentionAuction returns the top bidding valid auction transaction from all of the
+// vote extensions as provided in RequestPrepareProposal. If no valid auction transaction is found,
+// then nil is returned.
+func (h *ProposalHandler) HostVoteExtentionAuction(ctx sdk.Context, voteExtensions [][]byte) sdk.Tx {
+	panic("not implemented")
+}
