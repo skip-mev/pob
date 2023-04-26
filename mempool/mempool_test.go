@@ -135,7 +135,7 @@ func (suite *IntegrationTestSuite) TestAuctionMempoolRemove() {
 	suite.Require().NotNil(auctionIterator)
 	tx := auctionIterator.Tx()
 	suite.Require().Len(tx.GetMsgs(), 1)
-	suite.Require().NoError(suite.mempool.RemoveWithoutRefTx(tx))
+	suite.Require().NoError(suite.mempool.Remove(tx))
 
 	// Ensure that the auction tx was removed from the auction mempool only
 	suite.Require().Equal(numberAuctionTxs-1, suite.mempool.CountAuctionTx())
@@ -145,16 +145,11 @@ func (suite *IntegrationTestSuite) TestAuctionMempoolRemove() {
 	suite.Require().False(contains)
 
 	// Attempt to remove again and ensure that the tx is not found
-	suite.Require().NoError(suite.mempool.RemoveWithoutRefTx(tx))
+	suite.Require().NoError(suite.mempool.Remove(tx))
 	suite.Require().Equal(numberAuctionTxs-1, suite.mempool.CountAuctionTx())
 	suite.Require().Equal(numMempoolTxs, suite.mempool.CountTx())
 
-	// Attempt to remove with the bundled txs
-	suite.Require().NoError(suite.mempool.Remove(tx))
-	suite.Require().Equal(numberAuctionTxs-1, suite.mempool.CountAuctionTx())
-	suite.Require().Equal(numMempoolTxs-numberBundledTxs, suite.mempool.CountTx())
-
-	// No bundled txs should be in the global mempool
+	// Bundled txs should be in the global mempool
 	auctionMsg, err := mempool.GetMsgAuctionBidFromTx(tx)
 	suite.Require().NoError(err)
 	for _, refTx := range auctionMsg.GetTransactions() {
@@ -162,14 +157,14 @@ func (suite *IntegrationTestSuite) TestAuctionMempoolRemove() {
 		suite.Require().NoError(err)
 		contains, err = suite.mempool.Contains(tx)
 		suite.Require().NoError(err)
-		suite.Require().False(contains)
+		suite.Require().True(contains)
 	}
 
-	// Attempt to remove a global tx using RemoveWithoutRefTx
+	// Attempt to remove a global tx
 	iterator := suite.mempool.Select(context.Background(), nil)
 	tx = iterator.Tx()
 	size := suite.mempool.CountTx()
-	suite.mempool.RemoveWithoutRefTx(tx)
+	suite.mempool.Remove(tx)
 	suite.Require().Equal(size-1, suite.mempool.CountTx())
 
 	// Remove the rest of the global transactions
@@ -177,7 +172,7 @@ func (suite *IntegrationTestSuite) TestAuctionMempoolRemove() {
 	suite.Require().NotNil(iterator)
 	for iterator != nil {
 		tx = iterator.Tx()
-		suite.Require().NoError(suite.mempool.RemoveWithoutRefTx(tx))
+		suite.Require().NoError(suite.mempool.Remove(tx))
 		iterator = suite.mempool.Select(context.Background(), nil)
 	}
 	suite.Require().Equal(0, suite.mempool.CountTx())
