@@ -11,7 +11,7 @@ import (
 
 // PrepareProposalHandler returns the PrepareProposal ABCI handler that performs
 // top-of-block auctioning and general block proposal construction.
-func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
+func (h *ABCIHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 	return func(ctx sdk.Context, req abci.RequestPrepareProposal) abci.ResponsePrepareProposal {
 		var (
 			selectedTxs  [][]byte
@@ -152,7 +152,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 
 // ProcessProposalHandler returns the ProcessProposal ABCI handler that performs
 // block proposal verification.
-func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
+func (h *ABCIHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 	return func(ctx sdk.Context, req abci.RequestProcessProposal) abci.ResponseProcessProposal {
 		for index, txBz := range req.Txs {
 			tx, err := h.ProcessProposalVerifyTx(ctx, txBz)
@@ -207,7 +207,7 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 }
 
 // PrepareProposalVerifyTx encodes a transaction and verifies it.
-func (h *ProposalHandler) PrepareProposalVerifyTx(ctx sdk.Context, tx sdk.Tx) ([]byte, error) {
+func (h *ABCIHandler) PrepareProposalVerifyTx(ctx sdk.Context, tx sdk.Tx) ([]byte, error) {
 	txBz, err := h.txEncoder(tx)
 	if err != nil {
 		return nil, err
@@ -217,7 +217,7 @@ func (h *ProposalHandler) PrepareProposalVerifyTx(ctx sdk.Context, tx sdk.Tx) ([
 }
 
 // ProcessProposalVerifyTx decodes a transaction and verifies it.
-func (h *ProposalHandler) ProcessProposalVerifyTx(ctx sdk.Context, txBz []byte) (sdk.Tx, error) {
+func (h *ABCIHandler) ProcessProposalVerifyTx(ctx sdk.Context, txBz []byte) (sdk.Tx, error) {
 	tx, err := h.txDecoder(txBz)
 	if err != nil {
 		return nil, err

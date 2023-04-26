@@ -19,7 +19,8 @@ type (
 		IsAuctionTx(tx sdk.Tx) (bool, error)
 	}
 
-	ProposalHandler struct {
+	//nolint:all
+	ABCIHandler struct {
 		mempool     Mempool
 		logger      log.Logger
 		anteHandler sdk.AnteHandler
@@ -28,14 +29,16 @@ type (
 	}
 )
 
-func NewProposalHandler(
+// NewABCIHandler returns an ABCIHandler that contains the functionality and handlers
+// required to process, validate and build blocks.
+func NewABCIHandler(
 	mp Mempool,
 	logger log.Logger,
 	anteHandler sdk.AnteHandler,
 	txEncoder sdk.TxEncoder,
 	txDecoder sdk.TxDecoder,
-) *ProposalHandler {
-	return &ProposalHandler{
+) *ABCIHandler {
+	return &ABCIHandler{
 		mempool:     mp,
 		logger:      logger,
 		anteHandler: anteHandler,
@@ -44,14 +47,15 @@ func NewProposalHandler(
 	}
 }
 
-func (h *ProposalHandler) RemoveTx(tx sdk.Tx) {
+// RemoveTx removes a transaction from the application-side mempool.
+func (h *ABCIHandler) RemoveTx(tx sdk.Tx) {
 	if err := h.mempool.Remove(tx); err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
 		panic(fmt.Errorf("failed to remove invalid transaction from the mempool: %w", err))
 	}
 }
 
 // VerifyTx verifies a transaction against the application's state.
-func (h *ProposalHandler) verifyTx(ctx sdk.Context, tx sdk.Tx) error {
+func (h *ABCIHandler) verifyTx(ctx sdk.Context, tx sdk.Tx) error {
 	if h.anteHandler != nil {
 		_, err := h.anteHandler(ctx, tx, false)
 		return err
