@@ -124,7 +124,7 @@ func (suite *IntegrationTestSuite) TestGetTransactionSigners() {
 		{
 			"multiple signers on tx",
 			func() []byte {
-				tx, err := testutils.CreateTxWithSigners(suite.encCfg.TxConfig, 1, 0, 0, suite.accounts[0:3])
+				tx, err := testutils.CreateTxWithSigners(suite.encCfg.TxConfig, 0, 0, suite.accounts[0:3])
 				suite.Require().NoError(err)
 
 				bz, err := suite.encCfg.TxConfig.TxEncoder()(tx)
@@ -173,7 +173,7 @@ func (suite *IntegrationTestSuite) TestGetBundleSigners() {
 		{
 			"single bundle with multiple signers",
 			func() [][]byte {
-				tx, err := testutils.CreateTxWithSigners(suite.encCfg.TxConfig, 1, 0, 0, suite.accounts[0:3])
+				tx, err := testutils.CreateTxWithSigners(suite.encCfg.TxConfig, 0, 0, suite.accounts[0:3])
 				suite.Require().NoError(err)
 
 				bz, err := suite.encCfg.TxConfig.TxEncoder()(tx)
@@ -205,13 +205,13 @@ func (suite *IntegrationTestSuite) TestGetBundleSigners() {
 		{
 			"multiple bundles with multiple signers",
 			func() [][]byte {
-				tx1, err := testutils.CreateTxWithSigners(suite.encCfg.TxConfig, 1, 0, 0, suite.accounts[0:3])
+				tx1, err := testutils.CreateTxWithSigners(suite.encCfg.TxConfig, 0, 0, suite.accounts[0:3])
 				suite.Require().NoError(err)
 
 				bz1, err := suite.encCfg.TxConfig.TxEncoder()(tx1)
 				suite.Require().NoError(err)
 
-				tx2, err := testutils.CreateTxWithSigners(suite.encCfg.TxConfig, 1, 0, 0, suite.accounts[3:6])
+				tx2, err := testutils.CreateTxWithSigners(suite.encCfg.TxConfig, 0, 0, suite.accounts[3:6])
 				suite.Require().NoError(err)
 
 				bz2, err := suite.encCfg.TxConfig.TxEncoder()(tx2)

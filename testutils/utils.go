@@ -125,7 +125,7 @@ func CreateRandomTx(txCfg client.TxConfig, account Account, nonce, numberMsgs, t
 	return txBuilder.GetTx(), nil
 }
 
-func CreateTxWithSigners(txCfg client.TxConfig, numMsgs int, nonce, timeout uint64, signers []Account) (authsigning.Tx, error) {
+func CreateTxWithSigners(txCfg client.TxConfig, nonce, timeout uint64, signers []Account) (authsigning.Tx, error) {
 	msgs := []sdk.Msg{}
 	for _, signer := range signers {
 		msg := CreateRandomMsgs(signer.Address, 1)
