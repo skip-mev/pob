@@ -489,13 +489,13 @@ func (suite *IntegrationTestSuite) TestGetTimeout() {
 		{
 			"normal sdk tx",
 			func() sdk.Tx {
-				tx, err := testutils.CreateRandomTx(suite.encCfg.TxConfig, suite.accounts[0], 0, 1, 0)
+				tx, err := testutils.CreateRandomTx(suite.encCfg.TxConfig, suite.accounts[0], 0, 1, 1)
 				suite.Require().NoError(err)
 
 				return tx
 			},
-			true,
-			0,
+			false,
+			1,
 		},
 		{
 			"valid auction tx",
@@ -527,8 +527,8 @@ func (suite *IntegrationTestSuite) TestGetTimeout() {
 				suite.Require().NoError(err)
 				return tx
 			},
-			true,
-			0,
+			false,
+			10,
 		},
 	}
 

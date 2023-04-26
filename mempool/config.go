@@ -203,15 +203,6 @@ func (config *DefaultConfig) GetBundledTransactions(tx sdk.Tx) ([][]byte, error)
 
 // GetTimeout defines a default function that returns the timeout of an auction transaction.
 func (config *DefaultConfig) GetTimeout(tx sdk.Tx) (uint64, error) {
-	isAuctionTx, err := config.IsAuctionTx(tx)
-	if err != nil {
-		return 0, err
-	}
-
-	if !isAuctionTx {
-		return 0, fmt.Errorf("transaction is not an auction transaction")
-	}
-
 	timeoutTx, ok := tx.(TxWithTimeoutHeight)
 	if !ok {
 		return 0, fmt.Errorf("transaction does not implement TxWithTimeoutHeight")
