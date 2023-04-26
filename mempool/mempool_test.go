@@ -35,7 +35,7 @@ func (suite *IntegrationTestSuite) SetupTest() {
 	suite.encCfg = testutils.CreateTestEncodingConfig()
 	suite.config = mempool.NewDefaultConfig(suite.encCfg.TxConfig.TxDecoder())
 	suite.mempool = mempool.NewAuctionMempool(suite.encCfg.TxConfig.TxDecoder(), suite.encCfg.TxConfig.TxEncoder(), 0, suite.config)
-	suite.ctx = sdk.NewContext(nil, cmtproto.Header{}, false, log.NewNopLogger())
+	suite.ctx = sdk.NewContext(nil, cmtproto.Header{}, false, nil)
 
 	// Init accounts
 	suite.random = rand.New(rand.NewSource(time.Now().Unix()))
