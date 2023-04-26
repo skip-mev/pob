@@ -47,6 +47,24 @@ func (h *ProposalHandler) ExtendVoteHandler() ExtendVoteHandler {
 // returned by the ExtendVoteHandler. In particular, it verifies that the vote extension is a valid auction transaction.
 func (h *ProposalHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionHandler {
 	return func(ctx sdk.Context, req *RequestVerifyVoteExtension) (*ResponseVerifyVoteExtension, error) {
-		panic("implement me")
+		// Decode the vote extension which should be a valid auction transaction
+		txBz := req.VoteExtension
+		bidTx, err := h.txDecoder(txBz)
+		if err != nil {
+			return &ResponseVerifyVoteExtension{
+				Status: ResponseVerifyVoteExtension_REJECT,
+			}, err
+		}
+
+		// Verify the transaction
+		if err := h.verifyTx(ctx, bidTx); err != nil {
+			return &ResponseVerifyVoteExtension{
+				Status: ResponseVerifyVoteExtension_REJECT,
+			}, err
+		}
+
+		return &ResponseVerifyVoteExtension{
+			Status: ResponseVerifyVoteExtension_ACCEPT,
+		}, nil
 	}
 }
