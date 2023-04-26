@@ -18,11 +18,13 @@ func (h *ABCIHandler) ExtendVoteHandler() ExtendVoteHandler {
 		for auctionIterator != nil {
 			bidTx := auctionIterator.Tx()
 
+			// Validate the auction transaction
 			if err := h.verifyTx(ctx, bidTx); err != nil {
 				txsToRemove[bidTx] = struct{}{}
 				continue
 			}
 
+			// Encode the auction transaction to be included in the vote extension
 			txBz, err := h.txEncoder(bidTx)
 			if err != nil {
 				txsToRemove[bidTx] = struct{}{}
