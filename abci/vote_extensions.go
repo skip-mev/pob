@@ -2,6 +2,8 @@ package abci
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -21,6 +23,7 @@ type (
 		txDecoder   sdk.TxDecoder
 		txEncoder   sdk.TxEncoder
 		anteHandler sdk.AnteHandler
+		cache       map[string]error
 	}
 )
 
@@ -33,6 +36,7 @@ func NewVoteExtensionHandler(mp MempoolVoteExtensionI, txDecoder sdk.TxDecoder,
 		txDecoder:   txDecoder,
 		txEncoder:   txEncoder,
 		anteHandler: ah,
+		cache:       make(map[string]error),
 	}
 }
 
@@ -83,8 +87,20 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 // In particular, it verifies that the vote extension is a valid auction transaction.
 func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionHandler {
 	return func(ctx sdk.Context, req *RequestVerifyVoteExtension) (*ResponseVerifyVoteExtension, error) {
-		// Decode the vote extension which should be a valid auction transaction
 		txBz := req.VoteExtension
+
+		// Short circuit if we have already verified this transaction
+		hashBz := sha256.Sum256(txBz)
+		hash := hex.EncodeToString(hashBz[:])
+		if err, ok := h.cache[hash]; ok {
+			if err != nil {
+				return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_REJECT}, err
+			}
+
+			return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_ACCEPT}, nil
+		}
+
+		// Decode the vote extension which should be a valid auction transaction
 		bidTx, err := h.txDecoder(txBz)
 		if err != nil {
 			return &ResponseVerifyVoteExtension{
@@ -94,10 +110,14 @@ func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionH
 
 		// Verify the transaction
 		if err := h.verifyTx(ctx, bidTx); err != nil {
+			h.cache[hash] = err
+
 			return &ResponseVerifyVoteExtension{
 				Status: ResponseVerifyVoteExtension_REJECT,
 			}, err
 		}
+
+		h.cache[hash] = nil
 
 		return &ResponseVerifyVoteExtension{
 			Status: ResponseVerifyVoteExtension_ACCEPT,
