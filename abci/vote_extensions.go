@@ -2,6 +2,8 @@ package abci
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -21,6 +23,7 @@ type (
 		txDecoder   sdk.TxDecoder
 		txEncoder   sdk.TxEncoder
 		anteHandler sdk.AnteHandler
+		cache       map[string]error
 	}
 )
 
@@ -33,6 +36,7 @@ func NewVoteExtensionHandler(mp MempoolVoteExtensionI, txDecoder sdk.TxDecoder,
 		txDecoder:   txDecoder,
 		txEncoder:   txEncoder,
 		anteHandler: ah,
+		cache:       make(map[string]error),
 	}
 }
 
@@ -52,17 +56,22 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 		for auctionIterator != nil {
 			bidTx := auctionIterator.Tx()
 
-			// Validate the auction transaction
-			if err := h.verifyTx(ctx, bidTx); err != nil {
+			// Verify bid tx can be encoded and included in vote extension
+			bidBz, err := h.txEncoder(bidTx)
+			if err != nil {
 				txsToRemove[bidTx] = struct{}{}
-				continue
 			}
 
-			// Encode the auction transaction to be included in the vote extension
-			if txBz, err := h.txEncoder(bidTx); err != nil {
+			hashBz := sha256.Sum256(bidBz)
+			hash := hex.EncodeToString(hashBz[:])
+
+			// Validate the auction transaction and cache result
+			if err := h.verifyTx(ctx, bidTx); err != nil {
+				h.cache[hash] = err
 				txsToRemove[bidTx] = struct{}{}
 			} else {
-				voteExtension = txBz
+				h.cache[hash] = nil
+				voteExtension = bidBz
 				break
 			}
 		}
