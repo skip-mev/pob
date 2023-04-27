@@ -14,6 +14,8 @@ func (h *ABCIHandler) ExtendVoteHandler() ExtendVoteHandler {
 		auctionIterator := h.mempool.AuctionBidSelect(ctx)
 		txsToRemove := make(map[sdk.Tx]struct{})
 
+		// need to add caching here
+
 		// Iterate through auction bids until we find a valid one
 		for auctionIterator != nil {
 			bidTx := auctionIterator.Tx()
