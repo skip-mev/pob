@@ -32,7 +32,7 @@ type ABCITestSuite struct {
 	mempool        *mempool.AuctionMempool
 	logger         log.Logger
 	encodingConfig testutils.EncodingConfig
-	abciHandler    *abci.ABCIHandler
+	abciHandler    *abci.ProposalHandler
 	txs            map[string]struct{}
 
 	// auction bid setup
@@ -108,7 +108,7 @@ func (suite *ABCITestSuite) SetupTest() {
 
 	// Proposal handler set up
 	suite.logger = log.NewNopLogger()
-	suite.abciHandler = abci.NewABCIHandler(suite.mempool, suite.logger, suite.anteHandler, suite.encodingConfig.TxConfig.TxEncoder(), suite.encodingConfig.TxConfig.TxDecoder())
+	suite.abciHandler = abci.NewProposalHandler(suite.mempool, suite.logger, suite.anteHandler, suite.encodingConfig.TxConfig.TxEncoder(), suite.encodingConfig.TxConfig.TxDecoder())
 }
 
 func (suite *ABCITestSuite) anteHandler(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {

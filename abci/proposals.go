@@ -2,16 +2,57 @@ package abci
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
+	"fmt"
 
 	abci "github.com/cometbft/cometbft/abci/types"
+	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
+
+type (
+	MempoolProposalI interface {
+		sdkmempool.Mempool
+		AuctionBidSelect(ctx context.Context) sdkmempool.Iterator
+		GetBundledTransactions(tx sdk.Tx) ([][]byte, error)
+		WrapBundleTransaction(tx []byte) (sdk.Tx, error)
+		IsAuctionTx(tx sdk.Tx) (bool, error)
+	}
+
+	ProposalHandler struct {
+		mempool     MempoolProposalI
+		logger      log.Logger
+		anteHandler sdk.AnteHandler
+		txEncoder   sdk.TxEncoder
+		txDecoder   sdk.TxDecoder
+	}
+)
+
+// NewProposalHandler returns an ProposalHandler that contains the functionality and handlers
+// required to process, validate and build blocks.
+func NewProposalHandler(
+	mp MempoolProposalI,
+	logger log.Logger,
+	anteHandler sdk.AnteHandler,
+	txEncoder sdk.TxEncoder,
+	txDecoder sdk.TxDecoder,
+) *ProposalHandler {
+	return &ProposalHandler{
+		mempool:     mp,
+		logger:      logger,
+		anteHandler: anteHandler,
+		txEncoder:   txEncoder,
+		txDecoder:   txDecoder,
+	}
+}
 
 // PrepareProposalHandler returns the PrepareProposal ABCI handler that performs
 // top-of-block auctioning and general block proposal construction.
-func (h *ABCIHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
+func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 	return func(ctx sdk.Context, req abci.RequestPrepareProposal) abci.ResponsePrepareProposal {
 		var (
 			selectedTxs  [][]byte
@@ -152,7 +193,7 @@ func (h *ABCIHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 
 // ProcessProposalHandler returns the ProcessProposal ABCI handler that performs
 // block proposal verification.
-func (h *ABCIHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
+func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 	return func(ctx sdk.Context, req abci.RequestProcessProposal) abci.ResponseProcessProposal {
 		for index, txBz := range req.Txs {
 			tx, err := h.ProcessProposalVerifyTx(ctx, txBz)
@@ -207,7 +248,7 @@ func (h *ABCIHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 }
 
 // PrepareProposalVerifyTx encodes a transaction and verifies it.
-func (h *ABCIHandler) PrepareProposalVerifyTx(ctx sdk.Context, tx sdk.Tx) ([]byte, error) {
+func (h *ProposalHandler) PrepareProposalVerifyTx(ctx sdk.Context, tx sdk.Tx) ([]byte, error) {
 	txBz, err := h.txEncoder(tx)
 	if err != nil {
 		return nil, err
@@ -217,11 +258,28 @@ func (h *ABCIHandler) PrepareProposalVerifyTx(ctx sdk.Context, tx sdk.Tx) ([]byt
 }
 
 // ProcessProposalVerifyTx decodes a transaction and verifies it.
-func (h *ABCIHandler) ProcessProposalVerifyTx(ctx sdk.Context, txBz []byte) (sdk.Tx, error) {
+func (h *ProposalHandler) ProcessProposalVerifyTx(ctx sdk.Context, txBz []byte) (sdk.Tx, error) {
 	tx, err := h.txDecoder(txBz)
 	if err != nil {
 		return nil, err
 	}
 
 	return tx, h.verifyTx(ctx, tx)
+}
+
+// RemoveTx removes a transaction from the application-side mempool.
+func (h *ProposalHandler) RemoveTx(tx sdk.Tx) {
+	if err := h.mempool.Remove(tx); err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
+		panic(fmt.Errorf("failed to remove invalid transaction from the mempool: %w", err))
+	}
+}
+
+// VerifyTx verifies a transaction against the application's state.
+func (h *ProposalHandler) verifyTx(ctx sdk.Context, tx sdk.Tx) error {
+	if h.anteHandler != nil {
+		_, err := h.anteHandler(ctx, tx, false)
+		return err
+	}
+
+	return nil
 }
