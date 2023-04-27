@@ -50,17 +50,15 @@ func NewVoteExtensionHandler(mp MempoolVoteExtensionI, txDecoder sdk.TxDecoder,
 // returns it in its vote extension.
 func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 	return func(ctx sdk.Context, req *RequestExtendVote) (*ResponseExtendVote, error) {
-		var (
-			voteExtension []byte
-		)
+		var voteExtension []byte
 
 		// Reset the cache if necessary
 		h.checkStaleCache(ctx)
 
-		// Iterate through auction bids until we find a valid one
 		auctionIterator := h.mempool.AuctionBidSelect(ctx)
 		txsToRemove := make(map[sdk.Tx]struct{})
 
+		// Iterate through auction bids until we find a valid one
 		for auctionIterator != nil {
 			bidTx := auctionIterator.Tx()
 
@@ -68,6 +66,7 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 			bidBz, err := h.txEncoder(bidTx)
 			if err != nil {
 				txsToRemove[bidTx] = struct{}{}
+				continue
 			}
 
 			hashBz := sha256.Sum256(bidBz)
