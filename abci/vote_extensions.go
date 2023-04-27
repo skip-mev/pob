@@ -99,6 +99,9 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 // In particular, it verifies that the vote extension is a valid auction transaction.
 func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionHandler {
 	return func(ctx sdk.Context, req *RequestVerifyVoteExtension) (*ResponseVerifyVoteExtension, error) {
+		// Reset the cache if necessary
+		h.checkStaleCache(ctx)
+
 		txBz := req.VoteExtension
 		hashBz := sha256.Sum256(txBz)
 		hash := hex.EncodeToString(hashBz[:])
