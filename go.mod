@@ -8,8 +8,13 @@ require (
 	cosmossdk.io/depinject v1.0.0-alpha.3
 	cosmossdk.io/errors v1.0.0-beta.7
 	cosmossdk.io/math v1.0.0
+<<<<<<< HEAD
 	github.com/cometbft/cometbft v0.37.0
 	github.com/cosmos/cosmos-proto v1.0.0-beta.2
+=======
+	github.com/cometbft/cometbft v0.37.1
+	github.com/cosmos/cosmos-proto v1.0.0-beta.3
+>>>>>>> ee0ab98 (chore(deps): bump github.com/cometbft/cometbft from 0.37.0 to 0.37.1 (#99))
 	github.com/cosmos/cosmos-sdk v0.47.1
 	github.com/cosmos/gogoproto v1.4.7
 	github.com/golang/mock v1.6.0
