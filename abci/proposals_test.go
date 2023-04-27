@@ -29,11 +29,11 @@ type ABCITestSuite struct {
 	ctx sdk.Context
 
 	// mempool setup
-	mempool         *mempool.AuctionMempool
-	logger          log.Logger
-	encodingConfig  testutils.EncodingConfig
-	proposalHandler *abci.ProposalHandler
-	txs             map[string]struct{}
+	mempool        *mempool.AuctionMempool
+	logger         log.Logger
+	encodingConfig testutils.EncodingConfig
+	abciHandler    *abci.ProposalHandler
+	txs            map[string]struct{}
 
 	// auction bid setup
 	auctionBidAmount sdk.Coin
@@ -108,7 +108,7 @@ func (suite *ABCITestSuite) SetupTest() {
 
 	// Proposal handler set up
 	suite.logger = log.NewNopLogger()
-	suite.proposalHandler = abci.NewProposalHandler(suite.mempool, suite.logger, suite.anteHandler, suite.encodingConfig.TxConfig.TxEncoder(), suite.encodingConfig.TxConfig.TxDecoder())
+	suite.abciHandler = abci.NewProposalHandler(suite.mempool, suite.logger, suite.anteHandler, suite.encodingConfig.TxConfig.TxEncoder(), suite.encodingConfig.TxConfig.TxDecoder())
 }
 
 func (suite *ABCITestSuite) anteHandler(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
@@ -490,7 +490,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 			suite.builderKeeper.SetParams(suite.ctx, params)
 			suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), suite.mempool)
 
-			handler := suite.proposalHandler.PrepareProposalHandler()
+			handler := suite.abciHandler.PrepareProposalHandler()
 			res := handler(suite.ctx, abcitypes.RequestPrepareProposal{
 				MaxTxBytes: maxTxBytes,
 			})
@@ -748,7 +748,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 				suite.Require().True(bytes.Equal(txs[0], txBz))
 			}
 
-			handler := suite.proposalHandler.ProcessProposalHandler()
+			handler := suite.abciHandler.ProcessProposalHandler()
 			res := handler(suite.ctx, abcitypes.RequestProcessProposal{
 				Txs: txs,
 			})
