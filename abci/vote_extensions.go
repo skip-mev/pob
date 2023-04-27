@@ -1,12 +1,17 @@
 package abci
 
-import sdk "github.com/cosmos/cosmos-sdk/types"
+import (
+	"context"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
+)
 
 type (
 	MempoolVoteExtensionI interface {
-		Remove(tx sdk.Tx)
-		AuctionBidSelect(ctx sdk.Context)
-		IsAuctionTx(tx sdk.Tx)
+		Remove(tx sdk.Tx) error
+		AuctionBidSelect(ctx context.Context) sdkmempool.Iterator
+		IsAuctionTx(tx sdk.Tx) (bool, error)
 	}
 
 	VoteExtensionHandler struct {
