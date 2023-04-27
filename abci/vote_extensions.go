@@ -19,11 +19,12 @@ type (
 	}
 
 	VoteExtensionHandler struct {
-		mempool     MempoolVoteExtensionI
-		txDecoder   sdk.TxDecoder
-		txEncoder   sdk.TxEncoder
-		anteHandler sdk.AnteHandler
-		cache       map[string]error
+		mempool       MempoolVoteExtensionI
+		txDecoder     sdk.TxDecoder
+		txEncoder     sdk.TxEncoder
+		anteHandler   sdk.AnteHandler
+		cache         map[string]error
+		currentHeight int64
 	}
 )
 
@@ -32,11 +33,12 @@ type (
 func NewVoteExtensionHandler(mp MempoolVoteExtensionI, txDecoder sdk.TxDecoder,
 	txEncoder sdk.TxEncoder, ah sdk.AnteHandler) *VoteExtensionHandler {
 	return &VoteExtensionHandler{
-		mempool:     mp,
-		txDecoder:   txDecoder,
-		txEncoder:   txEncoder,
-		anteHandler: ah,
-		cache:       make(map[string]error),
+		mempool:       mp,
+		txDecoder:     txDecoder,
+		txEncoder:     txEncoder,
+		anteHandler:   ah,
+		cache:         make(map[string]error),
+		currentHeight: 0,
 	}
 }
 
@@ -49,26 +51,36 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 			voteExtension []byte
 		)
 
+		// Reset the cache if necessary
+		h.checkStaleCache(ctx)
+
+		// Iterate through auction bids until we find a valid one
 		auctionIterator := h.mempool.AuctionBidSelect(ctx)
 		txsToRemove := make(map[sdk.Tx]struct{})
 
-		// Iterate through auction bids until we find a valid one
 		for auctionIterator != nil {
 			bidTx := auctionIterator.Tx()
 
-			// Validate the auction transaction
-			if err := h.verifyTx(ctx, bidTx); err != nil {
+			// Verify bid tx can be encoded and included in vote extension
+			bidBz, err := h.txEncoder(bidTx)
+			if err != nil {
 				txsToRemove[bidTx] = struct{}{}
-				continue
 			}
 
-			// Encode the auction transaction to be included in the vote extension
-			if txBz, err := h.txEncoder(bidTx); err != nil {
+			hashBz := sha256.Sum256(bidBz)
+			hash := hex.EncodeToString(hashBz[:])
+
+			// Validate the auction transaction and cache result
+			if err := h.verifyTx(ctx, bidTx); err != nil {
+				h.cache[hash] = err
 				txsToRemove[bidTx] = struct{}{}
 			} else {
-				voteExtension = txBz
+				h.cache[hash] = nil
+				voteExtension = bidBz
 				break
 			}
+
+			auctionIterator = auctionIterator.Next()
 		}
 
 		// Remove all invalid auction bids from the mempool
@@ -87,11 +99,14 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 // In particular, it verifies that the vote extension is a valid auction transaction.
 func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionHandler {
 	return func(ctx sdk.Context, req *RequestVerifyVoteExtension) (*ResponseVerifyVoteExtension, error) {
-		txBz := req.VoteExtension
+		// Reset the cache if necessary
+		h.checkStaleCache(ctx)
 
-		// Short circuit if we have already verified this transaction
+		txBz := req.VoteExtension
 		hashBz := sha256.Sum256(txBz)
 		hash := hex.EncodeToString(hashBz[:])
+
+		// Short circuit if we have already verified this vote extension
 		if err, ok := h.cache[hash]; ok {
 			if err != nil {
 				return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_REJECT}, err
@@ -108,20 +123,16 @@ func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionH
 			}, err
 		}
 
-		// Verify the transaction
+		// Verify the auction transaction and cache the result
 		if err := h.verifyTx(ctx, bidTx); err != nil {
 			h.cache[hash] = err
 
-			return &ResponseVerifyVoteExtension{
-				Status: ResponseVerifyVoteExtension_REJECT,
-			}, err
+			return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_REJECT}, err
 		}
 
 		h.cache[hash] = nil
 
-		return &ResponseVerifyVoteExtension{
-			Status: ResponseVerifyVoteExtension_ACCEPT,
-		}, nil
+		return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_ACCEPT}, nil
 	}
 }
 
@@ -129,6 +140,16 @@ func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionH
 func (h *VoteExtensionHandler) RemoveTx(tx sdk.Tx) {
 	if err := h.mempool.Remove(tx); err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
 		panic(fmt.Errorf("failed to remove invalid transaction from the mempool: %w", err))
+	}
+}
+
+// checkStaleCache checks if the current height is greater than the previous height at which
+// the vote extensions were verified in. If so, it resets the cache to allow transactions to be
+// reverified.
+func (h *VoteExtensionHandler) checkStaleCache(ctx sdk.Context) {
+	if blockHeight := ctx.BlockHeight(); h.currentHeight != blockHeight {
+		h.cache = make(map[string]error)
+		h.currentHeight = blockHeight
 	}
 }
 
