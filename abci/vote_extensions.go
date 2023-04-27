@@ -101,7 +101,36 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 // In particular, it verifies that the vote extension is a valid auction transaction.
 func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionHandler {
 	return func(ctx sdk.Context, req *RequestVerifyVoteExtension) (*ResponseVerifyVoteExtension, error) {
-		panic("implement me")
+		// Reset the cache if necessary
+		h.checkStaleCache(ctx)
+
+		txBz := req.VoteExtension
+		hashBz := sha256.Sum256(txBz)
+		hash := hex.EncodeToString(hashBz[:])
+
+		// Short circuit if we have already verified this vote extension
+		if err, ok := h.cache[hash]; ok {
+			if err != nil {
+				return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_REJECT}, err
+			}
+
+			return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_ACCEPT}, nil
+		}
+
+		// Decode the vote extension which should be a valid auction transaction
+		bidTx, err := h.txDecoder(txBz)
+		if err != nil {
+			return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_REJECT}, err
+		}
+
+		// Verify the auction transaction and cache the result
+		err = h.verifyTx(ctx, bidTx)
+		h.cache[hash] = err
+		if err != nil {
+			return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_REJECT}, err
+		}
+
+		return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_ACCEPT}, nil
 	}
 }
 
