@@ -50,9 +50,7 @@ func NewVoteExtensionHandler(mp MempoolVoteExtensionI, txDecoder sdk.TxDecoder,
 // returns it in its vote extension.
 func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 	return func(ctx sdk.Context, req *RequestExtendVote) (*ResponseExtendVote, error) {
-		var (
-			voteExtension []byte
-		)
+		var voteExtension []byte
 
 		// Reset the cache if necessary
 		h.checkStaleCache(ctx)
