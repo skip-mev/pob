@@ -1,10 +1,46 @@
 package abci
 
-import sdk "github.com/cosmos/cosmos-sdk/types"
+import (
+	"context"
 
-// ExtendVoteHandler returns the ExtendVoteHandler ABCI handler that extracts the top bidding valid auction transaction
-// from a validator's local mempool and returns it in its vote extension.
-func (h *ProposalHandler) ExtendVoteHandler() ExtendVoteHandler {
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
+)
+
+type (
+	// MempoolVoteExtensionI contains the methods required by the VoteExtensionHandler
+	// to interact with the local mempool.
+	MempoolVoteExtensionI interface {
+		Remove(tx sdk.Tx) error
+		AuctionBidSelect(ctx context.Context) sdkmempool.Iterator
+		IsAuctionTx(tx sdk.Tx) (bool, error)
+	}
+
+	VoteExtensionHandler struct {
+		mempool     MempoolVoteExtensionI
+		txDecoder   sdk.TxDecoder
+		txEncoder   sdk.TxEncoder
+		anteHandler sdk.AnteHandler
+	}
+)
+
+// NewVoteExtensionHandler returns an VoteExtensionHandler that contains the functionality and handlers
+// required to inject, process, and validate vote extensions.
+func NewVoteExtensionHandler(mp MempoolVoteExtensionI, txDecoder sdk.TxDecoder,
+	txEncoder sdk.TxEncoder, ah sdk.AnteHandler,
+) *VoteExtensionHandler {
+	return &VoteExtensionHandler{
+		mempool:     mp,
+		txDecoder:   txDecoder,
+		txEncoder:   txEncoder,
+		anteHandler: ah,
+	}
+}
+
+// ExtendVoteHandler returns the ExtendVoteHandler ABCI handler that extracts
+// the top bidding valid auction transaction from a validator's local mempool and
+// returns it in its vote extension.
+func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 	return func(ctx sdk.Context, req *RequestExtendVote) (*ResponseExtendVote, error) {
 		var (
 			voteExtension []byte
@@ -43,9 +79,10 @@ func (h *ProposalHandler) ExtendVoteHandler() ExtendVoteHandler {
 	}
 }
 
-// VerifyVoteExtensionHandler returns the VerifyVoteExtensionHandler ABCI handler that verifies the vote extension
-// returned by the ExtendVoteHandler. In particular, it verifies that the vote extension is a valid auction transaction.
-func (h *ProposalHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionHandler {
+// VerifyVoteExtensionHandler returns the VerifyVoteExtensionHandler ABCI handler
+// that verifies the vote extension included in RequestVerifyVoteExtension.
+// In particular, it verifies that the vote extension is a valid auction transaction.
+func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionHandler {
 	return func(ctx sdk.Context, req *RequestVerifyVoteExtension) (*ResponseVerifyVoteExtension, error) {
 		// Decode the vote extension which should be a valid auction transaction
 		txBz := req.VoteExtension
