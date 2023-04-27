@@ -2,6 +2,8 @@ package abci
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
@@ -50,19 +52,19 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 		for auctionIterator != nil {
 			bidTx := auctionIterator.Tx()
 
+			// Validate the auction transaction
 			if err := h.verifyTx(ctx, bidTx); err != nil {
 				txsToRemove[bidTx] = struct{}{}
 				continue
 			}
 
-			txBz, err := h.txEncoder(bidTx)
-			if err != nil {
+			// Encode the auction transaction to be included in the vote extension
+			if txBz, err := h.txEncoder(bidTx); err != nil {
 				txsToRemove[bidTx] = struct{}{}
-				continue
+			} else {
+				voteExtension = txBz
+				break
 			}
-
-			voteExtension = txBz
-			break
 		}
 
 		// Remove all invalid auction bids from the mempool
@@ -101,4 +103,21 @@ func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionH
 			Status: ResponseVerifyVoteExtension_ACCEPT,
 		}, nil
 	}
+}
+
+// RemoveTx removes a transaction from the application-side mempool.
+func (h *VoteExtensionHandler) RemoveTx(tx sdk.Tx) {
+	if err := h.mempool.Remove(tx); err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
+		panic(fmt.Errorf("failed to remove invalid transaction from the mempool: %w", err))
+	}
+}
+
+// verifyTx verifies a transaction against the application's state.
+func (h *VoteExtensionHandler) verifyTx(ctx sdk.Context, tx sdk.Tx) error {
+	if h.anteHandler != nil {
+		_, err := h.anteHandler(ctx, tx, false)
+		return err
+	}
+
+	return nil
 }
