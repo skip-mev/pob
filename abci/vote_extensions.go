@@ -93,10 +93,10 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionHandler {
 	return func(ctx sdk.Context, req *RequestVerifyVoteExtension) (*ResponseVerifyVoteExtension, error) {
 		txBz := req.VoteExtension
-
-		// Short circuit if we have already verified this transaction
 		hashBz := sha256.Sum256(txBz)
 		hash := hex.EncodeToString(hashBz[:])
+
+		// Short circuit if we have already verified this vote extension
 		if err, ok := h.cache[hash]; ok {
 			if err != nil {
 				return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_REJECT}, err
@@ -113,20 +113,16 @@ func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionH
 			}, err
 		}
 
-		// Verify the transaction
+		// Verify the auction transaction and cache the result
 		if err := h.verifyTx(ctx, bidTx); err != nil {
 			h.cache[hash] = err
 
-			return &ResponseVerifyVoteExtension{
-				Status: ResponseVerifyVoteExtension_REJECT,
-			}, err
+			return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_REJECT}, err
 		}
 
 		h.cache[hash] = nil
 
-		return &ResponseVerifyVoteExtension{
-			Status: ResponseVerifyVoteExtension_ACCEPT,
-		}, nil
+		return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_ACCEPT}, nil
 	}
 }
 
