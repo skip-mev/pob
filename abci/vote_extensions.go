@@ -120,19 +120,15 @@ func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionH
 		// Decode the vote extension which should be a valid auction transaction
 		bidTx, err := h.txDecoder(txBz)
 		if err != nil {
-			return &ResponseVerifyVoteExtension{
-				Status: ResponseVerifyVoteExtension_REJECT,
-			}, err
-		}
-
-		// Verify the auction transaction and cache the result
-		if err := h.verifyTx(ctx, bidTx); err != nil {
-			h.cache[hash] = err
-
 			return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_REJECT}, err
 		}
 
-		h.cache[hash] = nil
+		// Verify the auction transaction and cache the result
+		err = h.verifyTx(ctx, bidTx)
+		h.cache[hash] = err
+		if err != nil {
+			return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_REJECT}, err
+		}
 
 		return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_ACCEPT}, nil
 	}
