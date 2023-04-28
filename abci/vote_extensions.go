@@ -20,8 +20,13 @@ type (
 		IsAuctionTx(tx sdk.Tx) (bool, error)
 	}
 
+	BuilderKeeper interface {
+		SetIsCheckVoteExtension(ctx sdk.Context, on bool) error
+	}
+
 	VoteExtensionHandler struct {
 		mempool       MempoolVoteExtensionI
+		builderKeeper BuilderKeeper
 		txDecoder     sdk.TxDecoder
 		txEncoder     sdk.TxEncoder
 		anteHandler   sdk.AnteHandler
@@ -32,11 +37,12 @@ type (
 
 // NewVoteExtensionHandler returns an VoteExtensionHandler that contains the functionality and handlers
 // required to inject, process, and validate vote extensions.
-func NewVoteExtensionHandler(mp MempoolVoteExtensionI, txDecoder sdk.TxDecoder,
+func NewVoteExtensionHandler(mp MempoolVoteExtensionI, bk BuilderKeeper, txDecoder sdk.TxDecoder,
 	txEncoder sdk.TxEncoder, ah sdk.AnteHandler,
 ) *VoteExtensionHandler {
 	return &VoteExtensionHandler{
 		mempool:       mp,
+		builderKeeper: bk,
 		txDecoder:     txDecoder,
 		txEncoder:     txEncoder,
 		anteHandler:   ah,
@@ -73,7 +79,7 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 			hash := hex.EncodeToString(hashBz[:])
 
 			// Validate the auction transaction and cache result
-			if err := h.verifyTx(ctx, bidTx); err != nil {
+			if err := h.verifyAuctionTx(ctx, bidTx); err != nil {
 				h.cache[hash] = err
 				txsToRemove[bidTx] = struct{}{}
 			} else {
@@ -101,10 +107,14 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 // In particular, it verifies that the vote extension is a valid auction transaction.
 func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionHandler {
 	return func(ctx sdk.Context, req *RequestVerifyVoteExtension) (*ResponseVerifyVoteExtension, error) {
+		txBz := req.VoteExtension
+		if len(txBz) == 0 {
+			return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_ACCEPT}, nil
+		}
+
 		// Reset the cache if necessary
 		h.checkStaleCache(ctx)
 
-		txBz := req.VoteExtension
 		hashBz := sha256.Sum256(txBz)
 		hash := hex.EncodeToString(hashBz[:])
 
@@ -124,7 +134,7 @@ func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionH
 		}
 
 		// Verify the auction transaction and cache the result
-		err = h.verifyTx(ctx, bidTx)
+		err = h.verifyAuctionTx(ctx, bidTx)
 		h.cache[hash] = err
 		if err != nil {
 			return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_REJECT}, err
@@ -151,10 +161,11 @@ func (h *VoteExtensionHandler) checkStaleCache(ctx sdk.Context) {
 	}
 }
 
-// verifyTx verifies a transaction against the application's state.
-func (h *VoteExtensionHandler) verifyTx(ctx sdk.Context, tx sdk.Tx) error {
+// verifyAuctionTx verifies a transaction against the application's state.
+func (h *VoteExtensionHandler) verifyAuctionTx(ctx sdk.Context, bidTx sdk.Tx) error {
 	if h.anteHandler != nil {
-		_, err := h.anteHandler(ctx, tx, false)
+		_, err := h.anteHandler(ctx, bidTx, false)
+
 		return err
 	}
 

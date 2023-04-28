@@ -16,7 +16,13 @@ const (
 
 const (
 	prefixParams = iota + 1
+	prefixIsCheckVoteExtensionTx
 )
 
-// KeyParams is the store key for the builder module's parameters.
-var KeyParams = []byte{prefixParams}
+var (
+	// KeyParams is the store key for the builder module's parameters.
+	KeyParams = []byte{prefixParams}
+
+	// KeyIsCheckVoteExtensionTx is the store key the builder module toggles when vote extensions are checked.
+	KeyIsCheckVoteExtensionTx = []byte{prefixIsCheckVoteExtensionTx}
+)

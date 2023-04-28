@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/cometbft/cometbft/libs/log"
 
@@ -169,4 +170,35 @@ func (k Keeper) FrontRunningProtectionEnabled(ctx sdk.Context) (bool, error) {
 	}
 
 	return params.FrontRunningProtection, nil
+}
+
+// IsCheckVoteExtension returns true if the current mode of operation is check vote extension.
+//
+// TODO: Need to add testing for this in the context of the ante handler and auction verification.
+func (k Keeper) IsCheckVoteExtension(ctx sdk.Context) (bool, error) {
+	store := ctx.KVStore(k.storeKey)
+	key := types.KeyIsCheckVoteExtensionTx
+
+	bz := store.Get(key)
+	if len(bz) == 0 {
+		return false, nil
+	}
+
+	isCheckVoteExtension, err := strconv.ParseBool(string(bz))
+	if err != nil {
+		return false, err
+	}
+
+	return isCheckVoteExtension, nil
+}
+
+// SetIsCheckVoteExtension sets the current mode of operation to check vote extension.
+func (k Keeper) SetIsCheckVoteExtension(ctx sdk.Context, on bool) error {
+	store := ctx.KVStore(k.storeKey)
+	key := types.KeyIsCheckVoteExtensionTx
+
+	bz := []byte(strconv.FormatBool(on))
+	store.Set(key, bz)
+
+	return nil
 }
