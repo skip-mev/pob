@@ -1,18 +1,20 @@
 package abci_test
 
 import (
+	"fmt"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/abci"
+	"github.com/skip-mev/pob/mempool"
 	testutils "github.com/skip-mev/pob/testutils"
 	"github.com/skip-mev/pob/x/builder/types"
 )
 
 func (suite *ABCITestSuite) TestExtendVoteExtensionHandler() {
-	suite.minBidIncrement = sdk.NewCoin("foo", sdk.NewInt(10))
 	params := types.Params{
 		MaxBundleSize:          5,
-		ReserveFee:             sdk.NewCoin("foo", sdk.NewInt(0)),
-		MinBuyInFee:            sdk.NewCoin("foo", sdk.NewInt(0)),
+		ReserveFee:             sdk.NewCoin("foo", sdk.NewInt(10)),
+		MinBuyInFee:            sdk.NewCoin("foo", sdk.NewInt(10)),
 		FrontRunningProtection: true,
 		MinBidIncrement:        suite.minBidIncrement,
 	}
@@ -39,32 +41,129 @@ func (suite *ABCITestSuite) TestExtendVoteExtensionHandler() {
 			},
 		},
 		{
-			"filled mempool with auction transactions",
-			func() []byte {
-				suite.createFilledMempool(100, 0, 0, true)
-				return nil
-			},
-		},
-		{
 			"mempool with invalid auction transaction (too many bundled transactions)",
 			func() []byte {
 				suite.createFilledMempool(0, 1, int(params.MaxBundleSize)+1, true)
 				return nil
 			},
 		},
-		// {
-		// 	"mempool with invalid auction transaction (invalid bid)",
-		// 	func
-		// }
+		{
+			"mempool with invalid auction transaction (invalid bid)",
+			func() []byte {
+				bidder := suite.accounts[0]
+				bid := params.ReserveFee.Sub(sdk.NewCoin("foo", sdk.NewInt(1)))
+				signers := []testutils.Account{bidder}
+				timeout := 1
+
+				bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, 0, uint64(timeout), signers)
+				suite.Require().NoError(err)
+
+				suite.mempool = mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), 0, suite.config)
+				err = suite.mempool.Insert(suite.ctx, bidTx)
+				suite.Require().NoError(err)
+
+				// this should return nothing since the top bid is not valid
+				return nil
+			},
+		},
+		{
+			"mempool contains only invalid auction bids (bid is too low)",
+			func() []byte {
+				params.ReserveFee = suite.auctionBidAmount
+				err := suite.builderKeeper.SetParams(suite.ctx, params)
+				suite.Require().NoError(err)
+
+				// this way all of the bids will be too small
+				suite.auctionBidAmount = params.ReserveFee.Sub(sdk.NewCoin("foo", sdk.NewInt(1)))
+
+				suite.createFilledMempool(100, 100, 2, true)
+
+				return nil
+			},
+		},
+		{
+			"mempool contains bid that has bundled txs that are invalid",
+			func() []byte {
+				params.ReserveFee = sdk.NewCoin("foo", sdk.NewInt(10))
+				err := suite.builderKeeper.SetParams(suite.ctx, params)
+				suite.Require().NoError(err)
+
+				bidder := suite.accounts[0]
+				bid := params.ReserveFee.Sub(sdk.NewCoin("foo", sdk.NewInt(1)))
+
+				msgAuctionBid, err := testutils.CreateMsgAuctionBid(suite.encodingConfig.TxConfig, bidder, bid, 0, 0)
+				suite.Require().NoError(err)
+				msgAuctionBid.Transactions = [][]byte{[]byte("invalid tx")}
+
+				bidTx, err := testutils.CreateTx(suite.encodingConfig.TxConfig, bidder, 0, 10, []sdk.Msg{msgAuctionBid})
+				suite.Require().NoError(err)
+
+				suite.mempool = mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), 0, suite.config)
+				err = suite.mempool.Insert(suite.ctx, bidTx)
+				suite.Require().NoError(err)
+
+				// this should return nothing since the top bid is not valid
+				return nil
+			},
+		},
+		{
+			"mempool contains bid that has an invalid timeout",
+			func() []byte {
+				bidder := suite.accounts[0]
+				bid := params.ReserveFee
+				signers := []testutils.Account{bidder}
+				timeout := 0
+
+				bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, 0, uint64(timeout), signers)
+				suite.Require().NoError(err)
+
+				suite.mempool = mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), 0, suite.config)
+				err = suite.mempool.Insert(suite.ctx, bidTx)
+				suite.Require().NoError(err)
+
+				// this should return nothing since the top bid is not valid
+				return nil
+			},
+		},
+		{
+			"top bid is invalid but next best is valid",
+			func() []byte {
+				bidder := suite.accounts[0]
+				bid := suite.auctionBidAmount.Add(suite.minBidIncrement)
+				signers := []testutils.Account{bidder}
+				timeout := 0
+
+				bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, 0, uint64(timeout), signers)
+				suite.Require().NoError(err)
+
+				suite.createFilledMempool(100, 100, 2, true)
+
+				topBidTx := suite.mempool.GetTopAuctionTx(suite.ctx)
+
+				err = suite.mempool.Insert(suite.ctx, bidTx)
+				suite.Require().NoError(err)
+
+				bz, err := suite.encodingConfig.TxConfig.TxEncoder()(topBidTx)
+				suite.Require().NoError(err)
+
+				return bz
+			},
+		},
 	}
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
+			fmt.Println(tc.name)
+			expectedVE := tc.getExpectedVE()
+
+			// Reset the handler with the new mempool
+			suite.voteExtensionHandler = abci.NewVoteExtensionHandler(suite.mempool, suite.builderKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), suite.anteHandler)
+
 			handler := suite.voteExtensionHandler.ExtendVoteHandler()
 			resp, err := handler(suite.ctx, nil)
 
 			suite.Require().NoError(err)
-			suite.Require().Equal(resp.VoteExtension, tc.getExpectedVE())
+			suite.Require().Equal(expectedVE, resp.VoteExtension)
 		})
 	}
 }
@@ -195,7 +294,57 @@ func (suite *ABCITestSuite) TestVerifyVoteExtensionHandler() {
 			},
 			true,
 		},
-		// {} // TODO: Add a test case for min bid increment
+		{
+			"invalid vote extension with a failing bundle tx",
+			func() *abci.RequestVerifyVoteExtension {
+				bidder := suite.accounts[0]
+				bid := params.ReserveFee
+
+				msgAuctionBid, err := testutils.CreateMsgAuctionBid(suite.encodingConfig.TxConfig, bidder, bid, 0, 0)
+				suite.Require().NoError(err)
+
+				// Create a failing tx
+				msgAuctionBid.Transactions = [][]byte{{0x01}}
+
+				bidTx, err := testutils.CreateTx(suite.encodingConfig.TxConfig, suite.accounts[0], 0, 1, []sdk.Msg{msgAuctionBid})
+				suite.Require().NoError(err)
+
+				bz, err := suite.encodingConfig.TxConfig.TxEncoder()(bidTx)
+				suite.Require().NoError(err)
+
+				return &abci.RequestVerifyVoteExtension{
+					VoteExtension: bz,
+				}
+			},
+			true,
+		},
+		{
+			"valid vote extension + no comparison to local mempool",
+			func() *abci.RequestVerifyVoteExtension {
+				bidder := suite.accounts[0]
+				bid := params.ReserveFee
+				signers := []testutils.Account{bidder}
+				timeout := 10
+
+				bz := suite.createAuctionTxBz(bidder, bid, signers, timeout)
+
+				// Add a bid to the mempool that is greater than the one in the vote extension
+				bid = bid.Add(params.MinBidIncrement)
+				bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, 10, 1, signers)
+				suite.Require().NoError(err)
+
+				err = suite.mempool.Insert(suite.ctx, bidTx)
+				suite.Require().NoError(err)
+
+				tx := suite.mempool.GetTopAuctionTx(suite.ctx)
+				suite.Require().NotNil(tx)
+
+				return &abci.RequestVerifyVoteExtension{
+					VoteExtension: bz,
+				}
+			},
+			false,
+		},
 	}
 
 	for _, tc := range testCases {

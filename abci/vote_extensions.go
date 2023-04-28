@@ -12,12 +12,16 @@ import (
 )
 
 type (
-	// MempoolVoteExtensionI contains the methods required by the VoteExtensionHandler
+	// VoteExtensionMempool contains the methods required by the VoteExtensionHandler
 	// to interact with the local mempool.
-	MempoolVoteExtensionI interface {
+	VoteExtensionMempool interface {
 		Remove(tx sdk.Tx) error
 		AuctionBidSelect(ctx context.Context) sdkmempool.Iterator
 		IsAuctionTx(tx sdk.Tx) (bool, error)
+		GetBundledTransactions(tx sdk.Tx) ([][]byte, error)
+		WrapBundleTransaction(tx []byte) (sdk.Tx, error)
+		CountAuctionTx() int
+		CountTx() int
 	}
 
 	BuilderKeeper interface {
@@ -25,7 +29,7 @@ type (
 	}
 
 	VoteExtensionHandler struct {
-		mempool       MempoolVoteExtensionI
+		mempool       VoteExtensionMempool
 		builderKeeper BuilderKeeper
 		txDecoder     sdk.TxDecoder
 		txEncoder     sdk.TxEncoder
@@ -37,7 +41,7 @@ type (
 
 // NewVoteExtensionHandler returns an VoteExtensionHandler that contains the functionality and handlers
 // required to inject, process, and validate vote extensions.
-func NewVoteExtensionHandler(mp MempoolVoteExtensionI, bk BuilderKeeper, txDecoder sdk.TxDecoder,
+func NewVoteExtensionHandler(mp VoteExtensionMempool, bk BuilderKeeper, txDecoder sdk.TxDecoder,
 	txEncoder sdk.TxEncoder, ah sdk.AnteHandler,
 ) *VoteExtensionHandler {
 	return &VoteExtensionHandler{
@@ -59,13 +63,12 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 		var voteExtension []byte
 
 		// Reset the cache if necessary
-		h.checkStaleCache(ctx)
+		h.checkStaleCache(ctx.BlockHeight())
 
-		auctionIterator := h.mempool.AuctionBidSelect(ctx)
 		txsToRemove := make(map[sdk.Tx]struct{})
 
 		// Iterate through auction bids until we find a valid one
-		for auctionIterator != nil {
+		for auctionIterator := h.mempool.AuctionBidSelect(ctx); auctionIterator != nil; auctionIterator = auctionIterator.Next() {
 			bidTx := auctionIterator.Tx()
 
 			// Verify bid tx can be encoded and included in vote extension
@@ -87,8 +90,6 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 				voteExtension = bidBz
 				break
 			}
-
-			auctionIterator = auctionIterator.Next()
 		}
 
 		// Remove all invalid auction bids from the mempool
@@ -113,7 +114,7 @@ func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionH
 		}
 
 		// Reset the cache if necessary
-		h.checkStaleCache(ctx)
+		h.checkStaleCache(ctx.BlockHeight())
 
 		hashBz := sha256.Sum256(txBz)
 		hash := hex.EncodeToString(hashBz[:])
@@ -154,8 +155,8 @@ func (h *VoteExtensionHandler) RemoveTx(tx sdk.Tx) {
 // checkStaleCache checks if the current height is greater than the previous height at which
 // the vote extensions were verified in. If so, it resets the cache to allow transactions to be
 // reverified.
-func (h *VoteExtensionHandler) checkStaleCache(ctx sdk.Context) {
-	if blockHeight := ctx.BlockHeight(); h.currentHeight != blockHeight {
+func (h *VoteExtensionHandler) checkStaleCache(blockHeight int64) {
+	if h.currentHeight != blockHeight {
 		h.cache = make(map[string]error)
 		h.currentHeight = blockHeight
 	}
@@ -163,10 +164,47 @@ func (h *VoteExtensionHandler) checkStaleCache(ctx sdk.Context) {
 
 // verifyAuctionTx verifies a transaction against the application's state.
 func (h *VoteExtensionHandler) verifyAuctionTx(ctx sdk.Context, bidTx sdk.Tx) error {
-	if h.anteHandler != nil {
-		_, err := h.anteHandler(ctx, bidTx, false)
-
+	// Verify the vote extension is a auction transaction
+	isAuctionTx, err := h.mempool.IsAuctionTx(bidTx)
+	if err != nil {
 		return err
+	}
+
+	if !isAuctionTx {
+		return fmt.Errorf("vote extension is not a valid auction transaction")
+	}
+
+	if h.anteHandler == nil {
+		return nil
+	}
+
+	// Cache context is used to avoid state changes
+	cache, _ := ctx.CacheContext()
+
+	// Set the isCheckVoteExtension flag to avoid checks with the validator's local mempool
+	if err := h.builderKeeper.SetIsCheckVoteExtension(ctx, true); err != nil {
+		return fmt.Errorf("failed to set isCheckVoteExtension: %s", err)
+	}
+
+	if _, err := h.anteHandler(cache, bidTx, false); err != nil {
+		return err
+	}
+
+	bundledTxs, err := h.mempool.GetBundledTransactions(bidTx)
+	if err != nil {
+		return err
+	}
+
+	// Verify all bundled transactions
+	for _, tx := range bundledTxs {
+		wrappedTx, err := h.mempool.WrapBundleTransaction(tx)
+		if err != nil {
+			return err
+		}
+
+		if _, err := h.anteHandler(cache, wrappedTx, false); err != nil {
+			return err
+		}
 	}
 
 	return nil

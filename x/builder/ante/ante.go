@@ -74,16 +74,26 @@ func (ad BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 
 		// If the current transaction is the highest bidding transaction, then the highest bid is empty.
 		topBid := sdk.Coin{}
-		isTopBidTx, err := ad.IsTopBidTx(ctx, tx)
+
+		// If we are currently verifying a vote extension, then we do not need to compare the bid
+		// relative to the local validator's mempool.
+		isCheckVoteExtension, err := ad.builderKeeper.IsCheckVoteExtension(ctx)
 		if err != nil {
-			return ctx, errors.Wrap(err, "failed to check if current transaction is highest bidding transaction")
+			return ctx, errors.Wrap(err, "failed to check if vote extension is enabled")
 		}
 
-		if !isTopBidTx {
-			// Set the top bid to the highest bidding transaction.
-			topBid, err = ad.GetTopAuctionBid(ctx)
+		if !isCheckVoteExtension {
+			isTopBidTx, err := ad.IsTopBidTx(ctx, tx)
 			if err != nil {
-				return ctx, errors.Wrap(err, "failed to get highest auction bid")
+				return ctx, errors.Wrap(err, "failed to check if current transaction is highest bidding transaction")
+			}
+
+			if !isTopBidTx {
+				// Set the top bid to the highest bidding transaction.
+				topBid, err = ad.GetTopAuctionBid(ctx)
+				if err != nil {
+					return ctx, errors.Wrap(err, "failed to get highest auction bid")
+				}
 			}
 		}
 
