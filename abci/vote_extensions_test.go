@@ -1,8 +1,6 @@
 package abci_test
 
 import (
-	"fmt"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/abci"
 	"github.com/skip-mev/pob/mempool"
@@ -153,11 +151,10 @@ func (suite *ABCITestSuite) TestExtendVoteExtensionHandler() {
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
-			fmt.Println(tc.name)
 			expectedVE := tc.getExpectedVE()
 
 			// Reset the handler with the new mempool
-			suite.voteExtensionHandler = abci.NewVoteExtensionHandler(suite.mempool, suite.builderKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), suite.anteHandler)
+			suite.voteExtensionHandler = abci.NewVoteExtensionHandler(suite.mempool, suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), suite.anteHandler)
 
 			handler := suite.voteExtensionHandler.ExtendVoteHandler()
 			resp, err := handler(suite.ctx, nil)

@@ -68,19 +68,3 @@ func (suite *KeeperTestSuite) SetupTest() {
 	suite.mempool = mempool.NewAuctionMempool(suite.encCfg.TxConfig.TxDecoder(), suite.encCfg.TxConfig.TxEncoder(), 0, config)
 	suite.msgServer = keeper.NewMsgServerImpl(suite.builderKeeper)
 }
-
-func (suite *KeeperTestSuite) TestIsCheckVoteExtension() {
-	err := suite.builderKeeper.SetIsCheckVoteExtension(suite.ctx, false)
-	suite.Require().NoError(err)
-
-	isCheckVoteExtension, err := suite.builderKeeper.IsCheckVoteExtension(suite.ctx)
-	suite.Require().NoError(err)
-	suite.Require().False(isCheckVoteExtension)
-
-	err = suite.builderKeeper.SetIsCheckVoteExtension(suite.ctx, true)
-	suite.Require().NoError(err)
-
-	isCheckVoteExtension, err = suite.builderKeeper.IsCheckVoteExtension(suite.ctx)
-	suite.Require().NoError(err)
-	suite.Require().True(isCheckVoteExtension)
-}

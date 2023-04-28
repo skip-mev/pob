@@ -20,33 +20,38 @@ type (
 		IsAuctionTx(tx sdk.Tx) (bool, error)
 		GetBundledTransactions(tx sdk.Tx) ([][]byte, error)
 		WrapBundleTransaction(tx []byte) (sdk.Tx, error)
-		CountAuctionTx() int
-		CountTx() int
 	}
 
-	BuilderKeeper interface {
-		SetIsCheckVoteExtension(ctx sdk.Context, on bool) error
-	}
-
+	// VoteExtensionHandler contains the functionality and handlers required to
+	// process, validate and build vote extensions.
 	VoteExtensionHandler struct {
-		mempool       VoteExtensionMempool
-		builderKeeper BuilderKeeper
-		txDecoder     sdk.TxDecoder
-		txEncoder     sdk.TxEncoder
-		anteHandler   sdk.AnteHandler
-		cache         map[string]error
+		mempool VoteExtensionMempool
+
+		// txDecoder is used to decode the top bidding auction transaction
+		txDecoder sdk.TxDecoder
+
+		// txEncoder is used to encode the top bidding auction transaction
+		txEncoder sdk.TxEncoder
+
+		// anteHandler is used to validate the vote extension
+		anteHandler sdk.AnteHandler
+
+		// cache is used to store the results of the vote extension verification
+		// for a given block height.
+		cache map[string]error
+
+		// currentHeight is the block height the cache is valid for.
 		currentHeight int64
 	}
 )
 
 // NewVoteExtensionHandler returns an VoteExtensionHandler that contains the functionality and handlers
 // required to inject, process, and validate vote extensions.
-func NewVoteExtensionHandler(mp VoteExtensionMempool, bk BuilderKeeper, txDecoder sdk.TxDecoder,
+func NewVoteExtensionHandler(mp VoteExtensionMempool, txDecoder sdk.TxDecoder,
 	txEncoder sdk.TxEncoder, ah sdk.AnteHandler,
 ) *VoteExtensionHandler {
 	return &VoteExtensionHandler{
 		mempool:       mp,
-		builderKeeper: bk,
 		txDecoder:     txDecoder,
 		txEncoder:     txEncoder,
 		anteHandler:   ah,
@@ -65,13 +70,14 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 		// Reset the cache if necessary
 		h.checkStaleCache(ctx.BlockHeight())
 
+		// Iterate through auction bids until we find a valid one
+		auctionIterator := h.mempool.AuctionBidSelect(ctx)
 		txsToRemove := make(map[sdk.Tx]struct{})
 
-		// Iterate through auction bids until we find a valid one
-		for auctionIterator := h.mempool.AuctionBidSelect(ctx); auctionIterator != nil; auctionIterator = auctionIterator.Next() {
+		for ; auctionIterator != nil; auctionIterator = auctionIterator.Next() {
 			bidTx := auctionIterator.Tx()
 
-			// Verify bid tx can be encoded and included in vote extension
+			// Verify the bid tx can be encoded and included in vote extension
 			bidBz, err := h.txEncoder(bidTx)
 			if err != nil {
 				txsToRemove[bidTx] = struct{}{}
@@ -97,9 +103,7 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 			h.RemoveTx(tx)
 		}
 
-		return &ResponseExtendVote{
-			VoteExtension: voteExtension,
-		}, nil
+		return &ResponseExtendVote{VoteExtension: voteExtension}, nil
 	}
 }
 
@@ -131,15 +135,17 @@ func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionH
 		// Decode the vote extension which should be a valid auction transaction
 		bidTx, err := h.txDecoder(txBz)
 		if err != nil {
+			h.cache[hash] = err
 			return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_REJECT}, err
 		}
 
 		// Verify the auction transaction and cache the result
-		err = h.verifyAuctionTx(ctx, bidTx)
-		h.cache[hash] = err
-		if err != nil {
+		if err = h.verifyAuctionTx(ctx, bidTx); err != nil {
+			h.cache[hash] = err
 			return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_REJECT}, err
 		}
+
+		h.cache[hash] = nil
 
 		return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_ACCEPT}, nil
 	}
@@ -152,7 +158,7 @@ func (h *VoteExtensionHandler) RemoveTx(tx sdk.Tx) {
 	}
 }
 
-// checkStaleCache checks if the current height is greater than the previous height at which
+// checkStaleCache checks if the current height differs than the previous height at which
 // the vote extensions were verified in. If so, it resets the cache to allow transactions to be
 // reverified.
 func (h *VoteExtensionHandler) checkStaleCache(blockHeight int64) {
@@ -180,11 +186,6 @@ func (h *VoteExtensionHandler) verifyAuctionTx(ctx sdk.Context, bidTx sdk.Tx) er
 
 	// Cache context is used to avoid state changes
 	cache, _ := ctx.CacheContext()
-
-	// Set the isCheckVoteExtension flag to avoid checks with the validator's local mempool
-	if err := h.builderKeeper.SetIsCheckVoteExtension(ctx, true); err != nil {
-		return fmt.Errorf("failed to set isCheckVoteExtension: %s", err)
-	}
 
 	if _, err := h.anteHandler(cache, bidTx, false); err != nil {
 		return err

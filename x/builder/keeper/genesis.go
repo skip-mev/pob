@@ -11,11 +11,6 @@ func (k Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) {
 	if err := k.SetParams(ctx, gs.Params); err != nil {
 		panic(err)
 	}
-
-	// By default, the builder module's vote extension verification is disabled.
-	if err := k.SetIsCheckVoteExtension(ctx, false); err != nil {
-		panic(err)
-	}
 }
 
 // ExportGenesis returns a GenesisState for a given context.
