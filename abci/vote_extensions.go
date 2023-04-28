@@ -186,7 +186,6 @@ func (h *VoteExtensionHandler) verifyAuctionTx(ctx sdk.Context, bidTx sdk.Tx) er
 
 	// Cache context is used to avoid state changes
 	cache, _ := ctx.CacheContext()
-
 	if _, err := h.anteHandler(cache, bidTx, false); err != nil {
 		return err
 	}
