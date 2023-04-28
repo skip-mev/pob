@@ -15,9 +15,9 @@ import (
 )
 
 type (
-	// MempoolProposalsI contains the methods required by the ProposalHandler
+	// ProposalMempool contains the methods required by the ProposalHandler
 	// to interact with the local mempool.
-	MempoolProposalsI interface {
+	ProposalMempool interface {
 		sdkmempool.Mempool
 		AuctionBidSelect(ctx context.Context) sdkmempool.Iterator
 		GetBundledTransactions(tx sdk.Tx) ([][]byte, error)
@@ -25,8 +25,10 @@ type (
 		IsAuctionTx(tx sdk.Tx) (bool, error)
 	}
 
+	// ProposalHandler contains the functionality and handlers required to\
+	// process, validate and build blocks.
 	ProposalHandler struct {
-		mempool     MempoolProposalsI
+		mempool     ProposalMempool
 		logger      log.Logger
 		anteHandler sdk.AnteHandler
 		txEncoder   sdk.TxEncoder
@@ -37,7 +39,7 @@ type (
 // NewProposalHandler returns a ProposalHandler that contains the functionality and handlers
 // required to process, validate and build blocks.
 func NewProposalHandler(
-	mp MempoolProposalsI,
+	mp ProposalMempool,
 	logger log.Logger,
 	anteHandler sdk.AnteHandler,
 	txEncoder sdk.TxEncoder,

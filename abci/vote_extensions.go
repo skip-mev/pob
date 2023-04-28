@@ -8,16 +8,18 @@ import (
 )
 
 type (
-	// MempoolVoteExtensionI contains the methods required by the VoteExtensionHandler
+	// VoteExtensionMempool contains the methods required by the VoteExtensionHandler
 	// to interact with the local mempool.
-	MempoolVoteExtensionI interface {
+	VoteExtensionMempool interface {
 		Remove(tx sdk.Tx) error
 		AuctionBidSelect(ctx context.Context) sdkmempool.Iterator
 		IsAuctionTx(tx sdk.Tx) (bool, error)
 	}
 
+	// VoteExtensionHandler contains the functionality and handlers required to
+	// process, validate and build vote extensions.
 	VoteExtensionHandler struct {
-		mempool     MempoolVoteExtensionI
+		mempool     VoteExtensionMempool
 		txDecoder   sdk.TxDecoder
 		txEncoder   sdk.TxEncoder
 		anteHandler sdk.AnteHandler
@@ -26,7 +28,7 @@ type (
 
 // NewVoteExtensionHandler returns an VoteExtensionHandler that contains the functionality and handlers
 // required to inject, process, and validate vote extensions.
-func NewVoteExtensionHandler(mp MempoolVoteExtensionI, txDecoder sdk.TxDecoder,
+func NewVoteExtensionHandler(mp VoteExtensionMempool, txDecoder sdk.TxDecoder,
 	txEncoder sdk.TxEncoder, ah sdk.AnteHandler,
 ) *VoteExtensionHandler {
 	return &VoteExtensionHandler{
