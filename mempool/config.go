@@ -20,10 +20,6 @@ type (
 	// a wrapper around all of the functionality that each application chain must implement
 	// in order for auction processing to work.
 	Config interface {
-		// IsAuctionTx defines a function that returns true iff a transaction is an
-		// auction bid transaction.
-		IsAuctionTx(tx sdk.Tx) (bool, error)
-
 		// GetTransactionSigners defines a function that returns the signers of a
 		// bundle transaction i.e. transaction that was included in the auction transaction's bundle.
 		GetTransactionSigners(tx []byte) (map[string]struct{}, error)
@@ -56,18 +52,6 @@ func NewDefaultConfig(txDecoder sdk.TxDecoder) Config {
 	return &DefaultConfig{
 		txDecoder: txDecoder,
 	}
-}
-
-// NewDefaultIsAuctionTx defines a default function that returns true iff a transaction
-// is an auction bid transaction. In the default case, the transaction must contain a single
-// MsgAuctionBid message.
-func (config *DefaultConfig) IsAuctionTx(tx sdk.Tx) (bool, error) {
-	msg, err := GetMsgAuctionBidFromTx(tx)
-	if err != nil {
-		return false, err
-	}
-
-	return msg != nil, nil
 }
 
 // GetTransactionSigners defines a default function that returns the signers
@@ -108,7 +92,7 @@ func (config *DefaultConfig) GetAuctionBidInfo(tx sdk.Tx) (*AuctionBidInfo, erro
 	}
 
 	if msg == nil {
-		return nil, fmt.Errorf("transaction is not a valid auction bid transaction")
+		return nil, nil
 	}
 
 	bidder, err := sdk.AccAddressFromBech32(msg.Bidder)

@@ -77,9 +77,9 @@ func (suite *IntegrationTestSuite) TestIsAuctionTx() {
 		suite.Run(tc.name, func() {
 			tx := tc.createTx()
 
-			isAuctionTx, err := suite.config.IsAuctionTx(tx)
+			bidInfo, err := suite.config.GetAuctionBidInfo(tx)
 
-			suite.Require().Equal(tc.isAuctionTx, isAuctionTx)
+			suite.Require().Equal(tc.isAuctionTx, bidInfo != nil)
 			if tc.expectedError {
 				suite.Require().Error(err)
 			} else {
@@ -194,6 +194,7 @@ func (suite *IntegrationTestSuite) TestGetBidder() {
 		createTx       func() sdk.Tx
 		expectedBidder string
 		expectedError  bool
+		isAuctionTx    bool
 	}{
 		{
 			"normal sdk tx",
@@ -204,7 +205,8 @@ func (suite *IntegrationTestSuite) TestGetBidder() {
 				return tx
 			},
 			"",
-			true,
+			false,
+			false,
 		},
 		{
 			"valid auction tx",
@@ -220,6 +222,7 @@ func (suite *IntegrationTestSuite) TestGetBidder() {
 			},
 			suite.accounts[0].Address.String(),
 			false,
+			true,
 		},
 		{
 			"invalid auction tx",
@@ -238,6 +241,7 @@ func (suite *IntegrationTestSuite) TestGetBidder() {
 			},
 			"",
 			true,
+			false,
 		},
 	}
 
@@ -250,7 +254,10 @@ func (suite *IntegrationTestSuite) TestGetBidder() {
 				suite.Require().Error(err)
 			} else {
 				suite.Require().NoError(err)
-				suite.Require().Equal(tc.expectedBidder, bidInfo.Bidder.String())
+
+				if tc.isAuctionTx {
+					suite.Require().Equal(tc.expectedBidder, bidInfo.Bidder.String())
+				}
 			}
 		})
 	}
@@ -262,6 +269,7 @@ func (suite *IntegrationTestSuite) TestGetBid() {
 		createTx      func() sdk.Tx
 		expectedBid   sdk.Coin
 		expectedError bool
+		isAuctionTx   bool
 	}{
 		{
 			"normal sdk tx",
@@ -272,7 +280,8 @@ func (suite *IntegrationTestSuite) TestGetBid() {
 				return tx
 			},
 			sdk.Coin{},
-			true,
+			false,
+			false,
 		},
 		{
 			"valid auction tx",
@@ -288,6 +297,7 @@ func (suite *IntegrationTestSuite) TestGetBid() {
 			},
 			sdk.NewInt64Coin("foo", 100),
 			false,
+			true,
 		},
 		{
 			"invalid auction tx",
@@ -306,6 +316,7 @@ func (suite *IntegrationTestSuite) TestGetBid() {
 			},
 			sdk.Coin{},
 			true,
+			false,
 		},
 	}
 
@@ -318,7 +329,10 @@ func (suite *IntegrationTestSuite) TestGetBid() {
 				suite.Require().Error(err)
 			} else {
 				suite.Require().NoError(err)
-				suite.Require().Equal(tc.expectedBid, bidInfo.Bid)
+
+				if tc.isAuctionTx {
+					suite.Require().Equal(tc.expectedBid, bidInfo.Bid)
+				}
 			}
 		})
 	}
@@ -329,6 +343,7 @@ func (suite *IntegrationTestSuite) TestGetBundledTransactions() {
 		name          string
 		createTx      func() (sdk.Tx, [][]byte)
 		expectedError bool
+		isAuctionTx   bool
 	}{
 		{
 			"normal sdk tx",
@@ -338,7 +353,8 @@ func (suite *IntegrationTestSuite) TestGetBundledTransactions() {
 
 				return tx, nil
 			},
-			true,
+			false,
+			false,
 		},
 		{
 			"valid auction tx",
@@ -353,6 +369,7 @@ func (suite *IntegrationTestSuite) TestGetBundledTransactions() {
 				return tx, msgAuctionBid.Transactions
 			},
 			false,
+			true,
 		},
 		{
 			"invalid auction tx",
@@ -370,6 +387,7 @@ func (suite *IntegrationTestSuite) TestGetBundledTransactions() {
 				return tx, nil
 			},
 			true,
+			false,
 		},
 	}
 
@@ -382,7 +400,10 @@ func (suite *IntegrationTestSuite) TestGetBundledTransactions() {
 				suite.Require().Error(err)
 			} else {
 				suite.Require().NoError(err)
-				suite.Require().Equal(expectedBundledTxs, bidInfo.Transactions)
+
+				if tc.isAuctionTx {
+					suite.Require().Equal(expectedBundledTxs, bidInfo.Transactions)
+				}
 			}
 		})
 	}
@@ -393,6 +414,7 @@ func (suite *IntegrationTestSuite) TestGetTimeout() {
 		name            string
 		createTx        func() sdk.Tx
 		expectedError   bool
+		isAuctionTx     bool
 		expectedTimeout uint64
 	}{
 		{
@@ -403,7 +425,8 @@ func (suite *IntegrationTestSuite) TestGetTimeout() {
 
 				return tx
 			},
-			true,
+			false,
+			false,
 			1,
 		},
 		{
@@ -419,6 +442,7 @@ func (suite *IntegrationTestSuite) TestGetTimeout() {
 				return tx
 			},
 			false,
+			true,
 			10,
 		},
 		{
@@ -437,6 +461,7 @@ func (suite *IntegrationTestSuite) TestGetTimeout() {
 				return tx
 			},
 			true,
+			false,
 			10,
 		},
 	}
@@ -450,7 +475,10 @@ func (suite *IntegrationTestSuite) TestGetTimeout() {
 				suite.Require().Error(err)
 			} else {
 				suite.Require().NoError(err)
-				suite.Require().Equal(tc.expectedTimeout, bidInfo.Timeout)
+
+				if tc.isAuctionTx {
+					suite.Require().Equal(tc.expectedTimeout, bidInfo.Timeout)
+				}
 			}
 		})
 	}

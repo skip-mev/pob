@@ -205,19 +205,14 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 				return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 			}
 
-			isAuctionTx, err := h.mempool.IsAuctionTx(tx)
+			bidInfo, err := h.mempool.GetAuctionBidInfo(tx)
 			if err != nil {
 				return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 			}
 
-			if isAuctionTx {
+			if bidInfo != nil {
 				// Only the first transaction can be an auction bid tx
 				if index != 0 {
-					return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
-				}
-
-				bidInfo, err := h.mempool.GetAuctionBidInfo(tx)
-				if err != nil {
 					return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 				}
 
