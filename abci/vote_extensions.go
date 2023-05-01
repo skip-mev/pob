@@ -68,11 +68,10 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 		var voteExtension []byte
 
 		// Reset the cache if necessary
-		h.checkStaleCache(ctx.BlockHeight())
+		h.resetCache(ctx.BlockHeight())
 
 		// Iterate through auction bids until we find a valid one
 		auctionIterator := h.mempool.AuctionBidSelect(ctx)
-		txsToRemove := make(map[sdk.Tx]struct{})
 
 		for ; auctionIterator != nil; auctionIterator = auctionIterator.Next() {
 			bidTx := auctionIterator.Tx()
@@ -80,7 +79,6 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 			// Verify the bid tx can be encoded and included in vote extension
 			bidBz, err := h.txEncoder(bidTx)
 			if err != nil {
-				txsToRemove[bidTx] = struct{}{}
 				continue
 			}
 
@@ -90,17 +88,11 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 			// Validate the auction transaction and cache result
 			if err := h.verifyAuctionTx(ctx, bidTx); err != nil {
 				h.cache[hash] = err
-				txsToRemove[bidTx] = struct{}{}
 			} else {
 				h.cache[hash] = nil
 				voteExtension = bidBz
 				break
 			}
-		}
-
-		// Remove all invalid auction bids from the mempool
-		for tx := range txsToRemove {
-			h.RemoveTx(tx)
 		}
 
 		return &ResponseExtendVote{VoteExtension: voteExtension}, nil
@@ -118,7 +110,7 @@ func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionH
 		}
 
 		// Reset the cache if necessary
-		h.checkStaleCache(ctx.BlockHeight())
+		h.resetCache(ctx.BlockHeight())
 
 		hashBz := sha256.Sum256(txBz)
 		hash := hex.EncodeToString(hashBz[:])
@@ -161,7 +153,7 @@ func (h *VoteExtensionHandler) RemoveTx(tx sdk.Tx) {
 // checkStaleCache checks if the current height differs than the previous height at which
 // the vote extensions were verified in. If so, it resets the cache to allow transactions to be
 // reverified.
-func (h *VoteExtensionHandler) checkStaleCache(blockHeight int64) {
+func (h *VoteExtensionHandler) resetCache(blockHeight int64) {
 	if h.currentHeight != blockHeight {
 		h.cache = make(map[string]error)
 		h.currentHeight = blockHeight
