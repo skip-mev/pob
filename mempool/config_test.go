@@ -1,6 +1,8 @@
 package mempool_test
 
 import (
+	"crypto/rand"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	testutils "github.com/skip-mev/pob/testutils"
 )
@@ -155,6 +157,7 @@ func (suite *IntegrationTestSuite) TestWrapBundleTransaction() {
 	testCases := []struct {
 		name           string
 		createBundleTx func() (sdk.Tx, []byte)
+		expectedError  bool
 	}{
 		{
 			"normal sdk tx",
@@ -167,6 +170,17 @@ func (suite *IntegrationTestSuite) TestWrapBundleTransaction() {
 
 				return tx, bz
 			},
+			false,
+		},
+		{
+			"random bytes with expected failure",
+			func() (sdk.Tx, []byte) {
+				bz := make([]byte, 100)
+				rand.Read(bz)
+
+				return nil, bz
+			},
+			true,
 		},
 	}
 
@@ -175,15 +189,19 @@ func (suite *IntegrationTestSuite) TestWrapBundleTransaction() {
 			tx, bz := tc.createBundleTx()
 
 			wrappedTx, err := suite.config.WrapBundleTransaction(bz)
-			suite.Require().NoError(err)
+			if tc.expectedError {
+				suite.Require().Error(err)
+			} else {
+				suite.Require().NoError(err)
 
-			txBytes, err := suite.encCfg.TxConfig.TxEncoder()(tx)
-			suite.Require().NoError(err)
+				txBytes, err := suite.encCfg.TxConfig.TxEncoder()(tx)
+				suite.Require().NoError(err)
 
-			wrappedTxBytes, err := suite.encCfg.TxConfig.TxEncoder()(wrappedTx)
-			suite.Require().NoError(err)
+				wrappedTxBytes, err := suite.encCfg.TxConfig.TxEncoder()(wrappedTx)
+				suite.Require().NoError(err)
 
-			suite.Require().Equal(txBytes, wrappedTxBytes)
+				suite.Require().Equal(txBytes, wrappedTxBytes)
+			}
 		})
 	}
 }

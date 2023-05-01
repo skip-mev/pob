@@ -20,8 +20,14 @@ type (
 	// to interact with the local mempool.
 	ProposalMempool interface {
 		sdkmempool.Mempool
-		AuctionBidSelect(ctx context.Context) sdkmempool.Iterator
+
+		// Config is utilized to retrieve, validate, and wrap bid information into
+		// the block proposal.
 		mempool.Config
+
+		// AuctionBidSelect returns an iterator that iterates over the top bid
+		// transactions in the mempool.
+		AuctionBidSelect(ctx context.Context) sdkmempool.Iterator
 	}
 
 	// ProposalHandler contains the functionality and handlers required to\
@@ -210,13 +216,15 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 				return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 			}
 
+			// If the transaction is an auction bid, then we need to ensure that it is
+			// the first transaction in the block proposal and that the order of
+			// transactions in the block proposal follows the order of transactions in
+			// the bid.
 			if bidInfo != nil {
-				// Only the first transaction can be an auction bid tx
 				if index != 0 {
 					return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 				}
 
-				// The order of transactions in the block proposal must follow the order of transactions in the bid.
 				bundledTransactions := bidInfo.Transactions
 				if len(req.Txs) < len(bundledTransactions)+1 {
 					return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}

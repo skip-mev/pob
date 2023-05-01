@@ -84,7 +84,9 @@ func (config *DefaultConfig) WrapBundleTransaction(tx []byte) (sdk.Tx, error) {
 	return config.txDecoder(tx)
 }
 
-// GetAuctionBidInfo returns the auction bid info from an auction transaction.
+// GetAuctionBidInfo defines a default function that returns the auction bid info from
+// an auction transaction. In the default case, the auction bid info is stored in the
+// MsgAuctionBid message.
 func (config *DefaultConfig) GetAuctionBidInfo(tx sdk.Tx) (*AuctionBidInfo, error) {
 	msg, err := GetMsgAuctionBidFromTx(tx)
 	if err != nil {
@@ -100,25 +102,15 @@ func (config *DefaultConfig) GetAuctionBidInfo(tx sdk.Tx) (*AuctionBidInfo, erro
 		return nil, fmt.Errorf("invalid bidder address (%s): %w", msg.Bidder, err)
 	}
 
-	timeout, err := config.getTimeout(tx)
-	if err != nil {
-		return nil, err
+	timeoutTx, ok := tx.(TxWithTimeoutHeight)
+	if !ok {
+		return nil, fmt.Errorf("cannot extract timeout; transaction does not implement TxWithTimeoutHeight")
 	}
 
 	return &AuctionBidInfo{
 		Bid:          msg.Bid,
 		Bidder:       bidder,
 		Transactions: msg.Transactions,
-		Timeout:      timeout,
+		Timeout:      timeoutTx.GetTimeoutHeight(),
 	}, nil
-}
-
-// getTimeout defines a default function that returns the timeout of an auction transaction.
-func (config *DefaultConfig) getTimeout(tx sdk.Tx) (uint64, error) {
-	timeoutTx, ok := tx.(TxWithTimeoutHeight)
-	if !ok {
-		return 0, fmt.Errorf("transaction does not implement TxWithTimeoutHeight")
-	}
-
-	return timeoutTx.GetTimeoutHeight(), nil
 }

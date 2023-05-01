@@ -110,8 +110,7 @@ func (ad BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 	return next(ctx, tx, simulate)
 }
 
-// GetBundleSigners defines a default function that returns the signers of every transaction
-// in a bundle.
+// GetBundleSigners returns the signers of every transaction in a bundle.
 func (ad BuilderDecorator) GetBundleSigners(txs [][]byte) ([]map[string]struct{}, error) {
 	signers := make([]map[string]struct{}, len(txs))
 
