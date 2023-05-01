@@ -17,10 +17,9 @@ type (
 	Mempool interface {
 		Contains(tx sdk.Tx) (bool, error)
 		IsAuctionTx(tx sdk.Tx) (bool, error)
-		GetAuctionBidInfo(tx sdk.Tx) (mempool.AuctionBidInfo, error)
-		GetBundleSigners(txs [][]byte) ([]map[string]struct{}, error)
+		GetAuctionBidInfo(tx sdk.Tx) (*mempool.AuctionBidInfo, error)
+		GetTransactionSigners(tx []byte) (map[string]struct{}, error)
 		GetTopAuctionTx(ctx context.Context) sdk.Tx
-		GetTimeout(tx sdk.Tx) (uint64, error)
 	}
 
 	BuilderDecorator struct {
@@ -88,7 +87,7 @@ func (ad BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 		}
 
 		// Extract signers from bundle for verification.
-		signers, err := ad.mempool.GetBundleSigners(bidInfo.Transactions)
+		signers, err := ad.GetBundleSigners(bidInfo.Transactions)
 		if err != nil {
 			return ctx, errors.Wrap(err, "failed to get bundle signers")
 		}
@@ -138,18 +137,31 @@ func (ad BuilderDecorator) IsTopBidTx(ctx sdk.Context, tx sdk.Tx) (bool, error) 
 
 // HasValidTimeout returns true if the transaction has a valid timeout height.
 func (ad BuilderDecorator) HasValidTimeout(ctx sdk.Context, tx sdk.Tx) error {
-	timeout, err := ad.mempool.GetTimeout(tx)
+	bidInfo, err := ad.mempool.GetAuctionBidInfo(tx)
 	if err != nil {
 		return err
 	}
 
-	if timeout == 0 {
-		return fmt.Errorf("timeout height cannot be zero")
-	}
-
-	if timeout < uint64(ctx.BlockHeight()) {
+	if bidInfo.Timeout < uint64(ctx.BlockHeight()) {
 		return fmt.Errorf("timeout height cannot be less than the current block height")
 	}
 
 	return nil
+}
+
+// GetBundleSigners defines a default function that returns the signers of every transaction
+// in a bundle.
+func (ad BuilderDecorator) GetBundleSigners(txs [][]byte) ([]map[string]struct{}, error) {
+	signers := make([]map[string]struct{}, len(txs))
+
+	for index, tx := range txs {
+		txSigners, err := ad.mempool.GetTransactionSigners(tx)
+		if err != nil {
+			return nil, err
+		}
+
+		signers[index] = txSigners
+	}
+
+	return signers, nil
 }

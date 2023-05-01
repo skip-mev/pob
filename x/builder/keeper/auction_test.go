@@ -192,13 +192,13 @@ func (suite *KeeperTestSuite) TestValidateAuctionMsg() {
 				bundle = append(bundle, txBz)
 			}
 
-			bidInfo := mempool.AuctionBidInfo{
+			bidInfo := &mempool.AuctionBidInfo{
 				Bidder:       bidder.Address,
 				Bid:          bid,
 				Transactions: bundle,
 			}
 
-			signers, err := suite.mempool.GetBundleSigners(bundle)
+			signers, err := suite.getBundleSigners(bundle)
 			suite.Require().NoError(err)
 
 			err = suite.builderKeeper.ValidateBidInfo(suite.ctx, highestBid, bidInfo, signers)
@@ -314,7 +314,7 @@ func (suite *KeeperTestSuite) TestValidateBundle() {
 				bundle = append(bundle, txBz)
 			}
 
-			signers, err := suite.mempool.GetBundleSigners(bundle)
+			signers, err := suite.getBundleSigners(bundle)
 			suite.Require().NoError(err)
 
 			// Validate the bundle
@@ -326,4 +326,19 @@ func (suite *KeeperTestSuite) TestValidateBundle() {
 			}
 		})
 	}
+}
+
+func (suite *KeeperTestSuite) getBundleSigners(bundle [][]byte) ([]map[string]struct{}, error) {
+	signers := make([]map[string]struct{}, len(bundle))
+
+	for index, tx := range bundle {
+		txSigners, err := suite.mempool.GetTransactionSigners(tx)
+		if err != nil {
+			return nil, err
+		}
+
+		signers[index] = txSigners
+	}
+
+	return signers, nil
 }

@@ -47,12 +47,12 @@ type AuctionMempool struct {
 func AuctionTxPriority(config Config) TxPriority[string] {
 	return TxPriority[string]{
 		GetTxPriority: func(goCtx context.Context, tx sdk.Tx) string {
-			bid, err := config.GetBid(tx)
+			bidInfo, err := config.GetAuctionBidInfo(tx)
 			if err != nil {
 				panic(err)
 			}
 
-			return bid.String()
+			return bidInfo.Bid.String()
 		},
 		Compare: func(a, b string) int {
 			aCoins, _ := sdk.ParseCoinsNormalized(a)

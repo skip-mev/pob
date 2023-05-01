@@ -233,6 +233,8 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 			suite.SetupTest()
 			tc.malleate()
 
+			suite.ctx = suite.ctx.WithBlockHeight(1)
+
 			// Set the auction params
 			err := suite.builderKeeper.SetParams(suite.ctx, buildertypes.Params{
 				MaxBundleSize:          maxBundleSize,

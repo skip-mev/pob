@@ -151,97 +151,6 @@ func (suite *IntegrationTestSuite) TestGetTransactionSigners() {
 	}
 }
 
-func (suite *IntegrationTestSuite) TestGetBundleSigners() {
-	testCases := []struct {
-		name            string
-		createBundle    func() [][]byte
-		expectedSigners [][]string
-	}{
-		{
-			"single bundle with one signer",
-			func() [][]byte {
-				tx, err := testutils.CreateRandomTx(suite.encCfg.TxConfig, suite.accounts[0], 0, 1, 0)
-				suite.Require().NoError(err)
-
-				bz, err := suite.encCfg.TxConfig.TxEncoder()(tx)
-				suite.Require().NoError(err)
-
-				return [][]byte{bz}
-			},
-			[][]string{{suite.accounts[0].Address.String()}},
-		},
-		{
-			"single bundle with multiple signers",
-			func() [][]byte {
-				tx, err := testutils.CreateTxWithSigners(suite.encCfg.TxConfig, 0, 0, suite.accounts[0:3])
-				suite.Require().NoError(err)
-
-				bz, err := suite.encCfg.TxConfig.TxEncoder()(tx)
-				suite.Require().NoError(err)
-
-				return [][]byte{bz}
-			},
-			[][]string{{suite.accounts[0].Address.String(), suite.accounts[1].Address.String(), suite.accounts[2].Address.String()}},
-		},
-		{
-			"multiple bundles with one signer",
-			func() [][]byte {
-				tx1, err := testutils.CreateRandomTx(suite.encCfg.TxConfig, suite.accounts[0], 0, 1, 0)
-				suite.Require().NoError(err)
-
-				bz1, err := suite.encCfg.TxConfig.TxEncoder()(tx1)
-				suite.Require().NoError(err)
-
-				tx2, err := testutils.CreateRandomTx(suite.encCfg.TxConfig, suite.accounts[1], 0, 1, 0)
-				suite.Require().NoError(err)
-
-				bz2, err := suite.encCfg.TxConfig.TxEncoder()(tx2)
-				suite.Require().NoError(err)
-
-				return [][]byte{bz1, bz2}
-			},
-			[][]string{{suite.accounts[0].Address.String()}, {suite.accounts[1].Address.String()}},
-		},
-		{
-			"multiple bundles with multiple signers",
-			func() [][]byte {
-				tx1, err := testutils.CreateTxWithSigners(suite.encCfg.TxConfig, 0, 0, suite.accounts[0:3])
-				suite.Require().NoError(err)
-
-				bz1, err := suite.encCfg.TxConfig.TxEncoder()(tx1)
-				suite.Require().NoError(err)
-
-				tx2, err := testutils.CreateTxWithSigners(suite.encCfg.TxConfig, 0, 0, suite.accounts[3:6])
-				suite.Require().NoError(err)
-
-				bz2, err := suite.encCfg.TxConfig.TxEncoder()(tx2)
-				suite.Require().NoError(err)
-
-				return [][]byte{bz1, bz2}
-			},
-			[][]string{{suite.accounts[0].Address.String(), suite.accounts[1].Address.String(), suite.accounts[2].Address.String()}, {suite.accounts[3].Address.String(), suite.accounts[4].Address.String(), suite.accounts[5].Address.String()}},
-		},
-	}
-
-	for _, tc := range testCases {
-		suite.Run(tc.name, func() {
-			bundle := tc.createBundle()
-
-			signers, err := suite.config.GetBundleSigners(bundle)
-			suite.Require().NoError(err)
-			suite.Require().Equal(len(tc.expectedSigners), len(signers))
-
-			for i, bundleSigners := range tc.expectedSigners {
-				suite.Require().Equal(len(bundleSigners), len(signers[i]))
-
-				for _, signer := range bundleSigners {
-					suite.Require().Contains(signers[i], signer)
-				}
-			}
-		})
-	}
-}
-
 func (suite *IntegrationTestSuite) TestWrapBundleTransaction() {
 	testCases := []struct {
 		name           string
@@ -336,12 +245,12 @@ func (suite *IntegrationTestSuite) TestGetBidder() {
 		suite.Run(tc.name, func() {
 			tx := tc.createTx()
 
-			bidder, err := suite.config.GetBidder(tx)
+			bidInfo, err := suite.config.GetAuctionBidInfo(tx)
 			if tc.expectedError {
 				suite.Require().Error(err)
 			} else {
 				suite.Require().NoError(err)
-				suite.Require().Equal(tc.expectedBidder, bidder.String())
+				suite.Require().Equal(tc.expectedBidder, bidInfo.Bidder.String())
 			}
 		})
 	}
@@ -404,12 +313,12 @@ func (suite *IntegrationTestSuite) TestGetBid() {
 		suite.Run(tc.name, func() {
 			tx := tc.createTx()
 
-			bid, err := suite.config.GetBid(tx)
+			bidInfo, err := suite.config.GetAuctionBidInfo(tx)
 			if tc.expectedError {
 				suite.Require().Error(err)
 			} else {
 				suite.Require().NoError(err)
-				suite.Require().Equal(tc.expectedBid, bid)
+				suite.Require().Equal(tc.expectedBid, bidInfo.Bid)
 			}
 		})
 	}
@@ -468,12 +377,12 @@ func (suite *IntegrationTestSuite) TestGetBundledTransactions() {
 		suite.Run(tc.name, func() {
 			tx, expectedBundledTxs := tc.createTx()
 
-			bundledTxs, err := suite.config.GetBundledTransactions(tx)
+			bidInfo, err := suite.config.GetAuctionBidInfo(tx)
 			if tc.expectedError {
 				suite.Require().Error(err)
 			} else {
 				suite.Require().NoError(err)
-				suite.Require().Equal(expectedBundledTxs, bundledTxs)
+				suite.Require().Equal(expectedBundledTxs, bidInfo.Transactions)
 			}
 		})
 	}
@@ -494,7 +403,7 @@ func (suite *IntegrationTestSuite) TestGetTimeout() {
 
 				return tx
 			},
-			false,
+			true,
 			1,
 		},
 		{
@@ -527,7 +436,7 @@ func (suite *IntegrationTestSuite) TestGetTimeout() {
 				suite.Require().NoError(err)
 				return tx
 			},
-			false,
+			true,
 			10,
 		},
 	}
@@ -536,12 +445,12 @@ func (suite *IntegrationTestSuite) TestGetTimeout() {
 		suite.Run(tc.name, func() {
 			tx := tc.createTx()
 
-			timeout, err := suite.config.GetTimeout(tx)
+			bidInfo, err := suite.config.GetAuctionBidInfo(tx)
 			if tc.expectedError {
 				suite.Require().Error(err)
 			} else {
 				suite.Require().NoError(err)
-				suite.Require().Equal(tc.expectedTimeout, timeout)
+				suite.Require().Equal(tc.expectedTimeout, bidInfo.Timeout)
 			}
 		})
 	}
