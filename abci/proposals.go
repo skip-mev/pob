@@ -12,6 +12,7 @@ import (
 	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
+	"github.com/skip-mev/pob/mempool"
 )
 
 type (
@@ -23,6 +24,7 @@ type (
 		GetBundledTransactions(tx sdk.Tx) ([][]byte, error)
 		WrapBundleTransaction(tx []byte) (sdk.Tx, error)
 		IsAuctionTx(tx sdk.Tx) (bool, error)
+		GetAuctionBidInfo(tx sdk.Tx) (mempool.AuctionBidInfo, error)
 	}
 
 	// ProposalHandler contains the functionality and handlers required to\
