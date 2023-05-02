@@ -65,11 +65,6 @@ func NewVoteExtensionHandler(mp VoteExtensionMempool, txDecoder sdk.TxDecoder,
 // returns it in its vote extension.
 func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 	return func(ctx sdk.Context, req *RequestExtendVote) (*ResponseExtendVote, error) {
-		var voteExtension []byte
-
-		// Reset the cache if necessary
-		h.resetCache(ctx.BlockHeight())
-
 		// Iterate through auction bids until we find a valid one
 		auctionIterator := h.mempool.AuctionBidSelect(ctx)
 
@@ -77,25 +72,15 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 			bidTx := auctionIterator.Tx()
 
 			// Verify the bid tx can be encoded and included in vote extension
-			bidBz, err := h.txEncoder(bidTx)
-			if err != nil {
-				continue
-			}
-
-			hashBz := sha256.Sum256(bidBz)
-			hash := hex.EncodeToString(hashBz[:])
-
-			// Validate the auction transaction and cache result
-			if err := h.verifyAuctionTx(ctx, bidTx); err != nil {
-				h.cache[hash] = err
-			} else {
-				h.cache[hash] = nil
-				voteExtension = bidBz
-				break
+			if bidBz, err := h.txEncoder(bidTx); err == nil {
+				// Validate the auction transaction
+				if err := h.verifyAuctionTx(ctx, bidTx); err == nil {
+					return &ResponseExtendVote{VoteExtension: bidBz}, nil
+				}
 			}
 		}
 
-		return &ResponseExtendVote{VoteExtension: voteExtension}, nil
+		return &ResponseExtendVote{VoteExtension: nil}, nil
 	}
 }
 
