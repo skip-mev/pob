@@ -1,0 +1,31 @@
+syntax = "proto3";
+package skipmev.pob.abci.v1;
+
+option go_package = "github.com/skip-mev/pob/abci/types";
+
+// AuctionInfo contains information about the top of block auction
+// that was run at the end of the previous block using vote extensions.
+message AuctionInfo {
+    // top_auction_tx contains the raw bytes of the top bidding valid transaction from 
+    // the auction. This is the transaction that will be included at the top of the next block.
+    bytes top_auction_tx = 1;
+
+    // vote_extensions contains the vote extensions that were used to run the auction.
+    repeated bytes vote_extensions = 2;
+
+    // max_tx_bytes is the maximum number of bytes that were allowed for the proposal.
+    int64 max_tx_bytes = 3;
+
+    // num_txs is the total number of transactions that were included in the auction including
+    // the auction transaction along with the transactions in the bundle.
+    int64 num_txs = 4;
+}
+
+// VoteExtensionInfo contains information about a vote extension that was used to run the auction. We
+// include multiple vote extensions internally in case other applications want to define their own
+// vote extensions data.
+message VoteExtensionInfo {
+    // registry is the data of the vote extension. This is a map of the vote extension
+    // name to the data of the vote extension.
+    map<string, bytes> registry = 2;
+}

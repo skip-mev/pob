@@ -1,10 +1,7 @@
 package abci
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -12,6 +9,7 @@ import (
 	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
+	types "github.com/skip-mev/pob/abci/types"
 	"github.com/skip-mev/pob/mempool"
 )
 
@@ -60,131 +58,38 @@ func NewProposalHandler(
 // top-of-block auctioning and general block proposal construction.
 func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 	return func(ctx sdk.Context, req abci.RequestPrepareProposal) abci.ResponsePrepareProposal {
-		var (
-			selectedTxs  [][]byte
-			totalTxBytes int64
-		)
-
-		bidTxIterator := h.mempool.AuctionBidSelect(ctx)
-		txsToRemove := make(map[sdk.Tx]struct{}, 0)
-		seenTxs := make(map[string]struct{}, 0)
-
-		// Attempt to select the highest bid transaction that is valid and whose
-		// bundled transactions are valid.
-	selectBidTxLoop:
-		for ; bidTxIterator != nil; bidTxIterator = bidTxIterator.Next() {
-			cacheCtx, write := ctx.CacheContext()
-			tmpBidTx := bidTxIterator.Tx()
-
-			bidTxBz, err := h.PrepareProposalVerifyTx(cacheCtx, tmpBidTx)
-			if err != nil {
-				txsToRemove[tmpBidTx] = struct{}{}
-				continue selectBidTxLoop
-			}
-
-			bidTxSize := int64(len(bidTxBz))
-			if bidTxSize <= req.MaxTxBytes {
-				bundledTransactions, err := h.mempool.GetBundledTransactions(tmpBidTx)
-				if err != nil {
-					// Some transactions in the bundle may be malformatted or invalid, so
-					// we remove the bid transaction and try the next top bid.
-					txsToRemove[tmpBidTx] = struct{}{}
-					continue selectBidTxLoop
-				}
-
-				// store the bytes of each ref tx as sdk.Tx bytes in order to build a valid proposal
-				sdkTxBytes := make([][]byte, len(bundledTransactions))
-
-				// Ensure that the bundled transactions are valid
-				for index, rawRefTx := range bundledTransactions {
-					refTx, err := h.mempool.WrapBundleTransaction(rawRefTx)
-					if err != nil {
-						// Malformed bundled transaction, so we remove the bid transaction
-						// and try the next top bid.
-						txsToRemove[tmpBidTx] = struct{}{}
-						continue selectBidTxLoop
-					}
-
-					txBz, err := h.PrepareProposalVerifyTx(cacheCtx, refTx)
-					if err != nil {
-						// Invalid bundled transaction, so we remove the bid transaction
-						// and try the next top bid.
-						txsToRemove[tmpBidTx] = struct{}{}
-						continue selectBidTxLoop
-					}
-
-					sdkTxBytes[index] = txBz
-				}
-
-				// At this point, both the bid transaction itself and all the bundled
-				// transactions are valid. So we select the bid transaction along with
-				// all the bundled transactions. We also mark these transactions as seen and
-				// update the total size selected thus far.
-				totalTxBytes += bidTxSize
-				selectedTxs = append(selectedTxs, bidTxBz)
-				selectedTxs = append(selectedTxs, sdkTxBytes...)
-
-				for _, refTxRaw := range sdkTxBytes {
-					hash := sha256.Sum256(refTxRaw)
-					txHash := hex.EncodeToString(hash[:])
-					seenTxs[txHash] = struct{}{}
-				}
-
-				// Write the cache context to the original context when we know we have a
-				// valid top of block bundle.
-				write()
-
-				break selectBidTxLoop
-			}
-
-			txsToRemove[tmpBidTx] = struct{}{}
-			h.logger.Info(
-				"failed to select auction bid tx; tx size is too large",
-				"tx_size", bidTxSize,
-				"max_size", req.MaxTxBytes,
-			)
+		// Utilize vote extensions to determine the top bidding valid auction transaction
+		// across the network.
+		voteExtensions := make([][]byte, len(req.LocalLastCommit.Votes))
+		for i, vote := range req.LocalLastCommit.Votes {
+			voteExtensions[i] = vote.VoteExtension
 		}
 
-		// Remove all invalid transactions from the mempool.
-		for tx := range txsToRemove {
-			h.RemoveTx(tx)
-		}
-
-		iterator := h.mempool.Select(ctx, nil)
-		txsToRemove = map[sdk.Tx]struct{}{}
+		// Build the top of block portion of the proposal and apply state changes relevant to the top valid auction
+		// transaction.
+		proposal, totalTxBytes := h.BuildTOB(ctx, voteExtensions, req.MaxTxBytes)
 
 		// Select remaining transactions for the block proposal until we've reached
 		// size capacity.
-	selectTxLoop:
+		txsToRemove := map[sdk.Tx]struct{}{}
+		iterator := h.mempool.Select(ctx, nil)
+
 		for ; iterator != nil; iterator = iterator.Next() {
 			memTx := iterator.Tx()
 
-			// If the transaction is already included in the proposal, then we skip it.
-			txBz, err := h.txEncoder(memTx)
+			txBz, err := h.PrepareProposalVerifyTx(ctx, memTx)
 			if err != nil {
 				txsToRemove[memTx] = struct{}{}
-				continue selectTxLoop
-			}
-
-			hash := sha256.Sum256(txBz)
-			txHash := hex.EncodeToString(hash[:])
-			if _, ok := seenTxs[txHash]; ok {
-				continue selectTxLoop
-			}
-
-			txBz, err = h.PrepareProposalVerifyTx(ctx, memTx)
-			if err != nil {
-				txsToRemove[memTx] = struct{}{}
-				continue selectTxLoop
+				continue
 			}
 
 			txSize := int64(len(txBz))
 			if totalTxBytes += txSize; totalTxBytes <= req.MaxTxBytes {
-				selectedTxs = append(selectedTxs, txBz)
+				proposal = append(proposal, txBz)
 			} else {
 				// We've reached capacity per req.MaxTxBytes so we cannot select any
 				// more transactions.
-				break selectTxLoop
+				break
 			}
 		}
 
@@ -193,7 +98,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 			h.RemoveTx(tx)
 		}
 
-		return abci.ResponsePrepareProposal{Txs: selectedTxs}
+		return abci.ResponsePrepareProposal{Txs: proposal}
 	}
 }
 
@@ -201,50 +106,41 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 // block proposal verification.
 func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 	return func(ctx sdk.Context, req abci.RequestProcessProposal) abci.ResponseProcessProposal {
-		for index, txBz := range req.Txs {
+		proposal := req.Txs
+
+		// Ensure that the proposal is not empty. Empty proposals still must include the auction info.
+		if len(proposal) <= TopOfBlockSize {
+			return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
+		}
+
+		auctionInfo, err := h.getAuctionInfoFromProposal(proposal[AuctionInfoIndex])
+		if err != nil {
+			return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
+		}
+
+		// The proposal should include the auction info and the top auction tx along
+		// with the transactions included in the bundle.
+		minProposalSize := auctionInfo.NumTxs + 1
+
+		// Verify that the proposal is the correct size.
+		if len(proposal) < int(minProposalSize) {
+			return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
+		}
+
+		// Verify the top of the block transactions.
+		if err := h.VerifyTOB(ctx, proposal[:minProposalSize], auctionInfo); err != nil {
+			return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
+		}
+
+		// Verify the remaining transactions.
+		for _, txBz := range proposal[minProposalSize:] {
 			tx, err := h.ProcessProposalVerifyTx(ctx, txBz)
 			if err != nil {
 				return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 			}
 
-			isAuctionTx, err := h.mempool.IsAuctionTx(tx)
-			if err != nil {
+			if isAuctionTx, err := h.mempool.IsAuctionTx(tx); err != nil || isAuctionTx {
 				return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
-			}
-
-			if isAuctionTx {
-				// Only the first transaction can be an auction bid tx
-				if index != 0 {
-					return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
-				}
-
-				bundledTransactions, err := h.mempool.GetBundledTransactions(tx)
-				if err != nil {
-					return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
-				}
-
-				// The order of transactions in the block proposal must follow the order of transactions in the bid.
-				if len(req.Txs) < len(bundledTransactions)+1 {
-					return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
-				}
-
-				for i, refTxRaw := range bundledTransactions {
-					// Wrap and then encode the bundled transaction to ensure that the underlying
-					// reference transaction can be processed as an sdk.Tx.
-					wrappedTx, err := h.mempool.WrapBundleTransaction(refTxRaw)
-					if err != nil {
-						return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
-					}
-
-					refTxBz, err := h.txEncoder(wrappedTx)
-					if err != nil {
-						return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
-					}
-
-					if !bytes.Equal(refTxBz, req.Txs[i+1]) {
-						return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
-					}
-				}
 			}
 
 		}
@@ -278,6 +174,15 @@ func (h *ProposalHandler) RemoveTx(tx sdk.Tx) {
 	if err := h.mempool.Remove(tx); err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
 		panic(fmt.Errorf("failed to remove invalid transaction from the mempool: %w", err))
 	}
+}
+
+func (h *ProposalHandler) getAuctionInfoFromProposal(infoBz []byte) (types.AuctionInfo, error) {
+	auctionInfo := types.AuctionInfo{}
+	if err := auctionInfo.Unmarshal(infoBz); err != nil {
+		return types.AuctionInfo{}, err
+	}
+
+	return auctionInfo, nil
 }
 
 // VerifyTx verifies a transaction against the application's state.
