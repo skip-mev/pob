@@ -1,9 +1,6 @@
 package abci_test
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
 	"math/rand"
 	"testing"
 	"time"
@@ -99,7 +96,7 @@ func (suite *ABCITestSuite) SetupTest() {
 	suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), suite.mempool)
 
 	// Accounts set up
-	suite.accounts = testutils.RandomAccounts(suite.random, 1)
+	suite.accounts = testutils.RandomAccounts(suite.random, 10)
 	suite.balances = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000000000000000000)))
 	suite.nonces = make(map[string]uint64)
 	for _, acc := range suite.accounts {
@@ -123,20 +120,6 @@ func (suite *ABCITestSuite) anteHandler(ctx sdk.Context, tx sdk.Tx, simulate boo
 	ctx, err := suite.builderDecorator.AnteHandle(ctx, tx, false, next)
 	if err != nil {
 		return ctx, err
-	}
-
-	bz, err := suite.encodingConfig.TxConfig.TxEncoder()(tx)
-	if err != nil {
-		return ctx, err
-	}
-
-	if !simulate {
-		hash := sha256.Sum256(bz)
-		txHash := hex.EncodeToString(hash[:])
-		if _, ok := suite.txs[txHash]; ok {
-			return ctx, fmt.Errorf("tx already in mempool")
-		}
-		suite.txs[txHash] = struct{}{}
 	}
 
 	return ctx, nil

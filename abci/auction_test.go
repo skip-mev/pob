@@ -1,295 +1,524 @@
 package abci_test
 
-// import (
-// 	sdk "github.com/cosmos/cosmos-sdk/types"
-// 	"github.com/skip-mev/pob/abci"
-// 	testutils "github.com/skip-mev/pob/testutils"
-// 	"github.com/skip-mev/pob/x/builder/types"
-// )
+import (
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/skip-mev/pob/abci"
+	"github.com/skip-mev/pob/abci/types"
+	testutils "github.com/skip-mev/pob/testutils"
+	buildertypes "github.com/skip-mev/pob/x/builder/types"
+)
 
-// func (suite *ABCITestSuite) TestBuildTOBProposal() {
-// 	params := types.Params{
-// 		ReserveFee:             sdk.NewCoin("foo", sdk.NewInt(100)),
-// 		MaxBundleSize:          5,
-// 		MinBidIncrement:        sdk.NewCoin("foo", sdk.NewInt(100)),
-// 		MinBuyInFee:            sdk.NewCoin("foo", sdk.NewInt(100)),
-// 		FrontRunningProtection: true,
-// 	}
+func (suite *ABCITestSuite) TestGetBidsFromVoteExtensions() {
+	testCases := []struct {
+		name                 string
+		createVoteExtensions func() ([][]byte, [][]byte) // returns (vote extensions, expected bids)
+	}{
+		{
+			"no vote extensions",
+			func() ([][]byte, [][]byte) {
+				return nil, [][]byte{}
+			},
+		},
+		{
+			"no vote extensions",
+			func() ([][]byte, [][]byte) {
+				return [][]byte{}, [][]byte{}
+			},
+		},
+		{
+			"single vote extension",
+			func() ([][]byte, [][]byte) {
+				bidTxBz, err := testutils.CreateAuctionTxWithSignerBz(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[0],
+					sdk.NewCoin("foo", sdk.NewInt(100)),
+					0,
+					1,
+					[]testutils.Account{suite.accounts[0]},
+				)
+				suite.Require().NoError(err)
 
-// 	err := suite.builderKeeper.SetParams(suite.ctx, params)
-// 	suite.Require().NoError(err)
+				voteExtensions := [][]byte{
+					suite.createVoteExtension(bidTxBz),
+				}
 
-// 	testCases := []struct {
-// 		name             string
-// 		expectedProposal func() ([][]byte, [][]byte) // returns (proposal, vote extensions)
-// 	}{
-// 		{
-// 			"no vote extensions",
-// 			func() ([][]byte, [][]byte) {
-// 				proposal := [][]byte{
-// 					nil,
-// 					[]byte(abci.TopAuctionTxDelimeter),
-// 					[]byte(abci.VoteExtensionsDelimeter),
-// 				}
+				expectedBids := [][]byte{
+					bidTxBz,
+				}
 
-// 				return proposal, nil
-// 			},
-// 		},
-// 		{
-// 			"single vote extension",
-// 			func() ([][]byte, [][]byte) {
-// 				bidder := suite.accounts[0]
-// 				bid := sdk.NewCoin("foo", sdk.NewInt(100))
-// 				bidBz, err := testutils.CreateAuctionTxWithSignerBz(
-// 					suite.encodingConfig.TxConfig,
-// 					bidder,
-// 					bid,
-// 					0,
-// 					1,
-// 					[]testutils.Account{bidder},
-// 				)
-// 				suite.Require().NoError(err)
+				return voteExtensions, expectedBids
+			},
+		},
+		{
+			"multiple vote extensions",
+			func() ([][]byte, [][]byte) {
+				bidTxBz1, err := testutils.CreateAuctionTxWithSignerBz(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[0],
+					sdk.NewCoin("foo", sdk.NewInt(101)),
+					0,
+					1,
+					[]testutils.Account{suite.accounts[0]},
+				)
+				suite.Require().NoError(err)
 
-// 				proposal := [][]byte{
-// 					bidBz,
-// 					[]byte(abci.TopAuctionTxDelimeter),
-// 					bidBz,
-// 					[]byte(abci.VoteExtensionsDelimeter),
-// 				}
+				bidTxBz2, err := testutils.CreateAuctionTxWithSignerBz(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[0],
+					sdk.NewCoin("foo", sdk.NewInt(100)),
+					0,
+					1,
+					[]testutils.Account{suite.accounts[0]},
+				)
+				suite.Require().NoError(err)
 
-// 				return proposal, [][]byte{
-// 					bidBz,
-// 				}
-// 			},
-// 		},
-// 		{
-// 			/// TODO: ABCI testing has to be bumpde to have several accounts testing
-// 			"single vote extension that is front-running",
-// 			func() ([][]byte, [][]byte) {
-// 				bidder := suite.accounts[0]
-// 				bid := sdk.NewCoin("foo", sdk.NewInt(100))
-// 				bidBz, err := testutils.CreateAuctionTxWithSignerBz(
-// 					suite.encodingConfig.TxConfig,
-// 					bidder,
-// 					bid,
-// 					0,
-// 					1,
-// 					[]testutils.Account{bidder, suite.accounts[1]}, //front-running here
-// 				)
-// 				suite.Require().NoError(err)
+				voteExtensions := [][]byte{
+					suite.createVoteExtension(bidTxBz1),
+					suite.createVoteExtension(bidTxBz2),
+				}
 
-// 				proposal := [][]byte{
-// 					nil,
-// 					[]byte(abci.TopAuctionTxDelimeter),
-// 					bidBz,
-// 					[]byte(abci.VoteExtensionsDelimeter),
-// 				}
+				expectedBids := [][]byte{
+					bidTxBz1,
+					bidTxBz2,
+				}
 
-// 				return proposal, [][]byte{
-// 					bidBz,
-// 				}
-// 			},
-// 		},
-// 	}
+				return voteExtensions, expectedBids
+			},
+		},
+		{
+			"multiple vote extensions with some noise",
+			func() ([][]byte, [][]byte) {
+				bidTxBz1, err := testutils.CreateAuctionTxWithSignerBz(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[0],
+					sdk.NewCoin("foo", sdk.NewInt(101)),
+					0,
+					1,
+					[]testutils.Account{suite.accounts[0]},
+				)
+				suite.Require().NoError(err)
 
-// 	for _, tc := range testCases {
-// 		suite.Run(tc.name, func() {
-// 			expectedProposal, voteExtensions := tc.expectedProposal()
+				bidTxBz2, err := testutils.CreateAuctionTxWithSignerBz(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[0],
+					sdk.NewCoin("foo", sdk.NewInt(100)),
+					0,
+					1,
+					[]testutils.Account{suite.accounts[0]},
+				)
+				suite.Require().NoError(err)
 
-// 			// Build the proposal
-// 			_, proposal := suite.proposalHandler.BuildTOBProposal(suite.ctx, voteExtensions)
+				voteExtensions := [][]byte{
+					suite.createVoteExtension(bidTxBz1),
+					nil,
+					suite.createVoteExtension(bidTxBz2),
+					[]byte("noise"),
+					[]byte("noise p2"),
+				}
 
-// 			// Check invarients
-// 			suite.Require().Equal(expectedProposal, proposal)
-// 		})
-// 	}
-// }
+				expectedBids := [][]byte{
+					bidTxBz1,
+					bidTxBz2,
+				}
 
-// func (suite *ABCITestSuite) TestVerifyAuction() {
-// 	panic("TODO")
-// }
+				return voteExtensions, expectedBids
+			},
+		},
+		{
+			"multiple vote extensions with some normal txs",
+			func() ([][]byte, [][]byte) {
+				bidTxBz1, err := testutils.CreateAuctionTxWithSignerBz(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[0],
+					sdk.NewCoin("foo", sdk.NewInt(101)),
+					0,
+					1,
+					[]testutils.Account{suite.accounts[0]},
+				)
+				suite.Require().NoError(err)
 
-// func (suite *ABCITestSuite) TestUnwrapProposal() {
-// 	testCases := []struct {
-// 		name          string
-// 		proposalSetup func() (abci.UnwrappedProposal, [][]byte)
-// 		expectedErr   bool
-// 	}{
-// 		{
-// 			"valid proposal",
-// 			func() (abci.UnwrappedProposal, [][]byte) {
-// 				proposal := [][]byte{
-// 					[]byte("top auction tx"),
-// 					[]byte(abci.TopAuctionTxDelimeter),
-// 					[]byte("vote extension 1"),
-// 					[]byte(abci.VoteExtensionsDelimeter),
-// 					[]byte("tx 1"),
-// 					[]byte("tx 2"),
-// 				}
+				bidTxBz2, err := testutils.CreateAuctionTxWithSignerBz(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[0],
+					sdk.NewCoin("foo", sdk.NewInt(100)),
+					0,
+					1,
+					[]testutils.Account{suite.accounts[0]},
+				)
+				suite.Require().NoError(err)
 
-// 				return abci.UnwrappedProposal{
-// 					TopAuctionTx:   []byte("top auction tx"),
-// 					VoteExtensions: [][]byte{[]byte("vote extension 1")},
-// 					Txs:            [][]byte{[]byte("tx 1"), []byte("tx 2")},
-// 				}, proposal
-// 			},
-// 			false,
-// 		},
-// 		{
-// 			"empty proposal",
-// 			func() (abci.UnwrappedProposal, [][]byte) {
-// 				proposal := [][]byte{
-// 					nil,
-// 					[]byte(abci.TopAuctionTxDelimeter),
-// 					[]byte(abci.VoteExtensionsDelimeter),
-// 				}
+				randomBz, err := testutils.CreateRandomTxBz(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[0],
+					0,
+					1,
+					0,
+				)
+				suite.Require().NoError(err)
 
-// 				return abci.UnwrappedProposal{
-// 					TopAuctionTx:   nil,
-// 					VoteExtensions: [][]byte{},
-// 					Txs:            [][]byte{},
-// 				}, proposal
-// 			},
-// 			false,
-// 		},
-// 		{
-// 			"invalid proposal format",
-// 			func() (abci.UnwrappedProposal, [][]byte) {
-// 				proposal := [][]byte{
-// 					[]byte("top auction tx"),
-// 					[]byte(abci.TopAuctionTxDelimeter),
-// 					[]byte("tx 1"),
-// 					[]byte("tx 2"),
-// 				}
+				voteExtensions := [][]byte{
+					suite.createVoteExtension(bidTxBz1),
+					suite.createVoteExtension(bidTxBz2),
+					nil,
+					randomBz,
+					[]byte("noise p2"),
+				}
 
-// 				return abci.UnwrappedProposal{}, proposal
-// 			},
-// 			true,
-// 		},
-// 		{
-// 			"invalid proposal format. top auction tx slot is missing",
-// 			func() (abci.UnwrappedProposal, [][]byte) {
-// 				proposal := [][]byte{
-// 					[]byte(abci.TopAuctionTxDelimeter),
-// 					[]byte("vote extension 1"),
-// 					[]byte(abci.VoteExtensionsDelimeter),
-// 					[]byte("tx 1"),
-// 					[]byte("tx 2"),
-// 				}
+				expectedBids := [][]byte{
+					bidTxBz1,
+					bidTxBz2,
+				}
 
-// 				return abci.UnwrappedProposal{}, proposal
-// 			},
-// 			true,
-// 		},
-// 		{
-// 			"invalid proposal format. missing auction and vote extension slots",
-// 			func() (abci.UnwrappedProposal, [][]byte) {
-// 				proposal := [][]byte{
-// 					[]byte("tx 1"),
-// 					[]byte("tx 2"),
-// 				}
+				return voteExtensions, expectedBids
+			},
+		},
+		{
+			"multiple vote extensions with some normal txs and some noise",
+			func() ([][]byte, [][]byte) {
+				bidTxBz1, err := testutils.CreateAuctionTxWithSignerBz(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[0],
+					sdk.NewCoin("foo", sdk.NewInt(1001)),
+					0,
+					1,
+					[]testutils.Account{suite.accounts[0]},
+				)
+				suite.Require().NoError(err)
 
-// 				return abci.UnwrappedProposal{}, proposal
-// 			},
-// 			true,
-// 		},
-// 		{
-// 			"completely empty proposal",
-// 			func() (abci.UnwrappedProposal, [][]byte) {
-// 				proposal := [][]byte{}
+				bidTxBz2, err := testutils.CreateAuctionTxWithSignerBz(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[0],
+					sdk.NewCoin("foo", sdk.NewInt(100)),
+					0,
+					1,
+					[]testutils.Account{suite.accounts[0]},
+				)
+				suite.Require().NoError(err)
 
-// 				return abci.UnwrappedProposal{}, proposal
-// 			},
-// 			true,
-// 		},
-// 		{
-// 			"valid proposal with several vote extensions",
-// 			func() (abci.UnwrappedProposal, [][]byte) {
-// 				proposal := [][]byte{
-// 					[]byte("top auction tx"),
-// 					[]byte(abci.TopAuctionTxDelimeter),
-// 					[]byte("vote extension 1"),
-// 					[]byte("vote extension 2"),
-// 					[]byte(abci.VoteExtensionsDelimeter),
-// 				}
+				randomBz, err := testutils.CreateRandomTxBz(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[0],
+					0,
+					1,
+					0,
+				)
+				suite.Require().NoError(err)
 
-// 				return abci.UnwrappedProposal{
-// 					TopAuctionTx:   []byte("top auction tx"),
-// 					VoteExtensions: [][]byte{[]byte("vote extension 1"), []byte("vote extension 2")},
-// 					Txs:            [][]byte{},
-// 				}, proposal
-// 			},
-// 			false,
-// 		},
-// 		{
-// 			"invalid proposal with several auction transaction before the delimeter",
-// 			func() (abci.UnwrappedProposal, [][]byte) {
-// 				proposal := [][]byte{
-// 					[]byte("top auction tx 1"),
-// 					[]byte("top auction tx 2"),
-// 					[]byte(abci.TopAuctionTxDelimeter),
-// 					[]byte("vote extension 1"),
-// 					[]byte(abci.VoteExtensionsDelimeter),
-// 				}
+				voteExtensions := [][]byte{
+					suite.createVoteExtension(bidTxBz2),
+					suite.createVoteExtension(bidTxBz1),
+					nil,
+					randomBz,
+					[]byte("noise p2"),
+				}
 
-// 				return abci.UnwrappedProposal{}, proposal
-// 			},
-// 			true,
-// 		},
-// 		{
-// 			"no vote extensions",
-// 			func() (abci.UnwrappedProposal, [][]byte) {
-// 				proposal := [][]byte{
-// 					[]byte("top auction tx"),
-// 					[]byte(abci.TopAuctionTxDelimeter),
-// 					[]byte(abci.VoteExtensionsDelimeter),
-// 				}
+				expectedBids := [][]byte{
+					bidTxBz2,
+					bidTxBz1,
+				}
 
-// 				return abci.UnwrappedProposal{
-// 					TopAuctionTx:   []byte("top auction tx"),
-// 					VoteExtensions: [][]byte{},
-// 					Txs:            [][]byte{},
-// 				}, proposal
-// 			},
-// 			false,
-// 		},
-// 		{
-// 			"no vote extensions and no auction transaction",
-// 			func() (abci.UnwrappedProposal, [][]byte) {
-// 				proposal := [][]byte{
-// 					nil,
-// 					[]byte(abci.TopAuctionTxDelimeter),
-// 					[]byte(abci.VoteExtensionsDelimeter),
-// 					[]byte("tx 1"),
-// 					[]byte("tx 2"),
-// 					[]byte("tx 3"),
-// 					[]byte("tx 4"),
-// 				}
+				return voteExtensions, expectedBids
+			},
+		},
+	}
 
-// 				return abci.UnwrappedProposal{
-// 					TopAuctionTx:   nil,
-// 					VoteExtensions: [][]byte{},
-// 					Txs:            [][]byte{[]byte("tx 1"), []byte("tx 2"), []byte("tx 3"), []byte("tx 4")},
-// 				}, proposal
-// 			},
-// 			false,
-// 		},
-// 	}
+	for _, tc := range testCases {
+		suite.Run(tc.name, func() {
+			voteExtensions, expectedBids := tc.createVoteExtensions()
 
-// 	for _, tc := range testCases {
-// 		suite.Run(tc.name, func() {
-// 			expectedProposal, proposal := tc.proposalSetup()
+			// get the bids from the vote extensions
+			bids := suite.proposalHandler.GetBidsFromVoteExtensions(voteExtensions)
 
-// 			unwrappedProposal, err := abci.UnwrapProposal(proposal)
-// 			if tc.expectedErr {
-// 				suite.Require().Error(err)
-// 				return
-// 			}
+			// Check invarients
+			suite.Require().Equal(len(expectedBids), len(bids))
+			for i, bid := range expectedBids {
+				actualBz, err := suite.encodingConfig.TxConfig.TxEncoder()(bids[i])
+				suite.Require().NoError(err)
 
-// 			suite.Require().NoError(err)
-// 			suite.Require().Equal(expectedProposal.TopAuctionTx, unwrappedProposal.TopAuctionTx)
-// 			suite.Require().Equal(expectedProposal.VoteExtensions, unwrappedProposal.VoteExtensions)
-// 			suite.Require().Equal(expectedProposal.Txs, unwrappedProposal.Txs)
-// 		})
-// 	}
-// }
+				suite.Require().Equal(bid, actualBz)
+			}
+		})
+	}
+}
+
+func (suite *ABCITestSuite) TestTOBAuction() {
+	params := buildertypes.Params{
+		MaxBundleSize:          4,
+		MinBuyInFee:            sdk.NewCoin("foo", sdk.NewInt(100)),
+		ReserveFee:             sdk.NewCoin("foo", sdk.NewInt(100)),
+		MinBidIncrement:        sdk.NewCoin("foo", sdk.NewInt(100)),
+		FrontRunningProtection: true,
+	}
+	suite.builderKeeper.SetParams(suite.ctx, params)
+
+	testCases := []struct {
+		name      string
+		getBidTxs func() ([]sdk.Tx, sdk.Tx) // returns the bids and the winning bid
+		maxBytes  int64
+	}{
+		{
+			"no bids",
+			func() ([]sdk.Tx, sdk.Tx) {
+				return []sdk.Tx{}, nil
+			},
+			1000000000,
+		},
+		{
+			"single bid",
+			func() ([]sdk.Tx, sdk.Tx) {
+				bidTx, err := testutils.CreateAuctionTxWithSigners(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[0],
+					sdk.NewCoin("foo", sdk.NewInt(101)),
+					0,
+					1,
+					[]testutils.Account{suite.accounts[0]},
+				)
+				suite.Require().NoError(err)
+
+				return []sdk.Tx{bidTx}, bidTx
+			},
+			1000000000,
+		},
+		{
+			"single invalid bid (bid is too small)",
+			func() ([]sdk.Tx, sdk.Tx) {
+				bidTx, err := testutils.CreateAuctionTxWithSigners(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[0],
+					sdk.NewCoin("foo", sdk.NewInt(1)),
+					0,
+					1,
+					[]testutils.Account{suite.accounts[0]},
+				)
+				suite.Require().NoError(err)
+
+				return []sdk.Tx{bidTx}, nil
+			},
+			1000000000,
+		},
+		{
+			"single invalid bid with front-running",
+			func() ([]sdk.Tx, sdk.Tx) {
+				bidTx, err := testutils.CreateAuctionTxWithSigners(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[0],
+					sdk.NewCoin("foo", sdk.NewInt(1000)),
+					0,
+					1,
+					[]testutils.Account{suite.accounts[0], suite.accounts[1]},
+				)
+				suite.Require().NoError(err)
+
+				return []sdk.Tx{bidTx}, nil
+			},
+			1000000000,
+		},
+		{
+			"single invalid bid with too many transactions in the bundle",
+			func() ([]sdk.Tx, sdk.Tx) {
+				bidTx, err := testutils.CreateAuctionTxWithSigners(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[0],
+					sdk.NewCoin("foo", sdk.NewInt(101)),
+					0,
+					1,
+					[]testutils.Account{
+						suite.accounts[0],
+						suite.accounts[0],
+						suite.accounts[0],
+						suite.accounts[0],
+						suite.accounts[0],
+						suite.accounts[0],
+					},
+				)
+				suite.Require().NoError(err)
+
+				return []sdk.Tx{bidTx}, nil
+			},
+			1000000000,
+		},
+		{
+			"single bid but max bytes is too small",
+			func() ([]sdk.Tx, sdk.Tx) {
+				bidTx, err := testutils.CreateAuctionTxWithSigners(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[0],
+					sdk.NewCoin("foo", sdk.NewInt(101)),
+					0,
+					1,
+					[]testutils.Account{suite.accounts[0]},
+				)
+				suite.Require().NoError(err)
+
+				return []sdk.Tx{bidTx}, nil
+			},
+			1,
+		},
+		{
+			"multiple bids",
+			func() ([]sdk.Tx, sdk.Tx) {
+				bidTx1, err := testutils.CreateAuctionTxWithSigners(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[0],
+					sdk.NewCoin("foo", sdk.NewInt(101)),
+					0,
+					1,
+					[]testutils.Account{suite.accounts[0]},
+				)
+				suite.Require().NoError(err)
+
+				bidTx2, err := testutils.CreateAuctionTxWithSigners(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[1],
+					sdk.NewCoin("foo", sdk.NewInt(102)),
+					0,
+					1,
+					[]testutils.Account{suite.accounts[1]},
+				)
+				suite.Require().NoError(err)
+
+				return []sdk.Tx{bidTx2, bidTx1}, bidTx2
+			},
+			1000000000,
+		},
+		{
+			"multiple bids with front-running",
+			func() ([]sdk.Tx, sdk.Tx) {
+				bidTx1, err := testutils.CreateAuctionTxWithSigners(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[0],
+					sdk.NewCoin("foo", sdk.NewInt(1000)),
+					0,
+					1,
+					[]testutils.Account{suite.accounts[0], suite.accounts[1]},
+				)
+				suite.Require().NoError(err)
+
+				bidTx2, err := testutils.CreateAuctionTxWithSigners(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[1],
+					sdk.NewCoin("foo", sdk.NewInt(200)),
+					0,
+					1,
+					[]testutils.Account{suite.accounts[1]},
+				)
+				suite.Require().NoError(err)
+
+				return []sdk.Tx{bidTx1, bidTx2}, bidTx2
+			},
+			1000000000,
+		},
+		{
+			"multiple bids with too many transactions in the bundle",
+			func() ([]sdk.Tx, sdk.Tx) {
+				bidTx1, err := testutils.CreateAuctionTxWithSigners(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[0],
+					sdk.NewCoin("foo", sdk.NewInt(101)),
+					0,
+					1,
+					[]testutils.Account{
+						suite.accounts[0],
+						suite.accounts[0],
+						suite.accounts[0],
+						suite.accounts[0],
+						suite.accounts[0],
+						suite.accounts[0],
+					},
+				)
+				suite.Require().NoError(err)
+
+				bidTx2, err := testutils.CreateAuctionTxWithSigners(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[1],
+					sdk.NewCoin("foo", sdk.NewInt(102)),
+					0,
+					1,
+					[]testutils.Account{suite.accounts[1]},
+				)
+				suite.Require().NoError(err)
+
+				return []sdk.Tx{bidTx1, bidTx2}, bidTx2
+			},
+			1000000000,
+		},
+		{
+			"multiple bids unsorted",
+			func() ([]sdk.Tx, sdk.Tx) {
+				bidTx1, err := testutils.CreateAuctionTxWithSigners(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[0],
+					sdk.NewCoin("foo", sdk.NewInt(101)),
+					0,
+					1,
+					[]testutils.Account{suite.accounts[0]},
+				)
+				suite.Require().NoError(err)
+
+				bidTx2, err := testutils.CreateAuctionTxWithSigners(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[1],
+					sdk.NewCoin("foo", sdk.NewInt(102)),
+					0,
+					1,
+					[]testutils.Account{suite.accounts[1]},
+				)
+				suite.Require().NoError(err)
+
+				return []sdk.Tx{bidTx1, bidTx2}, bidTx2
+			},
+			1000000000,
+		},
+	}
+
+	for _, tc := range testCases {
+		suite.Run(tc.name, func() {
+			bidTxs, winningBid := tc.getBidTxs()
+
+			// Host the auction
+			proposal, size := suite.proposalHandler.BuildTOB(suite.ctx, bidTxs, tc.maxBytes)
+
+			// Size of the proposal should be less than or equal to the max bytes
+			suite.Require().LessOrEqual(size, tc.maxBytes)
+
+			if winningBid == nil {
+				suite.Require().Len(proposal, 0)
+				suite.Require().Equal(size, int64(0))
+			} else {
+				// If there is a winning bid, then the proposal should be non-empty
+				suite.Require().NotEmpty(proposal)
+
+				// Get info about the winning bid
+				winningBidBz, err := suite.encodingConfig.TxConfig.TxEncoder()(winningBid)
+				suite.Require().NoError(err)
+
+				auctionBidInfo, err := suite.mempool.GetAuctionBidInfo(winningBid)
+				suite.Require().NoError(err)
+
+				// Verify that the size of the proposal is the size of the winning bid
+				// plus the size of the bundle
+				suite.Require().Equal(len(proposal), len(auctionBidInfo.Transactions)+1)
+
+				// Verify that the winning bid is the first transaction in the proposal
+				suite.Require().Equal(proposal[0], winningBidBz)
+
+				// Verify the ordering of transactions in the proposal
+				for index, tx := range proposal[1:] {
+					suite.Equal(tx, auctionBidInfo.Transactions[index])
+				}
+			}
+		})
+	}
+}
+
+func (suite *ABCITestSuite) createVoteExtension(tx []byte) []byte {
+	voteExtensionInfo := types.VoteExtensionInfo{}
+	voteExtensionInfo.Registry = map[string][]byte{
+		abci.VoteExtensionAuctionKey: tx,
+	}
+	voteExtensionInfoBz, err := voteExtensionInfo.Marshal()
+	suite.Require().NoError(err)
+
+	return voteExtensionInfoBz
+}

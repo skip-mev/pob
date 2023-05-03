@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"reflect"
+	"sort"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	types "github.com/skip-mev/pob/abci/types"
@@ -13,187 +13,180 @@ import (
 const (
 	// VoteExtensionAuctionKey is the key used to extract the auction transaction from the vote extension.
 	VoteExtensionAuctionKey = "auction_tx"
-
-	// AuctionInfoIndex is the index of the auction info in the top-of-block proposal.
-	AuctionInfoIndex = 0
-
-	// TopBidIndex is the index of the top bid transaction in the top-of-block proposal.
-	TopBidIndex = 1
-
-	// TopOfBlockSize is the size of the top-of-block proposal. This includes the auction info and the top auction tx.
-	TopOfBlockSize = 2
 )
 
-func (h *ProposalHandler) BuildTOB(ctx sdk.Context, voteExtensions [][]byte, maxBytes int64) ([][]byte, int64) {
-	// Host the auction to determine which auction transaction will be included in at the very top of the block.
-	bidTxBz := h.VoteExtensionAuction(ctx, voteExtensions, maxBytes)
+// TopOfBlockProposal contains the top of block proposal that is returned by the
+// BuildTOB method.
+type TopOfBlockProposal struct {
+	// Proposal is the top of block proposal.
+	Proposal [][]byte
 
-	// Build the auction info that will be used to verify the block proposal in ProcessProposal.
-	auctionInfo := types.AuctionInfo{
-		TopAuctionTx:   bidTxBz,
-		VoteExtensions: voteExtensions,
-		MaxTxBytes:     maxBytes,
-	}
+	// ProposalSize is the total size of the top of block proposal.
+	Size int64
 
-	// Build the top-of-block proposal.
-	topOfBlockTxs := make([][]byte, 0)
-
-	// If there is a valid auction transaction, add the auction transaction along with
-	// the transactions included in the bundle.
-	if bidTxBz != nil {
-		topOfBlockTxs = append(topOfBlockTxs, bidTxBz)
-
-		bidTx, err := h.txDecoder(bidTxBz)
-		if err != nil {
-			panic(err)
-		}
-
-		bidInfo, err := h.mempool.GetAuctionBidInfo(bidTx)
-		if err != nil {
-			panic(err)
-		}
-
-		topOfBlockTxs = append(topOfBlockTxs, bidInfo.Transactions...)
-		auctionInfo.NumTxs = int64(len(bidInfo.Transactions)) + 1 // +1 for the auction tx
-	}
-
-	// Marshal the auction info to be included in the proposal.
-	auctionInfoBz, err := auctionInfo.Marshal()
-	if err != nil {
-		panic(err)
-	}
-
-	proposal := append([][]byte{auctionInfoBz}, topOfBlockTxs...)
-
-	return proposal, int64(len(bidTxBz))
+	// Cache is the cache of transactions that were seen in order to ignore them
+	// when building the rest of the block.
+	Cache map[string]struct{}
 }
 
-// VerifyTOBProposal verifies that the proposal correctly contains the top auction tx based on the
-// vote extensions. It also returns the context that the top auction tx was verified in.
-func (h *ProposalHandler) VerifyTOB(ctx sdk.Context, expectedProposal [][]byte, auctionInfo types.AuctionInfo) error {
-	// Verify we can build the same proposal.
-	if proposal, _ := h.BuildTOB(ctx, auctionInfo.VoteExtensions, auctionInfo.MaxTxBytes); !reflect.DeepEqual(proposal, expectedProposal) {
-		return fmt.Errorf("proposal does not match the expected proposal")
+// NewTopOfBlockProposal returns a new TopOfBlockProposal.
+func NewTopOfBlockProposal() TopOfBlockProposal {
+	return TopOfBlockProposal{
+		Cache: make(map[string]struct{}),
 	}
-
-	return nil
 }
 
-// VoteExtensionAuction inputs vote extensions that contain auction transactions and outputs the top bid transaction.
-func (h *ProposalHandler) VoteExtensionAuction(ctx sdk.Context, voteExtensions [][]byte, maxBytes int64) []byte {
-	var (
-		// Track the highest bid.
-		topBid sdk.Coin
-		// Track the highest bid transaction.
-		topBidTxBytes []byte
-		// Track the state changes of the highest bid transaction.
-		write func()
-	)
+// BuildTOB inputs all of the bid transactions and outputs a top of block proposal that includes
+// the highest bidding valid transaction along with all the bundled transactions.
+func (h *ProposalHandler) BuildTOB(ctx sdk.Context, bidTxs []sdk.Tx, maxBytes int64) TopOfBlockProposal {
+	var topOfBlockProposal TopOfBlockProposal
 
-	// Cache is used to prevent duplicate vote extensions from being processed.
-	cache := make(map[string]struct{})
-	// txsToRemove is used to track invalid transactions.
+	// Sort the auction transactions by their bid amount in descending order.
+	sort.Slice(bidTxs, func(i, j int) bool {
+		bidInfoI, err := h.mempool.GetAuctionBidInfo(bidTxs[i])
+
+		// In the case of an error, we want to sort the transaction to the end of the list.
+		if err != nil {
+			return false
+		}
+
+		bidInfoJ, err := h.mempool.GetAuctionBidInfo(bidTxs[j])
+		// In the case of an error, we want to sort the transaction to the end of the list.
+		if err != nil {
+			return true
+
+		}
+
+		return bidInfoI.Bid.IsGTE(bidInfoJ.Bid)
+	})
+
+	// Track the transactions we can remove from the block
 	txsToRemove := make(map[sdk.Tx]struct{})
 
-	// Iterate through all vote extensions and find the highest valid bid tx.
-	for _, voteExtension := range voteExtensions {
-		// Extract the auction transaction from the vote extension.
-		auctionTxBz := h.GetAuctionTxFromVoteExtension(voteExtension)
+	// Attempt to select the highest bid transaction that is valid and whose
+	// bundled transactions are valid.
+	for _, bidTx := range bidTxs {
+		// Cache the context so that we can write it back to the original context
+		// when we know we have a valid top of block bundle.
+		cacheCtx, write := ctx.CacheContext()
 
-		// If the vote extension is empty or too large, skip it.
-		size := int64(len(auctionTxBz))
-		if size == 0 || size > maxBytes {
-			continue
-		}
-
-		hashBz := sha256.Sum256(auctionTxBz)
-		hash := hex.EncodeToString(hashBz[:])
-
-		// If the vote extension has already been processed, skip it.
-		if _, ok := cache[hash]; ok {
-			continue
-		}
-
-		// Vote extension should be a valid transaction.
-		bidTx, err := h.txDecoder(auctionTxBz)
+		topOfBlockProposal, err := h.buildTOB(cacheCtx, bidTx)
 		if err != nil {
+			h.logger.Info(
+				"vote extension auction failed to verify auction tx",
+				"err", err,
+			)
 			txsToRemove[bidTx] = struct{}{}
 			continue
 		}
 
-		// Verify that the bid tx is a valid auction tx and that the
-		// bid is higher than the current top bid.
-		bidInfo, err := h.mempool.GetAuctionBidInfo(bidTx)
-		if err != nil || bidInfo.Bid.IsLT(topBid) {
-			continue
+		if topOfBlockProposal.Size <= maxBytes {
+			// At this point, both the bid transaction itself and all the bundled
+			// transactions are valid. So we select the bid transaction along with
+			// all the bundled transactions and apply the state changes to the cache
+			// context.
+			write()
+			break
 		}
 
-		// Verify that the bid tx is valid.
-		if write, err = h.verifyAuctionTx(ctx, bidTx); err != nil {
-			txsToRemove[bidTx] = struct{}{}
-			continue
-		}
-
-		topBidTxBytes = auctionTxBz
-		topBid = bidInfo.Bid
-
-		// Cache the vote extension.
-		cache[hash] = struct{}{}
+		h.logger.Info(
+			"failed to select auction bid tx; auction tx size is too large",
+			"tx_size", topOfBlockProposal.Size,
+			"max_size", maxBytes,
+		)
 	}
 
-	// Apply the state changes of the top bid transaction.
-	if topBidTxBytes != nil {
-		write()
-	}
-
-	// Remove all invalid transactions from the vote extensions.
+	// Remove all of the transactions that were not valid.
 	for tx := range txsToRemove {
 		h.RemoveTx(tx)
 	}
 
-	return topBidTxBytes
+	return topOfBlockProposal
 }
 
-// GetAuctionTxFromVoteExtension extracts the auction transaction from the vote extension.
-func (h *ProposalHandler) GetAuctionTxFromVoteExtension(voteExtension []byte) []byte {
+// getVoteExtensionInfo returns all of the vote extensions supplied in the request alongside
+// a sorted - potentially subset - of the vote extensions that contain auction transactions.
+func (h *ProposalHandler) GetBidsFromVoteExtensions(voteExtensions [][]byte) []sdk.Tx {
+	bidTxs := make([]sdk.Tx, 0)
+
+	// Iterate through all vote extensions and extract the auction transactions.
+	for i, voteExtension := range voteExtensions {
+		// Check if the vote extension contains an auction transaction.
+		if bidTx, err := h.getAuctionTxFromVoteExtension(voteExtension); err == nil {
+			bidTxs = append(bidTxs, bidTx)
+		}
+
+		voteExtensions[i] = voteExtension
+	}
+
+	return bidTxs
+}
+
+// getAuctionTxFromVoteExtension extracts the auction transaction from the vote extension.
+func (h *ProposalHandler) getAuctionTxFromVoteExtension(voteExtension []byte) (sdk.Tx, error) {
 	voteExtensionInfo := types.VoteExtensionInfo{}
 	if err := voteExtensionInfo.Unmarshal(voteExtension); err != nil {
-		return nil
+		return nil, err
 	}
 
-	if auctionTx, ok := voteExtensionInfo.Registry[VoteExtensionAuctionKey]; ok {
-		return auctionTx
+	// Check if the vote extension's registry contains an auction transaction.
+	bidTxBz, ok := voteExtensionInfo.Registry[VoteExtensionAuctionKey]
+	if !ok {
+		return nil, fmt.Errorf("vote extension does not contain auction transaction in its registry")
 	}
 
-	return nil
+	// Attempt to unmarshal the auction transaction.
+	bidTx, err := h.txDecoder(bidTxBz)
+	if err != nil {
+		return nil, err
+	}
+
+	// Verify the auction transaction has bid information.
+	if isAuctionTx, err := h.mempool.IsAuctionTx(bidTx); err != nil || !isAuctionTx {
+		return nil, err
+	}
+
+	return bidTx, nil
 }
 
-// verifyAuctionTx verifies that the bid tx is valid and returns the context that the bid tx was verified in.
-func (h *ProposalHandler) verifyAuctionTx(ctx sdk.Context, bidTx sdk.Tx) (func(), error) {
-	// Cache the context to prevent state changes.
-	cache, write := ctx.CacheContext()
+// buildTOB verifies that the auction transaction is valid and returns the bytes of the
+// auction transaction and all of its bundled transactions.
+func (h *ProposalHandler) buildTOB(ctx sdk.Context, bidTx sdk.Tx) (TopOfBlockProposal, error) {
+	proposal := NewTopOfBlockProposal()
 
-	// Verify the bid tx.
-	if err := h.verifyTx(cache, bidTx); err != nil {
-		return write, err
-	}
-
-	bundledTxs, err := h.mempool.GetBundledTransactions(bidTx)
+	bidTxBz, err := h.PrepareProposalVerifyTx(ctx, bidTx)
 	if err != nil {
-		return write, err
+		return proposal, err
 	}
 
-	// Verify that the bundle is valid.
-	for _, tx := range bundledTxs {
-		wrappedTx, err := h.mempool.WrapBundleTransaction(tx)
+	bundledTransactions, err := h.mempool.GetBundledTransactions(bidTx)
+	if err != nil {
+		return proposal, err
+	}
+
+	// store the bytes of each ref tx as sdk.Tx bytes in order to build a valid proposal
+	sdkTxBytes := make([][]byte, len(bundledTransactions))
+
+	// Ensure that the bundled transactions are valid
+	for index, rawRefTx := range bundledTransactions {
+		refTx, err := h.mempool.WrapBundleTransaction(rawRefTx)
 		if err != nil {
-			return write, err
+			return TopOfBlockProposal{}, err
 		}
 
-		if err := h.verifyTx(cache, wrappedTx); err != nil {
-			return write, err
+		txBz, err := h.PrepareProposalVerifyTx(ctx, refTx)
+		if err != nil {
+			return TopOfBlockProposal{}, err
 		}
+
+		hashBz := sha256.Sum256(refTx)
+		hash := hex.EncodeToString(hashBz[:])
+
+		sdkTxBytes[index] = txBz
 	}
 
-	return write, nil
+	proposal := [][]byte{bidTxBz}
+	proposal = append(proposal, sdkTxBytes...)
+
+	return proposal, int64(len(bidTxBz)), nil
 }
