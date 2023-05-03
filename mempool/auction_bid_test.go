@@ -94,47 +94,70 @@ func (suite *IntegrationTestSuite) TestIsAuctionTx() {
 func (suite *IntegrationTestSuite) TestGetTransactionSigners() {
 	testCases := []struct {
 		name            string
-		createTx        func() []byte
-		expectedSigners []string
+		createTx        func() sdk.Tx
+		expectedSigners []map[string]struct{}
+		expectedError   bool
 	}{
 		{
-			"normal sdk tx",
-			func() []byte {
-				tx, err := testutils.CreateRandomTx(suite.encCfg.TxConfig, suite.accounts[0], 0, 1, 0)
+			"normal auction tx",
+			func() sdk.Tx {
+				tx, err := testutils.CreateAuctionTxWithSigners(
+					suite.encCfg.TxConfig,
+					suite.accounts[0],
+					sdk.NewCoin("foo", sdk.NewInt(100)),
+					1,
+					0,
+					suite.accounts[0:1],
+				)
 				suite.Require().NoError(err)
 
-				bz, err := suite.encCfg.TxConfig.TxEncoder()(tx)
-				suite.Require().NoError(err)
-
-				return bz
+				return tx
 			},
-			[]string{suite.accounts[0].Address.String()},
+			[]map[string]struct{}{
+				{
+					suite.accounts[0].Address.String(): {},
+				},
+			},
+			false,
 		},
 		{
-			"normal sdk tx with several messages",
-			func() []byte {
+			"normal sdk tx",
+			func() sdk.Tx {
 				tx, err := testutils.CreateRandomTx(suite.encCfg.TxConfig, suite.accounts[0], 0, 10, 0)
 				suite.Require().NoError(err)
 
-				bz, err := suite.encCfg.TxConfig.TxEncoder()(tx)
-				suite.Require().NoError(err)
-
-				return bz
+				return tx
 			},
-			[]string{suite.accounts[0].Address.String()},
+			nil,
+			true,
 		},
 		{
-			"multiple signers on tx",
-			func() []byte {
-				tx, err := testutils.CreateTxWithSigners(suite.encCfg.TxConfig, 0, 0, suite.accounts[0:3])
+			"multiple signers on auction tx",
+			func() sdk.Tx {
+				tx, err := testutils.CreateAuctionTxWithSigners(
+					suite.encCfg.TxConfig,
+					suite.accounts[0],
+					sdk.NewCoin("foo", sdk.NewInt(100)),
+					1,
+					0,
+					suite.accounts[0:3],
+				)
 				suite.Require().NoError(err)
 
-				bz, err := suite.encCfg.TxConfig.TxEncoder()(tx)
-				suite.Require().NoError(err)
-
-				return bz
+				return tx
 			},
-			[]string{suite.accounts[0].Address.String(), suite.accounts[1].Address.String(), suite.accounts[2].Address.String()},
+			[]map[string]struct{}{
+				{
+					suite.accounts[0].Address.String(): {},
+				},
+				{
+					suite.accounts[1].Address.String(): {},
+				},
+				{
+					suite.accounts[2].Address.String(): {},
+				},
+			},
+			false,
 		},
 	}
 
@@ -142,12 +165,11 @@ func (suite *IntegrationTestSuite) TestGetTransactionSigners() {
 		suite.Run(tc.name, func() {
 			tx := tc.createTx()
 
-			signers, err := suite.config.GetTransactionSigners(tx)
-			suite.Require().NoError(err)
-			suite.Require().Equal(len(tc.expectedSigners), len(signers))
-
-			for _, signer := range tc.expectedSigners {
-				suite.Require().Contains(signers, signer)
+			bidInfo, _ := suite.config.GetAuctionBidInfo(tx)
+			if tc.expectedError {
+				suite.Require().Nil(bidInfo)
+			} else {
+				suite.Require().Equal(tc.expectedSigners, bidInfo.Signers)
 			}
 		})
 	}

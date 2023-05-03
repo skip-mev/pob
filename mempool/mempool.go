@@ -38,13 +38,13 @@ type AuctionMempool struct {
 	// to quickly check if a transaction is already in the mempool.
 	txIndex map[string]struct{}
 
-	// Config defines the transaction configuration for processing auction transactions.
-	Config
+	// AuctionBid implements the functionality required to process auction transactions.
+	AuctionBid
 }
 
 // AuctionTxPriority returns a TxPriority over auction bid transactions only. It
 // is to be used in the auction index only.
-func AuctionTxPriority(config Config) TxPriority[string] {
+func AuctionTxPriority(config AuctionBid) TxPriority[string] {
 	return TxPriority[string]{
 		GetTxPriority: func(goCtx context.Context, tx sdk.Tx) string {
 			bidInfo, err := config.GetAuctionBidInfo(tx)
@@ -85,7 +85,7 @@ func AuctionTxPriority(config Config) TxPriority[string] {
 	}
 }
 
-func NewAuctionMempool(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int, config Config) *AuctionMempool {
+func NewAuctionMempool(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int, config AuctionBid) *AuctionMempool {
 	return &AuctionMempool{
 		globalIndex: NewPriorityMempool(
 			PriorityNonceMempoolConfig[int64]{
@@ -99,10 +99,10 @@ func NewAuctionMempool(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx i
 				MaxTx:      maxTx,
 			},
 		),
-		txDecoder: txDecoder,
-		txEncoder: txEncoder,
-		txIndex:   make(map[string]struct{}),
-		Config:    config,
+		txDecoder:  txDecoder,
+		txEncoder:  txEncoder,
+		txIndex:    make(map[string]struct{}),
+		AuctionBid: config,
 	}
 }
 

@@ -17,7 +17,6 @@ type (
 	Mempool interface {
 		Contains(tx sdk.Tx) (bool, error)
 		GetAuctionBidInfo(tx sdk.Tx) (*mempool.AuctionBidInfo, error)
-		GetTransactionSigners(tx []byte) (map[string]struct{}, error)
 		GetTopAuctionTx(ctx context.Context) sdk.Tx
 	}
 
@@ -82,9 +81,7 @@ func (ad BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 					return ctx, err
 				}
 
-				// compare the bytes to see if the current transaction is the highest bidding transaction.
-				//
-				// NOTE: Can we just check that the bid information is the same?
+				// Compare the bytes to see if the current transaction is the highest bidding transaction.
 				if !bytes.Equal(topBidBz, currentTxBz) {
 					topBidInfo, err := ad.mempool.GetAuctionBidInfo(topBidTx)
 					if err != nil {
@@ -96,32 +93,10 @@ func (ad BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 			}
 		}
 
-		// Extract signers from bundle for verification.
-		signers, err := ad.GetBundleSigners(bidInfo.Transactions)
-		if err != nil {
-			return ctx, errors.Wrap(err, "failed to get bundle signers")
-		}
-
-		if err := ad.builderKeeper.ValidateBidInfo(ctx, topBid, bidInfo, signers); err != nil {
+		if err := ad.builderKeeper.ValidateBidInfo(ctx, topBid, bidInfo); err != nil {
 			return ctx, errors.Wrap(err, "failed to validate auction bid")
 		}
 	}
 
 	return next(ctx, tx, simulate)
-}
-
-// GetBundleSigners returns the signers of every transaction in a bundle.
-func (ad BuilderDecorator) GetBundleSigners(txs [][]byte) ([]map[string]struct{}, error) {
-	signers := make([]map[string]struct{}, len(txs))
-
-	for index, tx := range txs {
-		txSigners, err := ad.mempool.GetTransactionSigners(tx)
-		if err != nil {
-			return nil, err
-		}
-
-		signers[index] = txSigners
-	}
-
-	return signers, nil
 }
