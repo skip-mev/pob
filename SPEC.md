@@ -133,21 +133,21 @@ define their business logic in terms of how to perform things such as the follow
 
 
 ```go
-	// AuctionFactory defines the interface for processing auction transactions. 
-  // It is a wrapper around all of the functionality that each application chain
-  // must implement in order for auction processing to work.
-	AuctionFactory interface {
-		// WrapBundleTransaction defines a function that wraps a bundle transaction 
-    // into a sdk.Tx. Since this is a potentially expensive operation, we allow
-    // each application chain to define how they want to wrap the transaction
-    // such that it is only called when necessary (i.e. when the transaction is
-    // being considered in the proposal handlers).
-		WrapBundleTransaction(tx []byte) (sdk.Tx, error)
+// AuctionFactory defines the interface for processing auction transactions. 
+// It is a wrapper around all of the functionality that each application chain
+// must implement in order for auction processing to work.
+type AuctionFactory interface {
+  // WrapBundleTransaction defines a function that wraps a bundle transaction 
+  // into a sdk.Tx. Since this is a potentially expensive operation, we allow
+  // each application chain to define how they want to wrap the transaction
+  // such that it is only called when necessary (i.e. when the transaction is
+  // being considered in the proposal handlers).
+  WrapBundleTransaction(tx []byte) (sdk.Tx, error)
 
-		// GetAuctionBidInfo defines a function that returns the bid info from an 
-    // auction transaction.
-		GetAuctionBidInfo(tx sdk.Tx) (*AuctionBidInfo, error)
-	}
+  // GetAuctionBidInfo defines a function that returns the bid info from an 
+  // auction transaction.
+  GetAuctionBidInfo(tx sdk.Tx) (*AuctionBidInfo, error)
+}
 ```
 
 ### PrepareProposal
