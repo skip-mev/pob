@@ -63,7 +63,7 @@ func (suite *ABCITestSuite) SetupTest() {
 	suite.random = rand.New(rand.NewSource(time.Now().Unix()))
 	suite.key = storetypes.NewKVStoreKey(buildertypes.StoreKey)
 	testCtx := testutil.DefaultContextWithDB(suite.T(), suite.key, storetypes.NewTransientStoreKey("transient_test"))
-	suite.ctx = testCtx.Ctx
+	suite.ctx = testCtx.Ctx.WithBlockHeight(1)
 
 	// Mempool set up
 	suite.config = mempool.NewDefaultConfig(suite.encodingConfig.TxConfig.TxDecoder())

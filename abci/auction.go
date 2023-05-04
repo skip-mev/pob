@@ -39,8 +39,6 @@ func NewTopOfBlockProposal() TopOfBlockProposal {
 // BuildTOB inputs all of the bid transactions and outputs a top of block proposal that includes
 // the highest bidding valid transaction along with all the bundled transactions.
 func (h *ProposalHandler) BuildTOB(ctx sdk.Context, bidTxs []sdk.Tx, maxBytes int64) TopOfBlockProposal {
-	var topOfBlockProposal TopOfBlockProposal
-
 	// Sort the auction transactions by their bid amount in descending order.
 	sort.Slice(bidTxs, func(i, j int) bool {
 		bidInfoI, err := h.mempool.GetAuctionBidInfo(bidTxs[i])
@@ -65,12 +63,13 @@ func (h *ProposalHandler) BuildTOB(ctx sdk.Context, bidTxs []sdk.Tx, maxBytes in
 
 	// Attempt to select the highest bid transaction that is valid and whose
 	// bundled transactions are valid.
+	var topOfBlockInfo TopOfBlockProposal
 	for _, bidTx := range bidTxs {
 		// Cache the context so that we can write it back to the original context
 		// when we know we have a valid top of block bundle.
 		cacheCtx, write := ctx.CacheContext()
 
-		topOfBlockProposal, err := h.buildTOB(cacheCtx, bidTx)
+		proposal, err := h.buildTOB(cacheCtx, bidTx)
 		if err != nil {
 			h.logger.Info(
 				"vote extension auction failed to verify auction tx",
@@ -80,18 +79,20 @@ func (h *ProposalHandler) BuildTOB(ctx sdk.Context, bidTxs []sdk.Tx, maxBytes in
 			continue
 		}
 
-		if topOfBlockProposal.Size <= maxBytes {
+		if proposal.Size <= maxBytes {
 			// At this point, both the bid transaction itself and all the bundled
 			// transactions are valid. So we select the bid transaction along with
 			// all the bundled transactions and apply the state changes to the cache
 			// context.
+			topOfBlockInfo = proposal
 			write()
+
 			break
 		}
 
 		h.logger.Info(
 			"failed to select auction bid tx; auction tx size is too large",
-			"tx_size", topOfBlockProposal.Size,
+			"tx_size", proposal.Size,
 			"max_size", maxBytes,
 		)
 	}
@@ -101,7 +102,7 @@ func (h *ProposalHandler) BuildTOB(ctx sdk.Context, bidTxs []sdk.Tx, maxBytes in
 		h.RemoveTx(tx)
 	}
 
-	return topOfBlockProposal
+	return topOfBlockInfo
 }
 
 // getVoteExtensionInfo returns all of the vote extensions supplied in the request alongside
@@ -185,6 +186,11 @@ func (h *ProposalHandler) buildTOB(ctx sdk.Context, bidTx sdk.Tx) (TopOfBlockPro
 		proposal.Cache[hash] = struct{}{}
 		sdkTxBytes[index] = txBz
 	}
+
+	// cache the bytes of the bid transaction
+	hashBz := sha256.Sum256(bidTxBz)
+	hash := hex.EncodeToString(hashBz[:])
+	proposal.Cache[hash] = struct{}{}
 
 	txs := [][]byte{bidTxBz}
 	txs = append(txs, sdkTxBytes...)

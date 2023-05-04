@@ -483,12 +483,9 @@ func (suite *ABCITestSuite) TestTOBAuction() {
 			suite.Require().LessOrEqual(proposal.Size, tc.maxBytes)
 
 			if winningBid == nil {
-				suite.Require().Len(proposal, 0)
+				suite.Require().Len(proposal.Txs, 0)
 				suite.Require().Equal(proposal.Size, int64(0))
 			} else {
-				// If there is a winning bid, then the proposal should be non-empty
-				suite.Require().NotEmpty(proposal)
-
 				// Get info about the winning bid
 				winningBidBz, err := suite.encodingConfig.TxConfig.TxEncoder()(winningBid)
 				suite.Require().NoError(err)
