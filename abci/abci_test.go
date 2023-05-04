@@ -29,11 +29,21 @@ type ABCITestSuite struct {
 	ctx sdk.Context
 
 	// mempool setup
+<<<<<<< HEAD
 	mempool         *mempool.AuctionMempool
 	logger          log.Logger
 	encodingConfig  testutils.EncodingConfig
 	proposalHandler *abci.ProposalHandler
 	txs             map[string]struct{}
+=======
+	mempool              *mempool.AuctionMempool
+	logger               log.Logger
+	encodingConfig       testutils.EncodingConfig
+	proposalHandler      *abci.ProposalHandler
+	voteExtensionHandler *abci.VoteExtensionHandler
+	config               mempool.AuctionFactory
+	txs                  map[string]struct{}
+>>>>>>> d58b36b (fix(Config): Simplifying config interface (#104))
 
 	// auction bid setup
 	auctionBidAmount sdk.Coin
@@ -66,11 +76,16 @@ func (suite *ABCITestSuite) SetupTest() {
 	suite.random = rand.New(rand.NewSource(time.Now().Unix()))
 	suite.key = storetypes.NewKVStoreKey(buildertypes.StoreKey)
 	testCtx := testutil.DefaultContextWithDB(suite.T(), suite.key, storetypes.NewTransientStoreKey("transient_test"))
-	suite.ctx = testCtx.Ctx
+	suite.ctx = testCtx.Ctx.WithBlockHeight(1)
 
 	// Mempool set up
+<<<<<<< HEAD
 	config := mempool.NewDefaultConfig(suite.encodingConfig.TxConfig.TxDecoder())
 	suite.mempool = mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), 0, config)
+=======
+	suite.config = mempool.NewDefaultAuctionFactory(suite.encodingConfig.TxConfig.TxDecoder())
+	suite.mempool = mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), 0, suite.config)
+>>>>>>> d58b36b (fix(Config): Simplifying config interface (#104))
 	suite.txs = make(map[string]struct{})
 	suite.auctionBidAmount = sdk.NewCoin("foo", sdk.NewInt(1000000000))
 	suite.minBidIncrement = sdk.NewCoin("foo", sdk.NewInt(1000))
