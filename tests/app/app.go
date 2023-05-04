@@ -21,6 +21,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/store/streaming"
 	storetypes "github.com/cosmos/cosmos-sdk/store/types"
 	"github.com/cosmos/cosmos-sdk/testutil/testdata_pulsar"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
@@ -66,6 +67,8 @@ import (
 )
 
 var (
+	BondDenom = sdk.DefaultBondDenom
+
 	// DefaultNodeHome default home directories for the application daemon
 	DefaultNodeHome string
 
