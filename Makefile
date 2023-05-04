@@ -77,13 +77,14 @@ $(BUILD_DIR)/:
 ###############################################################################
 
 docker-build:
+	@echo "Building E2E Docker image..."
 	@docker build -t skip-mev/pob-e2e -f contrib/images/pob.e2e.Dockerfile .
 
 ###############################################################################
 ###                                  Tests                                  ###
 ###############################################################################
 
-TEST_E2E_TAGS = "e2e"
+TEST_E2E_TAGS = e2e
 TEST_E2E_DEPS = docker-build
 
 test-e2e: $(TEST_E2E_DEPS)
