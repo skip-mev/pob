@@ -1,5 +1,6 @@
 package app
 
+//nolint:revive
 import (
 	_ "embed"
 	"io"
