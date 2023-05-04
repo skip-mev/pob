@@ -21,9 +21,9 @@ type (
 	ProposalMempool interface {
 		sdkmempool.Mempool
 
-		// The AuctionBid interface is utilized to retrieve, validate, and wrap bid
+		// The AuctionFactory interface is utilized to retrieve, validate, and wrap bid
 		// information into the block proposal.
-		mempool.AuctionBid
+		mempool.AuctionFactory
 
 		// AuctionBidSelect returns an iterator that iterates over the top bid
 		// transactions in the mempool.

@@ -38,13 +38,13 @@ type AuctionMempool struct {
 	// to quickly check if a transaction is already in the mempool.
 	txIndex map[string]struct{}
 
-	// AuctionBid implements the functionality required to process auction transactions.
-	AuctionBid
+	// AuctionFactory implements the functionality required to process auction transactions.
+	AuctionFactory
 }
 
 // AuctionTxPriority returns a TxPriority over auction bid transactions only. It
 // is to be used in the auction index only.
-func AuctionTxPriority(config AuctionBid) TxPriority[string] {
+func AuctionTxPriority(config AuctionFactory) TxPriority[string] {
 	return TxPriority[string]{
 		GetTxPriority: func(goCtx context.Context, tx sdk.Tx) string {
 			bidInfo, err := config.GetAuctionBidInfo(tx)
@@ -85,7 +85,7 @@ func AuctionTxPriority(config AuctionBid) TxPriority[string] {
 	}
 }
 
-func NewAuctionMempool(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int, config AuctionBid) *AuctionMempool {
+func NewAuctionMempool(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int, config AuctionFactory) *AuctionMempool {
 	return &AuctionMempool{
 		globalIndex: NewPriorityMempool(
 			PriorityNonceMempoolConfig[int64]{
@@ -99,10 +99,10 @@ func NewAuctionMempool(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx i
 				MaxTx:      maxTx,
 			},
 		),
-		txDecoder:  txDecoder,
-		txEncoder:  txEncoder,
-		txIndex:    make(map[string]struct{}),
-		AuctionBid: config,
+		txDecoder:      txDecoder,
+		txEncoder:      txEncoder,
+		txIndex:        make(map[string]struct{}),
+		AuctionFactory: config,
 	}
 }
 
@@ -114,12 +114,11 @@ func (am *AuctionMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 	}
 
 	// Insert the transactions into the appropriate index.
-	switch {
-	case bidInfo == nil:
+	if bidInfo == nil {
 		if err := am.globalIndex.Insert(ctx, tx); err != nil {
 			return fmt.Errorf("failed to insert tx into global index: %w", err)
 		}
-	case bidInfo != nil:
+	} else {
 		if err := am.auctionIndex.Insert(ctx, tx); err != nil {
 			return fmt.Errorf("failed to insert tx into auction index: %w", err)
 		}
@@ -143,10 +142,9 @@ func (am *AuctionMempool) Remove(tx sdk.Tx) error {
 	}
 
 	// Remove the transactions from the appropriate index.
-	switch {
-	case bidInfo == nil:
+	if bidInfo == nil {
 		am.removeTx(am.globalIndex, tx)
-	case bidInfo != nil:
+	} else {
 		am.removeTx(am.auctionIndex, tx)
 	}
 
