@@ -2,10 +2,15 @@ package e2e
 
 import (
 	"fmt"
+	"path/filepath"
 	"testing"
 
 	"github.com/ory/dockertest/v3"
 	"github.com/stretchr/testify/suite"
+)
+
+const (
+	initBalanceStr = "510000000000stake"
 )
 
 type IntegrationTestSuite struct {
@@ -47,4 +52,25 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	s.initValidatorConfigs()
 	s.runValidators()
 	s.initTestAppClient()
+}
+
+func (s *IntegrationTestSuite) initNodes() {
+	s.Require().NoError(s.chain.createAndInitValidators(3))
+
+	// initialize a genesis file for the first validator
+	val0ConfigDir := s.chain.validators[0].configDir()
+	for _, val := range s.chain.validators {
+		valAddr, err := val.keyInfo.GetAddress()
+		s.Require().NoError(err)
+		s.Require().NoError(addGenesisAccount(val0ConfigDir, "", initBalanceStr, valAddr))
+	}
+
+	// copy the genesis file to the remaining validators
+	for _, val := range s.chain.validators[1:] {
+		_, err := copyFile(
+			filepath.Join(val0ConfigDir, "config", "genesis.json"),
+			filepath.Join(val.configDir(), "config", "genesis.json"),
+		)
+		s.Require().NoError(err)
+	}
 }
