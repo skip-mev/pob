@@ -477,14 +477,14 @@ func (suite *ABCITestSuite) TestTOBAuction() {
 			bidTxs, winningBid := tc.getBidTxs()
 
 			// Host the auction
-			proposal, size := suite.proposalHandler.BuildTOB(suite.ctx, bidTxs, tc.maxBytes)
+			proposal := suite.proposalHandler.BuildTOB(suite.ctx, bidTxs, tc.maxBytes)
 
 			// Size of the proposal should be less than or equal to the max bytes
-			suite.Require().LessOrEqual(size, tc.maxBytes)
+			suite.Require().LessOrEqual(proposal.Size, tc.maxBytes)
 
 			if winningBid == nil {
 				suite.Require().Len(proposal, 0)
-				suite.Require().Equal(size, int64(0))
+				suite.Require().Equal(proposal.Size, int64(0))
 			} else {
 				// If there is a winning bid, then the proposal should be non-empty
 				suite.Require().NotEmpty(proposal)
@@ -498,13 +498,13 @@ func (suite *ABCITestSuite) TestTOBAuction() {
 
 				// Verify that the size of the proposal is the size of the winning bid
 				// plus the size of the bundle
-				suite.Require().Equal(len(proposal), len(auctionBidInfo.Transactions)+1)
+				suite.Require().Equal(len(proposal.Txs), len(auctionBidInfo.Transactions)+1)
 
 				// Verify that the winning bid is the first transaction in the proposal
-				suite.Require().Equal(proposal[0], winningBidBz)
+				suite.Require().Equal(proposal.Txs[0], winningBidBz)
 
 				// Verify the ordering of transactions in the proposal
-				for index, tx := range proposal[1:] {
+				for index, tx := range proposal.Txs[1:] {
 					suite.Equal(tx, auctionBidInfo.Transactions[index])
 				}
 			}

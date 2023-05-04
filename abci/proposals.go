@@ -1,6 +1,8 @@
 package abci
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"reflect"
@@ -75,13 +77,13 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		bidTxs := h.GetBidsFromVoteExtensions(voteExtensions)
 
 		// Build the top of block portion of the proposal.
-		txs, totalTxBytes := h.BuildTOB(ctx, bidTxs, req.MaxTxBytes)
+		topOfBlock := h.BuildTOB(ctx, bidTxs, req.MaxTxBytes)
 
 		// Track info about how the auction was held for re-use in ProcessProposal.
 		auctionInfo := types.AuctionInfo{
 			VoteExtensions: voteExtensions,
 			MaxTxBytes:     req.MaxTxBytes,
-			NumTxs:         uint64(len(txs)),
+			NumTxs:         uint64(len(topOfBlock.Txs)),
 		}
 
 		// Track the transactions that need to be removed from the mempool.
@@ -90,10 +92,25 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		// Select remaining transactions for the block proposal until we've reached
 		// size capacity.
 		iterator := h.mempool.Select(ctx, nil)
+		totalTxBytes := topOfBlock.Size
+		txs := make([][]byte, 0)
 		for ; iterator != nil; iterator = iterator.Next() {
 			memTx := iterator.Tx()
 
-			txBz, err := h.PrepareProposalVerifyTx(ctx, memTx)
+			// If the transaction has already been seen in the top of block, skip it.
+			txBz, err := h.txEncoder(memTx)
+			if err != nil {
+				txsToRemove[memTx] = struct{}{}
+				continue
+			}
+
+			hashBz := sha256.Sum256(txBz)
+			hash := hex.EncodeToString(hashBz[:])
+			if _, ok := topOfBlock.Cache[hash]; ok {
+				continue
+			}
+
+			txBz, err = h.PrepareProposalVerifyTx(ctx, memTx)
 			if err != nil {
 				txsToRemove[memTx] = struct{}{}
 				continue
@@ -118,6 +135,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		// The remaining transactions are the block's transactions.
 		auctionInfoBz, _ := auctionInfo.Marshal()
 		proposal := [][]byte{auctionInfoBz}
+		proposal = append(proposal, topOfBlock.Txs...)
 		proposal = append(proposal, txs...)
 
 		return abci.ResponsePrepareProposal{Txs: proposal}
@@ -139,17 +157,18 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 			return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 		}
 
+		// Verify that the proposal is of the correct size.
 		if len(proposal) < int(auctionInfo.NumTxs)+MinProposalSize {
 			return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 		}
 
 		// Build the top of block proposal from the auction info.
 		bidTxs := h.GetBidsFromVoteExtensions(auctionInfo.VoteExtensions)
-		tobProposal, _ := h.BuildTOB(ctx, bidTxs, auctionInfo.MaxTxBytes)
+		topOfBlock := h.BuildTOB(ctx, bidTxs, auctionInfo.MaxTxBytes)
 
 		// Verify that the top of block proposal matches the proposal.
 		expectedTOBProposal := proposal[MinProposalSize : auctionInfo.NumTxs+MinProposalSize]
-		if !reflect.DeepEqual(expectedTOBProposal, tobProposal) {
+		if !reflect.DeepEqual(expectedTOBProposal, topOfBlock.Txs) {
 			return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 		}
 

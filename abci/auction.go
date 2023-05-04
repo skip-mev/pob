@@ -19,7 +19,7 @@ const (
 // BuildTOB method.
 type TopOfBlockProposal struct {
 	// Proposal is the top of block proposal.
-	Proposal [][]byte
+	Txs [][]byte
 
 	// ProposalSize is the total size of the top of block proposal.
 	Size int64
@@ -179,14 +179,19 @@ func (h *ProposalHandler) buildTOB(ctx sdk.Context, bidTx sdk.Tx) (TopOfBlockPro
 			return TopOfBlockProposal{}, err
 		}
 
-		hashBz := sha256.Sum256(refTx)
+		hashBz := sha256.Sum256(txBz)
 		hash := hex.EncodeToString(hashBz[:])
 
+		proposal.Cache[hash] = struct{}{}
 		sdkTxBytes[index] = txBz
 	}
 
-	proposal := [][]byte{bidTxBz}
-	proposal = append(proposal, sdkTxBytes...)
+	txs := [][]byte{bidTxBz}
+	txs = append(txs, sdkTxBytes...)
 
-	return proposal, int64(len(bidTxBz)), nil
+	// Set the top of block transactions and size.
+	proposal.Txs = txs
+	proposal.Size = int64(len(bidTxBz))
+
+	return proposal, nil
 }
