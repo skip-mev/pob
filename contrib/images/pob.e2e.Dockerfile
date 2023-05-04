@@ -14,5 +14,4 @@ EXPOSE 26656 26657 1317 9090 7171
 ENTRYPOINT ["testappd", "start"]
 
 COPY --from=builder /src/pob/build/* /usr/local/bin/
-COPY --from=builder /go/bin/* /usr/local/bin/
 RUN apt-get update && apt-get install ca-certificates -y
