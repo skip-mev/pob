@@ -74,7 +74,6 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	s.initGenesis()
 	s.initValidatorConfigs()
 	s.runValidators()
-	// s.initTestAppClient()
 }
 
 func (s *IntegrationTestSuite) TearDownSuite() {
@@ -295,8 +294,4 @@ func noRestart(config *docker.HostConfig) {
 	config.RestartPolicy = docker.RestartPolicy{
 		Name: "no",
 	}
-}
-
-func (s *IntegrationTestSuite) TestTmp() {
-	s.Require().True(true)
 }
