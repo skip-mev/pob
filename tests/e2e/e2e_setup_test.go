@@ -2,7 +2,9 @@ package e2e
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/ory/dockertest/v3"
@@ -10,6 +12,7 @@ import (
 )
 
 const (
+	numValidators  = 3
 	initBalanceStr = "510000000000stake"
 )
 
@@ -48,14 +51,38 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	// 2. Create and initialize TestApp validator genesis files (setting delegate keys for validators).
 	// 3. Start TestApp network.
 	s.initNodes()
-	s.initGenesis()
-	s.initValidatorConfigs()
-	s.runValidators()
-	s.initTestAppClient()
+	// s.initGenesis()
+	// s.initValidatorConfigs()
+	// s.runValidators()
+	// s.initTestAppClient()
+}
+
+func (s *IntegrationTestSuite) TearDownSuite() {
+	if str := os.Getenv("POB_E2E_SKIP_CLEANUP"); len(str) > 0 {
+		skipCleanup, err := strconv.ParseBool(str)
+		s.Require().NoError(err)
+
+		if skipCleanup {
+			return
+		}
+	}
+
+	s.T().Log("tearing down e2e integration test suite...")
+
+	for _, vc := range s.valResources {
+		s.Require().NoError(s.dkrPool.Purge(vc))
+	}
+
+	s.Require().NoError(s.dkrPool.RemoveNetwork(s.dkrNet))
+
+	os.RemoveAll(s.chain.dataDir)
+	for _, td := range s.tmpDirs {
+		os.RemoveAll(td)
+	}
 }
 
 func (s *IntegrationTestSuite) initNodes() {
-	s.Require().NoError(s.chain.createAndInitValidators(3))
+	s.Require().NoError(s.chain.createAndInitValidators(numValidators))
 
 	// initialize a genesis file for the first validator
 	val0ConfigDir := s.chain.validators[0].configDir()

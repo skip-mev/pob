@@ -73,14 +73,27 @@ $(BUILD_DIR)/:
 .PHONY: build-test-app
 
 ###############################################################################
+##                                  Docker                                   ##
+###############################################################################
+
+docker-build:
+	@docker build -t skip-mev/pob-e2e -f contrib/images/pob.e2e.Dockerfile .
+
+###############################################################################
 ###                                  Tests                                  ###
 ###############################################################################
 
+TEST_E2E_TAGS = "e2e"
+TEST_E2E_DEPS = docker-build
+
+test-e2e: $(TEST_E2E_DEPS)
+	@echo "Running E2E tests..."
+	@go test ./tests/e2e/... -mod=readonly -timeout 30m -race -v -tags='$(TEST_E2E_TAGS)'
 
 test:
 	@go test -v ./...
 
-.PHONY: test
+.PHONY: test test-e2e
 
 ###############################################################################
 ###                                Protobuf                                 ###
