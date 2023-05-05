@@ -78,7 +78,7 @@ $(BUILD_DIR)/:
 
 docker-build:
 	@echo "Building E2E Docker image..."
-	@docker build -t skip-mev/pob-e2e -f contrib/images/pob.e2e.Dockerfile .
+	@DOCKER_BUILDKIT=1 docker build -t skip-mev/pob-e2e -f contrib/images/pob.e2e.Dockerfile .
 
 ###############################################################################
 ###                                  Tests                                  ###
