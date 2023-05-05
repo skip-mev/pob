@@ -1,6 +1,7 @@
 package abci
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -27,10 +28,14 @@ type (
 	// to interact with the local mempool.
 	ProposalMempool interface {
 		sdkmempool.Mempool
-		GetBundledTransactions(tx sdk.Tx) ([][]byte, error)
-		WrapBundleTransaction(tx []byte) (sdk.Tx, error)
-		IsAuctionTx(tx sdk.Tx) (bool, error)
-		GetAuctionBidInfo(tx sdk.Tx) (mempool.AuctionBidInfo, error)
+
+		// The AuctionFactory interface is utilized to retrieve, validate, and wrap bid
+		// information into the block proposal.
+		mempool.AuctionFactory
+
+		// AuctionBidSelect returns an iterator that iterates over the top bid
+		// transactions in the mempool.
+		AuctionBidSelect(ctx context.Context) sdkmempool.Iterator
 	}
 
 	// ProposalHandler contains the functionality and handlers required to\

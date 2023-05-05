@@ -4,11 +4,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
+	"github.com/skip-mev/pob/mempool"
 )
 
 type (
@@ -17,8 +17,7 @@ type (
 	VoteExtensionMempool interface {
 		Remove(tx sdk.Tx) error
 		AuctionBidSelect(ctx context.Context) sdkmempool.Iterator
-		IsAuctionTx(tx sdk.Tx) (bool, error)
-		GetBundledTransactions(tx sdk.Tx) ([][]byte, error)
+		GetAuctionBidInfo(tx sdk.Tx) (*mempool.AuctionBidInfo, error)
 		WrapBundleTransaction(tx []byte) (sdk.Tx, error)
 	}
 
@@ -65,45 +64,22 @@ func NewVoteExtensionHandler(mp VoteExtensionMempool, txDecoder sdk.TxDecoder,
 // returns it in its vote extension.
 func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 	return func(ctx sdk.Context, req *RequestExtendVote) (*ResponseExtendVote, error) {
-		var voteExtension []byte
-
-		// Reset the cache if necessary
-		h.checkStaleCache(ctx.BlockHeight())
-
 		// Iterate through auction bids until we find a valid one
 		auctionIterator := h.mempool.AuctionBidSelect(ctx)
-		txsToRemove := make(map[sdk.Tx]struct{})
 
 		for ; auctionIterator != nil; auctionIterator = auctionIterator.Next() {
 			bidTx := auctionIterator.Tx()
 
 			// Verify the bid tx can be encoded and included in vote extension
-			bidBz, err := h.txEncoder(bidTx)
-			if err != nil {
-				txsToRemove[bidTx] = struct{}{}
-				continue
-			}
-
-			hashBz := sha256.Sum256(bidBz)
-			hash := hex.EncodeToString(hashBz[:])
-
-			// Validate the auction transaction and cache result
-			if err := h.verifyAuctionTx(ctx, bidTx); err != nil {
-				h.cache[hash] = err
-				txsToRemove[bidTx] = struct{}{}
-			} else {
-				h.cache[hash] = nil
-				voteExtension = bidBz
-				break
+			if bidBz, err := h.txEncoder(bidTx); err == nil {
+				// Validate the auction transaction
+				if err := h.verifyAuctionTx(ctx, bidTx); err == nil {
+					return &ResponseExtendVote{VoteExtension: bidBz}, nil
+				}
 			}
 		}
 
-		// Remove all invalid auction bids from the mempool
-		for tx := range txsToRemove {
-			h.RemoveTx(tx)
-		}
-
-		return &ResponseExtendVote{VoteExtension: voteExtension}, nil
+		return &ResponseExtendVote{VoteExtension: nil}, nil
 	}
 }
 
@@ -118,7 +94,7 @@ func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionH
 		}
 
 		// Reset the cache if necessary
-		h.checkStaleCache(ctx.BlockHeight())
+		h.resetCache(ctx.BlockHeight())
 
 		hashBz := sha256.Sum256(txBz)
 		hash := hex.EncodeToString(hashBz[:])
@@ -151,17 +127,10 @@ func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionH
 	}
 }
 
-// RemoveTx removes a transaction from the application-side mempool.
-func (h *VoteExtensionHandler) RemoveTx(tx sdk.Tx) {
-	if err := h.mempool.Remove(tx); err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
-		panic(fmt.Errorf("failed to remove invalid transaction from the mempool: %w", err))
-	}
-}
-
 // checkStaleCache checks if the current height differs than the previous height at which
 // the vote extensions were verified in. If so, it resets the cache to allow transactions to be
 // reverified.
-func (h *VoteExtensionHandler) checkStaleCache(blockHeight int64) {
+func (h *VoteExtensionHandler) resetCache(blockHeight int64) {
 	if h.currentHeight != blockHeight {
 		h.cache = make(map[string]error)
 		h.currentHeight = blockHeight
@@ -171,12 +140,12 @@ func (h *VoteExtensionHandler) checkStaleCache(blockHeight int64) {
 // verifyAuctionTx verifies a transaction against the application's state.
 func (h *VoteExtensionHandler) verifyAuctionTx(ctx sdk.Context, bidTx sdk.Tx) error {
 	// Verify the vote extension is a auction transaction
-	isAuctionTx, err := h.mempool.IsAuctionTx(bidTx)
+	bidInfo, err := h.mempool.GetAuctionBidInfo(bidTx)
 	if err != nil {
 		return err
 	}
 
-	if !isAuctionTx {
+	if bidInfo == nil {
 		return fmt.Errorf("vote extension is not a valid auction transaction")
 	}
 
@@ -190,13 +159,8 @@ func (h *VoteExtensionHandler) verifyAuctionTx(ctx sdk.Context, bidTx sdk.Tx) er
 		return err
 	}
 
-	bundledTxs, err := h.mempool.GetBundledTransactions(bidTx)
-	if err != nil {
-		return err
-	}
-
 	// Verify all bundled transactions
-	for _, tx := range bundledTxs {
+	for _, tx := range bidInfo.Transactions {
 		wrappedTx, err := h.mempool.WrapBundleTransaction(tx)
 		if err != nil {
 			return err
