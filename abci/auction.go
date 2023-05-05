@@ -4,10 +4,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"reflect"
 	"sort"
 
+	abci "github.com/cometbft/cometbft/abci/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	types "github.com/skip-mev/pob/abci/types"
 )
 
 const (
@@ -38,32 +39,17 @@ func NewTopOfBlockProposal() TopOfBlockProposal {
 
 // BuildTOB inputs all of the bid transactions and outputs a top of block proposal that includes
 // the highest bidding valid transaction along with all the bundled transactions.
-func (h *ProposalHandler) BuildTOB(ctx sdk.Context, bidTxs []sdk.Tx, maxBytes int64) TopOfBlockProposal {
-	// Sort the auction transactions by their bid amount in descending order.
-	sort.Slice(bidTxs, func(i, j int) bool {
-		bidInfoI, err := h.mempool.GetAuctionBidInfo(bidTxs[i])
+func (h *ProposalHandler) BuildTOB(ctx sdk.Context, voteExtensionInfo abci.ExtendedCommitInfo, maxBytes int64) TopOfBlockProposal {
+	var topOfBlockInfo TopOfBlockProposal
 
-		// In the case of an error, we want to sort the transaction to the end of the list.
-		if err != nil {
-			return false
-		}
-
-		bidInfoJ, err := h.mempool.GetAuctionBidInfo(bidTxs[j])
-		// In the case of an error, we want to sort the transaction to the end of the list.
-		if err != nil {
-			return true
-
-		}
-
-		return bidInfoI.Bid.IsGTE(bidInfoJ.Bid)
-	})
+	// Get the bid transactions from the vote extensions.
+	bidTxs := h.GetBidsFromVoteExtensions(voteExtensionInfo.Votes)
 
 	// Track the transactions we can remove from the block
 	txsToRemove := make(map[sdk.Tx]struct{})
 
 	// Attempt to select the highest bid transaction that is valid and whose
 	// bundled transactions are valid.
-	var topOfBlockInfo TopOfBlockProposal
 	for _, bidTx := range bidTxs {
 		// Cache the context so that we can write it back to the original context
 		// when we know we have a valid top of block bundle.
@@ -105,49 +91,75 @@ func (h *ProposalHandler) BuildTOB(ctx sdk.Context, bidTxs []sdk.Tx, maxBytes in
 	return topOfBlockInfo
 }
 
-// getVoteExtensionInfo returns all of the vote extensions supplied in the request alongside
+func (h *ProposalHandler) VerifyTOB(ctx sdk.Context, proposal [][]byte) (*AuctionInfo, error) {
+	if len(proposal) < MinProposalSize {
+		return nil, fmt.Errorf("proposal is too small; expected at least %d slots", MinProposalSize)
+	}
+
+	// Extract the auction info from the proposal.
+	auctionInfo := AuctionInfo{}
+	if err := auctionInfo.Unmarshal(proposal[AuctionInfoIndex]); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal auction info from first slot: %w", err)
+	}
+
+	// Verify that the proposal is of the correct size.
+	if len(proposal) < int(auctionInfo.NumTxs)+MinProposalSize {
+		return nil, fmt.Errorf("proposal is too small; expected at least %d slots", auctionInfo.NumTxs+MinProposalSize)
+	}
+
+	// Unmarshall the vote extension information from the auction info.
+	lastCommitInfo := abci.ExtendedCommitInfo{}
+	if err := lastCommitInfo.Unmarshal(auctionInfo.ExtendedCommitInfo); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal last commit info from auction info: %w", err)
+	}
+
+	// Build the top of block proposal from the auction info.
+	topOfBlock := h.BuildTOB(ctx, lastCommitInfo, auctionInfo.MaxTxBytes)
+
+	// Verify that the top of block proposal matches the proposal.
+	expectedTOBProposal := proposal[MinProposalSize : auctionInfo.NumTxs+MinProposalSize]
+	if !reflect.DeepEqual(expectedTOBProposal, topOfBlock.Txs) {
+		return nil, fmt.Errorf("expected top of block txs does not match top of block proposal")
+	}
+
+	return &auctionInfo, nil
+}
+
+// GetBidsFromVoteExtensions returns all of the vote extensions supplied in the request alongside
 // a sorted - potentially subset - of the vote extensions that contain auction transactions.
-func (h *ProposalHandler) GetBidsFromVoteExtensions(voteExtensions [][]byte) []sdk.Tx {
+func (h *ProposalHandler) GetBidsFromVoteExtensions(voteExtensions []abci.ExtendedVoteInfo) []sdk.Tx {
 	bidTxs := make([]sdk.Tx, 0)
 
 	// Iterate through all vote extensions and extract the auction transactions.
-	for i, voteExtension := range voteExtensions {
+	for _, voteInfo := range voteExtensions {
+		voteExtension := voteInfo.VoteExtension
+
 		// Check if the vote extension contains an auction transaction.
 		if bidTx, err := h.getAuctionTxFromVoteExtension(voteExtension); err == nil {
 			bidTxs = append(bidTxs, bidTx)
 		}
-
-		voteExtensions[i] = voteExtension
 	}
+
+	// Sort the auction transactions by their bid amount in descending order.
+	sort.Slice(bidTxs, func(i, j int) bool {
+		bidInfoI, err := h.mempool.GetAuctionBidInfo(bidTxs[i])
+
+		// In the case of an error, we want to sort the transaction to the end of the list.
+		if err != nil {
+			return false
+		}
+
+		bidInfoJ, err := h.mempool.GetAuctionBidInfo(bidTxs[j])
+		// In the case of an error, we want to sort the transaction to the end of the list.
+		if err != nil {
+			return true
+
+		}
+
+		return bidInfoI.Bid.IsGTE(bidInfoJ.Bid)
+	})
 
 	return bidTxs
-}
-
-// getAuctionTxFromVoteExtension extracts the auction transaction from the vote extension.
-func (h *ProposalHandler) getAuctionTxFromVoteExtension(voteExtension []byte) (sdk.Tx, error) {
-	voteExtensionInfo := types.VoteExtensionInfo{}
-	if err := voteExtensionInfo.Unmarshal(voteExtension); err != nil {
-		return nil, err
-	}
-
-	// Check if the vote extension's registry contains an auction transaction.
-	bidTxBz, ok := voteExtensionInfo.Registry[VoteExtensionAuctionKey]
-	if !ok {
-		return nil, fmt.Errorf("vote extension does not contain auction transaction in its registry")
-	}
-
-	// Attempt to unmarshal the auction transaction.
-	bidTx, err := h.txDecoder(bidTxBz)
-	if err != nil {
-		return nil, err
-	}
-
-	// Verify the auction transaction has bid information.
-	if isAuctionTx, err := h.mempool.IsAuctionTx(bidTx); err != nil || !isAuctionTx {
-		return nil, err
-	}
-
-	return bidTx, nil
 }
 
 // buildTOB verifies that the auction transaction is valid and returns the bytes of the
@@ -200,4 +212,31 @@ func (h *ProposalHandler) buildTOB(ctx sdk.Context, bidTx sdk.Tx) (TopOfBlockPro
 	proposal.Size = int64(len(bidTxBz))
 
 	return proposal, nil
+}
+
+// getAuctionTxFromVoteExtension extracts the auction transaction from the vote extension.
+func (h *ProposalHandler) getAuctionTxFromVoteExtension(voteExtension []byte) (sdk.Tx, error) {
+	voteExtensionInfo := VoteExtensionInfo{}
+	if err := voteExtensionInfo.Unmarshal(voteExtension); err != nil {
+		return nil, err
+	}
+
+	// Check if the vote extension's registry contains an auction transaction.
+	bidTxBz, ok := voteExtensionInfo.Registry[VoteExtensionAuctionKey]
+	if !ok {
+		return nil, fmt.Errorf("vote extension does not contain auction transaction in its registry")
+	}
+
+	// Attempt to unmarshal the auction transaction.
+	bidTx, err := h.txDecoder(bidTxBz)
+	if err != nil {
+		return nil, err
+	}
+
+	// Verify the auction transaction has bid information.
+	if isAuctionTx, err := h.mempool.IsAuctionTx(bidTx); err != nil || !isAuctionTx {
+		return nil, err
+	}
+
+	return bidTx, nil
 }

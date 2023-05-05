@@ -6,7 +6,6 @@ import (
 	comettypes "github.com/cometbft/cometbft/abci/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/abci"
-	"github.com/skip-mev/pob/abci/types"
 	testutils "github.com/skip-mev/pob/testutils"
 	"github.com/skip-mev/pob/x/builder/ante"
 	buildertypes "github.com/skip-mev/pob/x/builder/types"
@@ -312,7 +311,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 
 			// -------------------- Check Invariants -------------------- //
 			// The first slot in the proposal must be the auction info
-			auctionInfo := types.AuctionInfo{}
+			auctionInfo := abci.AuctionInfo{}
 			err := auctionInfo.Unmarshal(res.Txs[abci.AuctionInfoIndex])
 			suite.Require().NoError(err)
 
@@ -607,5 +606,18 @@ func (suite *ABCITestSuite) createPrepareProposalRequest(maxBytes int64) cometty
 		LocalLastCommit: comettypes.ExtendedCommitInfo{
 			Votes: voteExtensions,
 		},
+	}
+}
+
+func (suite *ABCITestSuite) createAuctionInfo(bidTxs [][]byte) abci.AuctionInfo {
+	size := int(0)
+	for _, tx := range bidTxs {
+		size += len(tx)
+	}
+
+	return abci.AuctionInfo{
+		NumTxs:         uint64(len(bidTxs)),
+		Size:           uint64(size),
+		VoteExtensions: bidTxs,
 	}
 }

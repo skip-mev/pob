@@ -1,9 +1,9 @@
 package abci_test
 
 import (
+	abcitypes "github.com/cometbft/cometbft/abci/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/abci"
-	"github.com/skip-mev/pob/abci/types"
 	testutils "github.com/skip-mev/pob/testutils"
 	buildertypes "github.com/skip-mev/pob/x/builder/types"
 )
@@ -11,7 +11,7 @@ import (
 func (suite *ABCITestSuite) TestGetBidsFromVoteExtensions() {
 	testCases := []struct {
 		name                 string
-		createVoteExtensions func() ([][]byte, [][]byte) // returns (vote extensions, expected bids)
+		createVoteExtensions func() ([]abcitypes.ExtendedVoteInfo, [][]byte) // returns (vote extensions, expected bids)
 	}{
 		{
 			"no vote extensions",
@@ -510,7 +510,7 @@ func (suite *ABCITestSuite) TestTOBAuction() {
 }
 
 func (suite *ABCITestSuite) createVoteExtension(tx []byte) []byte {
-	voteExtensionInfo := types.VoteExtensionInfo{}
+	voteExtensionInfo := abci.VoteExtensionInfo{}
 	voteExtensionInfo.Registry = map[string][]byte{
 		abci.VoteExtensionAuctionKey: tx,
 	}
