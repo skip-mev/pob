@@ -12,15 +12,20 @@ import (
 	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
+	"github.com/skip-mev/pob/mempool"
 )
 
 type (
 	Mempool interface {
 		sdkmempool.Mempool
+
+		// The AuctionFactory interface is utilized to retrieve, validate, and wrap bid
+		// information into the block proposal.
+		mempool.AuctionFactory
+
+		// AuctionBidSelect returns an iterator that iterates over the top bid
+		// transactions in the mempool.
 		AuctionBidSelect(ctx context.Context) sdkmempool.Iterator
-		GetBundledTransactions(tx sdk.Tx) ([][]byte, error)
-		WrapBundleTransaction(tx []byte) (sdk.Tx, error)
-		IsAuctionTx(tx sdk.Tx) (bool, error)
 	}
 
 	ProposalHandler struct {
@@ -76,7 +81,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 
 			bidTxSize := int64(len(bidTxBz))
 			if bidTxSize <= req.MaxTxBytes {
-				bundledTransactions, err := h.mempool.GetBundledTransactions(tmpBidTx)
+				bidInfo, err := h.mempool.GetAuctionBidInfo(tmpBidTx)
 				if err != nil {
 					// Some transactions in the bundle may be malformatted or invalid, so
 					// we remove the bid transaction and try the next top bid.
@@ -85,6 +90,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 				}
 
 				// store the bytes of each ref tx as sdk.Tx bytes in order to build a valid proposal
+				bundledTransactions := bidInfo.Transactions
 				sdkTxBytes := make([][]byte, len(bundledTransactions))
 
 				// Ensure that the bundled transactions are valid
@@ -199,23 +205,21 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 				return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 			}
 
-			isAuctionTx, err := h.mempool.IsAuctionTx(tx)
+			bidInfo, err := h.mempool.GetAuctionBidInfo(tx)
 			if err != nil {
 				return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 			}
 
-			if isAuctionTx {
-				// Only the first transaction can be an auction bid tx
+			// If the transaction is an auction bid, then we need to ensure that it is
+			// the first transaction in the block proposal and that the order of
+			// transactions in the block proposal follows the order of transactions in
+			// the bid.
+			if bidInfo != nil {
 				if index != 0 {
 					return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 				}
 
-				bundledTransactions, err := h.mempool.GetBundledTransactions(tx)
-				if err != nil {
-					return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
-				}
-
-				// The order of transactions in the block proposal must follow the order of transactions in the bid.
+				bundledTransactions := bidInfo.Transactions
 				if len(req.Txs) < len(bundledTransactions)+1 {
 					return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 				}

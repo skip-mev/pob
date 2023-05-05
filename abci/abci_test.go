@@ -33,6 +33,7 @@ type ABCITestSuite struct {
 	logger          log.Logger
 	encodingConfig  testutils.EncodingConfig
 	proposalHandler *abci.ProposalHandler
+	config          mempool.AuctionFactory
 	txs             map[string]struct{}
 
 	// auction bid setup
@@ -66,11 +67,11 @@ func (suite *ABCITestSuite) SetupTest() {
 	suite.random = rand.New(rand.NewSource(time.Now().Unix()))
 	suite.key = storetypes.NewKVStoreKey(buildertypes.StoreKey)
 	testCtx := testutil.DefaultContextWithDB(suite.T(), suite.key, storetypes.NewTransientStoreKey("transient_test"))
-	suite.ctx = testCtx.Ctx
+	suite.ctx = testCtx.Ctx.WithBlockHeight(1)
 
 	// Mempool set up
-	config := mempool.NewDefaultConfig(suite.encodingConfig.TxConfig.TxDecoder())
-	suite.mempool = mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), 0, config)
+	suite.config = mempool.NewDefaultAuctionFactory(suite.encodingConfig.TxConfig.TxDecoder())
+	suite.mempool = mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), 0, suite.config)
 	suite.txs = make(map[string]struct{})
 	suite.auctionBidAmount = sdk.NewCoin("foo", sdk.NewInt(1000000000))
 	suite.minBidIncrement = sdk.NewCoin("foo", sdk.NewInt(1000))
