@@ -673,7 +673,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			comettypes.ResponseProcessProposal_ACCEPT,
 		},
 		{
-			"mulitple auction txs with ref txs + filled mempool",
+			"multiple auction txs with ref txs + filled mempool",
 			func() [][]byte {
 				numNormalTxs = 100
 				numAuctionTxs = 10
