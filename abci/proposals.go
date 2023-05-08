@@ -162,7 +162,6 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 		// Verify that the same top of block transactions can be built from the vote
 		// extensions included in the proposal.
 		auctionInfo, err := h.VerifyTOB(ctx, proposal)
-		fmt.Println(err)
 		if err != nil {
 			return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 		}

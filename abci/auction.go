@@ -11,11 +11,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-const (
-	// VoteExtensionAuctionKey is the key used to extract the auction transaction from the vote extension.
-	VoteExtensionAuctionKey = "auction_tx"
-)
-
 // TopOfBlockProposal contains the top of block proposal that is returned by the
 // BuildTOB method.
 type TopOfBlockProposal struct {
@@ -56,7 +51,6 @@ func (h *ProposalHandler) BuildTOB(ctx sdk.Context, voteExtensionInfo abci.Exten
 		cacheCtx, write := ctx.CacheContext()
 
 		proposal, err := h.buildTOB(cacheCtx, bidTx)
-		fmt.Println(err)
 		if err != nil {
 			h.logger.Info(
 				"vote extension auction failed to verify auction tx",

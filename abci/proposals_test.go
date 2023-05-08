@@ -357,7 +357,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 		numNormalTxs  = 100
 		numAuctionTxs = 1
 		numBundledTxs = 3
-		insertRefTxs  = true
+		insertRefTxs  = false
 
 		// auction set up
 		maxBundleSize uint32 = 10
