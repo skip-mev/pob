@@ -171,7 +171,7 @@ func (suite *ABCITestSuite) TestGetBidsFromVoteExtensions() {
 			},
 		},
 		{
-			"multiple vote extensions with some normal txs and some noise",
+			"multiple vote extensions with some normal txs in unsorted order",
 			func() ([][]byte, [][]byte) {
 				bidTxBz1, err := testutils.CreateAuctionTxWithSignerBz(
 					suite.encodingConfig.TxConfig,
@@ -241,7 +241,7 @@ func (suite *ABCITestSuite) TestGetBidsFromVoteExtensions() {
 	}
 }
 
-func (suite *ABCITestSuite) TestTOBAuction() {
+func (suite *ABCITestSuite) TestBuildTOB() {
 	params := buildertypes.Params{
 		MaxBundleSize:          4,
 		MinBuyInFee:            sdk.NewCoin("foo", sdk.NewInt(100)),

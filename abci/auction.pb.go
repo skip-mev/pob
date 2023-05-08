@@ -23,7 +23,7 @@ var _ = math.Inf
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 // AuctionInfo contains information about the top of block auction
-// that was run at the end of the previous block using vote extensions.
+// that was run in PrepareProposal using vote extensions.
 type AuctionInfo struct {
 	// extended_commit_info contains the vote extensions that were used to run the auction.
 	ExtendedCommitInfo []byte `protobuf:"bytes,1,opt,name=extended_commit_info,json=extendedCommitInfo,proto3" json:"extended_commit_info,omitempty"`
@@ -87,12 +87,10 @@ func (m *AuctionInfo) GetNumTxs() uint64 {
 	return 0
 }
 
-// VoteExtensionInfo contains information about a vote extension that was used to run the auction. We
-// include multiple vote extensions internally in case other applications want to define their own
-// vote extensions data.
+// VoteExtensionInfo wraps all vote extension data into a registry which allows applications to define
+// mulitple different vote extensions that can be applied to state.
 type VoteExtensionInfo struct {
-	// registry is the data of the vote extension. This is a map of the vote extension
-	// name to the data of the vote extension.
+	// registry is the data of the vote extension.
 	Registry map[string][]byte `protobuf:"bytes,2,rep,name=registry,proto3" json:"registry,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 

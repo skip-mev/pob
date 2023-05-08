@@ -82,20 +82,19 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		topOfBlock := h.BuildTOB(ctx, req.LocalLastCommit, req.MaxTxBytes)
 
 		// If information is unable to be marshaled, we return an empty proposal. This will
-		// cause another proposal to be generated.
-		voteExtensionInfo, err := req.LocalLastCommit.Marshal()
+		// cause another proposal to be generated after it is rejected in ProcessProposal.
+		lastCommitInfo, err := req.LocalLastCommit.Marshal()
 		if err != nil {
 			return abci.ResponsePrepareProposal{Txs: proposal}
 		}
 
 		auctionInfo := AuctionInfo{
-			ExtendedCommitInfo: voteExtensionInfo,
+			ExtendedCommitInfo: lastCommitInfo,
 			MaxTxBytes:         req.MaxTxBytes,
 			NumTxs:             uint64(len(topOfBlock.Txs)),
 		}
 
-		// Marshall the auctionInfo into the proposal and the top of block
-		// transactions into the proposal.
+		// Add the auction info and top of block transactions into the proposal.
 		auctionInfoBz, err := auctionInfo.Marshal()
 		if err != nil {
 			return abci.ResponsePrepareProposal{Txs: proposal}
@@ -154,9 +153,6 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 // block proposal verification.
 func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 	return func(ctx sdk.Context, req abci.RequestProcessProposal) abci.ResponseProcessProposal {
-		// The proposal includes all of the transactions that will be included in the
-		// block along with auctionInformation about how the top of block was built stored
-		// in the first slot of the proposal.
 		proposal := req.Txs
 
 		// Verify that the same top of block transactions can be built from the vote
@@ -170,10 +166,11 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 		txsToRemove := make(map[sdk.Tx]struct{}, 0)
 		invalidProposal := false
 
-		// Verify that the remaining transactions in the proposal are valid since
-		// we have already verified the top of block transactions.
+		// Verify that the remaining transactions in the proposal are valid.
 		for _, txBz := range proposal[auctionInfo.NumTxs+MinProposalSize:] {
 			tx, err := h.ProcessProposalVerifyTx(ctx, txBz)
+
+			// If the transaction is nil, it was unable to be decoded and thus is invalid.
 			if tx == nil {
 				invalidProposal = true
 				continue
