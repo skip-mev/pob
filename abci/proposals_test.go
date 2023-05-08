@@ -15,11 +15,11 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 		maxTxBytes int64 = 1000000000000000000
 
 		// mempool configuration
-		numNormalTxs                = 100
-		numAuctionTxs               = 100
-		numBundledTxs               = 3
-		insertRefTxs                = false
-		expectedTopAuctionTx sdk.Tx = nil
+		numNormalTxs         = 100
+		numAuctionTxs        = 100
+		numBundledTxs        = 3
+		insertRefTxs         = false
+		expectedTopAuctionTx sdk.Tx
 
 		// auction configuration
 		maxBundleSize          uint32 = 10
