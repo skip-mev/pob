@@ -88,7 +88,7 @@ func (m *AuctionInfo) GetNumTxs() uint64 {
 }
 
 // VoteExtensionInfo wraps all vote extension data into a registry which allows applications to define
-// mulitple different vote extensions that can be applied to state.
+// multiple different vote extensions that can be applied to state.
 type VoteExtensionInfo struct {
 	// registry is the data of the vote extension.
 	Registry map[string][]byte `protobuf:"bytes,2,rep,name=registry,proto3" json:"registry,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
