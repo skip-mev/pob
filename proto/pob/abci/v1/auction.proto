@@ -1,5 +1,5 @@
 syntax = "proto3";
-package skipmev.pob.abci.v1;
+package pob.abci.v1;
 
 option go_package = "github.com/skip-mev/pob/abci";
 

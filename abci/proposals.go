@@ -81,8 +81,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		// from the previous block.
 		topOfBlock := h.BuildTOB(ctx, req.LocalLastCommit, req.MaxTxBytes)
 
-		// The proposal must include all vote extension information in the first slot. If
-		// information is unable to be marshaled, we return an empty proposal. This will
+		// If information is unable to be marshaled, we return an empty proposal. This will
 		// cause another proposal to be generated.
 		voteExtensionInfo, err := req.LocalLastCommit.Marshal()
 		if err != nil {
@@ -163,6 +162,7 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 		// Verify that the same top of block transactions can be built from the vote
 		// extensions included in the proposal.
 		auctionInfo, err := h.VerifyTOB(ctx, proposal)
+		fmt.Println(err)
 		if err != nil {
 			return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 		}
@@ -175,6 +175,11 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 		// we have already verified the top of block transactions.
 		for _, txBz := range proposal[auctionInfo.NumTxs+MinProposalSize:] {
 			tx, err := h.ProcessProposalVerifyTx(ctx, txBz)
+			if tx == nil {
+				invalidProposal = true
+				continue
+			}
+
 			if err != nil {
 				invalidProposal = true
 				txsToRemove[tx] = struct{}{}
@@ -183,7 +188,7 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 
 			// The only auction transactions that should be included in the block proposal
 			// must be at the top of the block.
-			if isAuctionTx, err := h.mempool.IsAuctionTx(tx); err != nil || isAuctionTx {
+			if bidInfo, err := h.mempool.GetAuctionBidInfo(tx); err != nil || bidInfo != nil {
 				invalidProposal = true
 			}
 		}

@@ -56,6 +56,7 @@ func (h *ProposalHandler) BuildTOB(ctx sdk.Context, voteExtensionInfo abci.Exten
 		cacheCtx, write := ctx.CacheContext()
 
 		proposal, err := h.buildTOB(cacheCtx, bidTx)
+		fmt.Println(err)
 		if err != nil {
 			h.logger.Info(
 				"vote extension auction failed to verify auction tx",
@@ -104,7 +105,7 @@ func (h *ProposalHandler) VerifyTOB(ctx sdk.Context, proposal [][]byte) (*Auctio
 
 	// Verify that the proposal is of the correct size.
 	if len(proposal) < int(auctionInfo.NumTxs)+MinProposalSize {
-		return nil, fmt.Errorf("proposal is too small; expected at least %d slots", auctionInfo.NumTxs+MinProposalSize)
+		return nil, fmt.Errorf("number of txs in proposal do not match expected in auction info; expected at least %d slots", auctionInfo.NumTxs+MinProposalSize)
 	}
 
 	// Unmarshall the vote extension information from the auction info.
@@ -114,11 +115,11 @@ func (h *ProposalHandler) VerifyTOB(ctx sdk.Context, proposal [][]byte) (*Auctio
 	}
 
 	// Build the top of block proposal from the auction info.
-	topOfBlock := h.BuildTOB(ctx, lastCommitInfo, auctionInfo.MaxTxBytes)
+	expectedTOB := h.BuildTOB(ctx, lastCommitInfo, auctionInfo.MaxTxBytes)
 
 	// Verify that the top of block proposal matches the proposal.
-	expectedTOBProposal := proposal[MinProposalSize : auctionInfo.NumTxs+MinProposalSize]
-	if !reflect.DeepEqual(expectedTOBProposal, topOfBlock.Txs) {
+	actualTOBTxs := proposal[MinProposalSize : auctionInfo.NumTxs+MinProposalSize]
+	if !reflect.DeepEqual(actualTOBTxs, expectedTOB.Txs) {
 		return nil, fmt.Errorf("expected top of block txs does not match top of block proposal")
 	}
 
@@ -172,16 +173,16 @@ func (h *ProposalHandler) buildTOB(ctx sdk.Context, bidTx sdk.Tx) (TopOfBlockPro
 		return proposal, err
 	}
 
-	bundledTransactions, err := h.mempool.GetBundledTransactions(bidTx)
+	bidInfo, err := h.mempool.GetAuctionBidInfo(bidTx)
 	if err != nil {
 		return proposal, err
 	}
 
 	// store the bytes of each ref tx as sdk.Tx bytes in order to build a valid proposal
-	sdkTxBytes := make([][]byte, len(bundledTransactions))
+	sdkTxBytes := make([][]byte, len(bidInfo.Transactions))
 
 	// Ensure that the bundled transactions are valid
-	for index, rawRefTx := range bundledTransactions {
+	for index, rawRefTx := range bidInfo.Transactions {
 		refTx, err := h.mempool.WrapBundleTransaction(rawRefTx)
 		if err != nil {
 			return TopOfBlockProposal{}, err
@@ -234,7 +235,7 @@ func (h *ProposalHandler) getAuctionTxFromVoteExtension(voteExtension []byte) (s
 	}
 
 	// Verify the auction transaction has bid information.
-	if isAuctionTx, err := h.mempool.IsAuctionTx(bidTx); err != nil || !isAuctionTx {
+	if bidInfo, err := h.mempool.GetAuctionBidInfo(bidTx); err != nil || bidInfo == nil {
 		return nil, err
 	}
 

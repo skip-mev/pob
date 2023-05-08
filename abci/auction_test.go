@@ -1,9 +1,7 @@
 package abci_test
 
 import (
-	abcitypes "github.com/cometbft/cometbft/abci/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/skip-mev/pob/abci"
 	testutils "github.com/skip-mev/pob/testutils"
 	buildertypes "github.com/skip-mev/pob/x/builder/types"
 )
@@ -11,7 +9,7 @@ import (
 func (suite *ABCITestSuite) TestGetBidsFromVoteExtensions() {
 	testCases := []struct {
 		name                 string
-		createVoteExtensions func() ([]abcitypes.ExtendedVoteInfo, [][]byte) // returns (vote extensions, expected bids)
+		createVoteExtensions func() ([][]byte, [][]byte) // returns (vote extensions, expected bids)
 	}{
 		{
 			"no vote extensions",
@@ -213,8 +211,8 @@ func (suite *ABCITestSuite) TestGetBidsFromVoteExtensions() {
 				}
 
 				expectedBids := [][]byte{
-					bidTxBz2,
 					bidTxBz1,
+					bidTxBz2,
 				}
 
 				return voteExtensions, expectedBids
@@ -226,8 +224,10 @@ func (suite *ABCITestSuite) TestGetBidsFromVoteExtensions() {
 		suite.Run(tc.name, func() {
 			voteExtensions, expectedBids := tc.createVoteExtensions()
 
+			commitInfo := suite.createExtendedVoteInfo(voteExtensions)
+
 			// get the bids from the vote extensions
-			bids := suite.proposalHandler.GetBidsFromVoteExtensions(voteExtensions)
+			bids := suite.proposalHandler.GetBidsFromVoteExtensions(commitInfo)
 
 			// Check invarients
 			suite.Require().Equal(len(expectedBids), len(bids))
@@ -476,8 +476,10 @@ func (suite *ABCITestSuite) TestTOBAuction() {
 		suite.Run(tc.name, func() {
 			bidTxs, winningBid := tc.getBidTxs()
 
+			commitInfo := suite.createExtendedCommitInfoFromTxs(bidTxs)
+
 			// Host the auction
-			proposal := suite.proposalHandler.BuildTOB(suite.ctx, bidTxs, tc.maxBytes)
+			proposal := suite.proposalHandler.BuildTOB(suite.ctx, commitInfo, tc.maxBytes)
 
 			// Size of the proposal should be less than or equal to the max bytes
 			suite.Require().LessOrEqual(proposal.Size, tc.maxBytes)
@@ -507,15 +509,4 @@ func (suite *ABCITestSuite) TestTOBAuction() {
 			}
 		})
 	}
-}
-
-func (suite *ABCITestSuite) createVoteExtension(tx []byte) []byte {
-	voteExtensionInfo := abci.VoteExtensionInfo{}
-	voteExtensionInfo.Registry = map[string][]byte{
-		abci.VoteExtensionAuctionKey: tx,
-	}
-	voteExtensionInfoBz, err := voteExtensionInfo.Marshal()
-	suite.Require().NoError(err)
-
-	return voteExtensionInfoBz
 }

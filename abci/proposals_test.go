@@ -1,8 +1,6 @@
 package abci_test
 
 import (
-	"bytes"
-
 	comettypes "github.com/cometbft/cometbft/abci/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/abci"
@@ -356,268 +354,416 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 func (suite *ABCITestSuite) TestProcessProposal() {
 	var (
 		// mempool set up
-		numNormalTxs   = 100
-		numAuctionTxs  = 1
-		numBundledTxs  = 3
-		insertRefTxs   = true
-		exportRefTxs   = true
-		frontRunningTx sdk.Tx
+		numNormalTxs  = 100
+		numAuctionTxs = 1
+		numBundledTxs = 3
+		insertRefTxs  = true
 
 		// auction set up
-		maxBundleSize          uint32 = 10
-		reserveFee                    = sdk.NewCoin("foo", sdk.NewInt(1000))
-		minBuyInFee                   = sdk.NewCoin("foo", sdk.NewInt(1000))
-		frontRunningProtection        = true
+		maxBundleSize uint32 = 10
+		reserveFee           = sdk.NewCoin("foo", sdk.NewInt(1000))
+		minBuyInFee          = sdk.NewCoin("foo", sdk.NewInt(1000))
 	)
 
 	cases := []struct {
-		name          string
-		malleate      func()
-		isTopBidValid bool
-		response      comettypes.ResponseProcessProposal_ProposalStatus
+		name      string
+		createTxs func() [][]byte
+		response  comettypes.ResponseProcessProposal_ProposalStatus
 	}{
 		{
-			"single normal tx, no auction tx",
-			func() {
+			"single normal tx, no vote extension info",
+			func() [][]byte {
 				numNormalTxs = 1
 				numAuctionTxs = 0
 				numBundledTxs = 0
+
+				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+
+				txs := suite.exportMempool()
+
+				return txs
 			},
-			false,
-			comettypes.ResponseProcessProposal_ACCEPT,
-		},
-		{
-			"single auction tx, no normal txs",
-			func() {
-				numNormalTxs = 0
-				numAuctionTxs = 1
-				numBundledTxs = 0
-			},
-			true,
-			comettypes.ResponseProcessProposal_ACCEPT,
-		},
-		{
-			"single auction tx, single auction tx",
-			func() {
-				numNormalTxs = 1
-				numAuctionTxs = 1
-				numBundledTxs = 0
-			},
-			true,
-			comettypes.ResponseProcessProposal_ACCEPT,
-		},
-		{
-			"single auction tx, single auction tx with ref txs",
-			func() {
-				numNormalTxs = 1
-				numAuctionTxs = 1
-				numBundledTxs = 4
-			},
-			true,
-			comettypes.ResponseProcessProposal_ACCEPT,
-		},
-		{
-			"single auction tx, single auction tx with no ref txs",
-			func() {
-				numNormalTxs = 1
-				numAuctionTxs = 1
-				numBundledTxs = 4
-				insertRefTxs = false
-				exportRefTxs = false
-			},
-			true,
 			comettypes.ResponseProcessProposal_REJECT,
 		},
 		{
-			"multiple auction txs, single normal tx",
-			func() {
+			"single auction tx, no vote extension info",
+			func() [][]byte {
+				numNormalTxs = 0
+				numAuctionTxs = 1
+				numBundledTxs = 0
+
+				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+
+				return suite.exportMempool()
+			},
+			comettypes.ResponseProcessProposal_REJECT,
+		},
+		{
+			"single auction tx, single auction tx, no vote extension info",
+			func() [][]byte {
 				numNormalTxs = 1
+				numAuctionTxs = 1
+				numBundledTxs = 0
+
+				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+
+				return suite.exportMempool()
+			},
+			comettypes.ResponseProcessProposal_REJECT,
+		},
+		{
+			"single auction tx with ref txs (no unwrapping)",
+			func() [][]byte {
+				numNormalTxs = 1
+				numAuctionTxs = 1
+				numBundledTxs = 4
+
+				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+
+				topAuctionTx := suite.mempool.GetTopAuctionTx(suite.ctx)
+				suite.Require().NotNil(topAuctionTx)
+
+				txBz, err := suite.encodingConfig.TxConfig.TxEncoder()(topAuctionTx)
+				suite.Require().NoError(err)
+
+				auctionInfo := suite.createAuctionInfoFromTxBzs([][]byte{txBz}, 5)
+
+				proposal := append([][]byte{
+					auctionInfo,
+					txBz,
+				}, suite.exportMempool()...)
+
+				return proposal
+			},
+			comettypes.ResponseProcessProposal_REJECT,
+		},
+		{
+			"single auction tx with ref txs (with unwrapping)",
+			func() [][]byte {
+				numNormalTxs = 0
+				numAuctionTxs = 1
+				numBundledTxs = 4
+				insertRefTxs = false
+
+				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+
+				topAuctionTx := suite.mempool.GetTopAuctionTx(suite.ctx)
+				suite.Require().NotNil(topAuctionTx)
+
+				bidInfo, err := suite.mempool.GetAuctionBidInfo(topAuctionTx)
+				suite.Require().NoError(err)
+
+				txBz, err := suite.encodingConfig.TxConfig.TxEncoder()(topAuctionTx)
+				suite.Require().NoError(err)
+
+				auctionInfo := suite.createAuctionInfoFromTxBzs([][]byte{txBz}, 5)
+
+				proposal := append([][]byte{
+					auctionInfo,
+					txBz,
+				}, bidInfo.Transactions...)
+
+				return proposal
+			},
+			comettypes.ResponseProcessProposal_ACCEPT,
+		},
+		{
+			"single auction tx but no inclusion of ref txs",
+			func() [][]byte {
+				numNormalTxs = 0
+				numAuctionTxs = 1
+				numBundledTxs = 4
+				insertRefTxs = false
+
+				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+
+				topAuctionTx := suite.mempool.GetTopAuctionTx(suite.ctx)
+				suite.Require().NotNil(topAuctionTx)
+
+				txBz, err := suite.encodingConfig.TxConfig.TxEncoder()(topAuctionTx)
+				suite.Require().NoError(err)
+
+				auctionInfo := suite.createAuctionInfoFromTxBzs([][]byte{txBz}, 5)
+
+				return [][]byte{
+					auctionInfo,
+					txBz,
+				}
+			},
+			comettypes.ResponseProcessProposal_REJECT,
+		},
+		{
+			"single auction tx, but auction tx is not valid",
+			func() [][]byte {
+				tx, err := testutils.CreateAuctionTxWithSigners(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[0],
+					sdk.NewCoin("foo", sdk.NewInt(100)),
+					1,
+					0, // invalid timeout
+					[]testutils.Account{},
+				)
+				suite.Require().NoError(err)
+
+				txBz, err := suite.encodingConfig.TxConfig.TxEncoder()(tx)
+				suite.Require().NoError(err)
+
+				auctionInfoBz := suite.createAuctionInfoFromTxBzs([][]byte{txBz}, 1)
+
+				return [][]byte{
+					auctionInfoBz,
+					txBz,
+				}
+			},
+			comettypes.ResponseProcessProposal_REJECT,
+		},
+		{
+			"single auction tx with ref txs, but auction tx is not valid",
+			func() [][]byte {
+				tx, err := testutils.CreateAuctionTxWithSigners(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[0],
+					sdk.NewCoin("foo", sdk.NewInt(100)),
+					1,
+					1,
+					[]testutils.Account{suite.accounts[1], suite.accounts[1], suite.accounts[0]},
+				)
+				suite.Require().NoError(err)
+
+				txBz, err := suite.encodingConfig.TxConfig.TxEncoder()(tx)
+				suite.Require().NoError(err)
+
+				auctionInfoBz := suite.createAuctionInfoFromTxBzs([][]byte{txBz}, 4)
+
+				bidInfo, err := suite.mempool.GetAuctionBidInfo(tx)
+				suite.Require().NoError(err)
+
+				return append([][]byte{
+					auctionInfoBz,
+					txBz,
+				}, bidInfo.Transactions...)
+			},
+			comettypes.ResponseProcessProposal_REJECT,
+		},
+		{
+			"multiple auction txs but wrong auction tx is at top of block",
+			func() [][]byte {
+				numNormalTxs = 0
 				numAuctionTxs = 2
-				numBundledTxs = 4
-				insertRefTxs = true
-				exportRefTxs = true
+				numBundledTxs = 0
+				insertRefTxs = false
+
+				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+
+				_, auctionTxBzs := suite.getAllAuctionTxs()
+
+				auctionInfo := suite.createAuctionInfoFromTxBzs(auctionTxBzs, 1)
+
+				proposal := [][]byte{
+					auctionInfo,
+					auctionTxBzs[1],
+				}
+
+				return proposal
 			},
-			true,
 			comettypes.ResponseProcessProposal_REJECT,
 		},
 		{
-			"single auction txs, multiple normal tx",
-			func() {
-				numNormalTxs = 100
-				numAuctionTxs = 1
-				numBundledTxs = 4
+			"multiple auction txs included in block",
+			func() [][]byte {
+				numNormalTxs = 0
+				numAuctionTxs = 2
+				numBundledTxs = 0
+				insertRefTxs = false
+
+				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+
+				_, auctionTxBzs := suite.getAllAuctionTxs()
+
+				auctionInfo := suite.createAuctionInfoFromTxBzs(auctionTxBzs, 1)
+
+				proposal := [][]byte{
+					auctionInfo,
+					auctionTxBzs[0],
+					auctionTxBzs[1],
+				}
+
+				return proposal
 			},
-			true,
-			comettypes.ResponseProcessProposal_ACCEPT,
-		},
-		{
-			"single invalid auction tx, multiple normal tx",
-			func() {
-				numNormalTxs = 100
-				numAuctionTxs = 1
-				numBundledTxs = 4
-				reserveFee = sdk.NewCoin("foo", sdk.NewInt(100000000000000000))
-				insertRefTxs = true
-			},
-			false,
 			comettypes.ResponseProcessProposal_REJECT,
 		},
 		{
-			"single valid auction txs but missing ref txs",
-			func() {
+			"single auction tx, but rest of the mempool is invalid",
+			func() [][]byte {
 				numNormalTxs = 0
 				numAuctionTxs = 1
-				numBundledTxs = 4
-				reserveFee = sdk.NewCoin("foo", sdk.NewInt(1000))
+				numBundledTxs = 0
 				insertRefTxs = false
-				exportRefTxs = false
+
+				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+
+				topAuctionTx := suite.mempool.GetTopAuctionTx(suite.ctx)
+				suite.Require().NotNil(topAuctionTx)
+
+				txBz, err := suite.encodingConfig.TxConfig.TxEncoder()(topAuctionTx)
+				suite.Require().NoError(err)
+
+				auctionInfo := suite.createAuctionInfoFromTxBzs([][]byte{txBz}, 1)
+
+				proposal := [][]byte{
+					auctionInfo,
+					txBz,
+					[]byte("invalid tx"),
+				}
+
+				return proposal
 			},
-			true,
 			comettypes.ResponseProcessProposal_REJECT,
 		},
 		{
-			"single valid auction txs but missing ref txs, with many normal txs",
-			func() {
+			"single auction tx with filled mempool, but rest of the mempool is invalid",
+			func() [][]byte {
 				numNormalTxs = 100
 				numAuctionTxs = 1
-				numBundledTxs = 4
-				reserveFee = sdk.NewCoin("foo", sdk.NewInt(1000))
+				numBundledTxs = 0
 				insertRefTxs = false
-				exportRefTxs = false
+
+				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+
+				topAuctionTx := suite.mempool.GetTopAuctionTx(suite.ctx)
+				suite.Require().NotNil(topAuctionTx)
+
+				txBz, err := suite.encodingConfig.TxConfig.TxEncoder()(topAuctionTx)
+				suite.Require().NoError(err)
+
+				auctionInfo := suite.createAuctionInfoFromTxBzs([][]byte{txBz}, 1)
+
+				proposal := append([][]byte{
+					auctionInfo,
+					txBz,
+				}, suite.exportMempool()...)
+
+				proposal = append(proposal, []byte("invalid tx"))
+
+				return proposal
 			},
-			true,
 			comettypes.ResponseProcessProposal_REJECT,
 		},
 		{
-			"auction tx with frontrunning",
-			func() {
-				randomAccount := testutils.RandomAccounts(suite.random, 1)[0]
-				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("foo", sdk.NewInt(696969696969))
-				nonce := suite.nonces[bidder.Address.String()]
-				frontRunningTx, _ = testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, suite.accounts[0], bid, nonce+1, 1000, []testutils.Account{bidder, randomAccount})
-				suite.Require().NotNil(frontRunningTx)
-
+			"multiple auction txs with filled mempool",
+			func() [][]byte {
 				numNormalTxs = 100
-				numAuctionTxs = 1
-				numBundledTxs = 4
-				insertRefTxs = true
-				exportRefTxs = true
-			},
-			false,
-			comettypes.ResponseProcessProposal_REJECT,
-		},
-		{
-			"auction tx with frontrunning, but frontrunning protection disabled",
-			func() {
-				randomAccount := testutils.RandomAccounts(suite.random, 1)[0]
-				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("foo", sdk.NewInt(696969696969))
-				nonce := suite.nonces[bidder.Address.String()]
-				frontRunningTx, _ = testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, suite.accounts[0], bid, nonce+1, 1000, []testutils.Account{bidder, randomAccount})
-				suite.Require().NotNil(frontRunningTx)
+				numAuctionTxs = 10
+				numBundledTxs = 0
+				insertRefTxs = false
 
-				numAuctionTxs = 0
-				frontRunningProtection = false
+				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+
+				_, auctionTxBzs := suite.getAllAuctionTxs()
+
+				auctionInfo := suite.createAuctionInfoFromTxBzs(auctionTxBzs, 1)
+
+				proposal := append([][]byte{
+					auctionInfo,
+					auctionTxBzs[0],
+				}, suite.exportMempool()...)
+
+				return proposal
 			},
-			true,
 			comettypes.ResponseProcessProposal_ACCEPT,
+		},
+		{
+			"mulitple auction txs with ref txs + filled mempool",
+			func() [][]byte {
+				numNormalTxs = 100
+				numAuctionTxs = 10
+				numBundledTxs = 10
+				insertRefTxs = false
+
+				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+
+				auctionTxs, auctionTxBzs := suite.getAllAuctionTxs()
+
+				auctionInfo := suite.createAuctionInfoFromTxBzs(auctionTxBzs, 11)
+
+				bidInfo, err := suite.mempool.GetAuctionBidInfo(auctionTxs[0])
+				suite.Require().NoError(err)
+
+				proposal := append([][]byte{
+					auctionInfo,
+					auctionTxBzs[0],
+				}, bidInfo.Transactions...)
+
+				proposal = append(proposal, suite.exportMempool()...)
+
+				return proposal
+			},
+			comettypes.ResponseProcessProposal_ACCEPT,
+		},
+		{
+			"auction tx with front-running",
+			func() [][]byte {
+				numNormalTxs = 100
+				numAuctionTxs = 0
+				numBundledTxs = 0
+				insertRefTxs = false
+
+				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+
+				topAuctionTx, err := testutils.CreateAuctionTxWithSigners(
+					suite.encodingConfig.TxConfig,
+					suite.accounts[0],
+					sdk.NewCoin("foo", sdk.NewInt(1000000)),
+					0,
+					1,
+					[]testutils.Account{suite.accounts[0], suite.accounts[1]}, // front-running
+				)
+				suite.Require().NoError(err)
+
+				txBz, err := suite.encodingConfig.TxConfig.TxEncoder()(topAuctionTx)
+				suite.Require().NoError(err)
+
+				bidInfo, err := suite.mempool.GetAuctionBidInfo(topAuctionTx)
+				suite.Require().NoError(err)
+
+				auctionInfo := suite.createAuctionInfoFromTxBzs([][]byte{txBz}, 3)
+
+				proposal := append([][]byte{
+					auctionInfo,
+					txBz,
+				}, bidInfo.Transactions...)
+
+				proposal = append(proposal, suite.exportMempool()...)
+
+				return proposal
+			},
+			comettypes.ResponseProcessProposal_REJECT,
 		},
 	}
 
 	for _, tc := range cases {
 		suite.Run(tc.name, func() {
-			suite.SetupTest() // reset
-			tc.malleate()
-
-			suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
-
-			// reset the proposal handler with the new mempool
-			suite.proposalHandler = abci.NewProposalHandler(suite.mempool, suite.logger, suite.anteHandler, suite.encodingConfig.TxConfig.TxEncoder(), suite.encodingConfig.TxConfig.TxDecoder())
-
-			if frontRunningTx != nil {
-				suite.Require().NoError(suite.mempool.Insert(suite.ctx, frontRunningTx))
-			}
-
 			// create a new auction
 			params := buildertypes.Params{
 				MaxBundleSize:          maxBundleSize,
 				ReserveFee:             reserveFee,
 				MinBuyInFee:            minBuyInFee,
-				FrontRunningProtection: frontRunningProtection,
+				FrontRunningProtection: true,
 				MinBidIncrement:        suite.minBidIncrement,
 			}
 			suite.builderKeeper.SetParams(suite.ctx, params)
 			suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), suite.mempool)
-			suite.Require().Equal(tc.isTopBidValid, suite.isTopBidValid())
 
-			txs := suite.exportMempool(exportRefTxs)
-
-			if frontRunningTx != nil {
-				txBz, err := suite.encodingConfig.TxConfig.TxEncoder()(frontRunningTx)
-				suite.Require().NoError(err)
-
-				suite.Require().True(bytes.Equal(txs[0], txBz))
-			}
+			// reset the proposal handler with the new mempool
+			suite.proposalHandler = abci.NewProposalHandler(suite.mempool, suite.logger, suite.anteHandler, suite.encodingConfig.TxConfig.TxEncoder(), suite.encodingConfig.TxConfig.TxDecoder())
 
 			handler := suite.proposalHandler.ProcessProposalHandler()
 			res := handler(suite.ctx, comettypes.RequestProcessProposal{
-				Txs: txs,
+				Txs: tc.createTxs(),
 			})
 
 			// Check if the response is valid
 			suite.Require().Equal(tc.response, res.Status)
 		})
-	}
-}
-
-// isTopBidValid returns true if the top bid is valid. We purposefully insert invalid
-// auction transactions into the mempool to test the handlers.
-func (suite *ABCITestSuite) isTopBidValid() bool {
-	iterator := suite.mempool.AuctionBidSelect(suite.ctx)
-	if iterator == nil {
-		return false
-	}
-
-	// check if the top bid is valid
-	_, err := suite.anteHandler(suite.ctx, iterator.Tx(), true)
-	return err == nil
-}
-
-func (suite *ABCITestSuite) createPrepareProposalRequest(maxBytes int64) comettypes.RequestPrepareProposal {
-	voteExtensions := make([]comettypes.ExtendedVoteInfo, 0)
-
-	auctionIterator := suite.mempool.AuctionBidSelect(suite.ctx)
-	for ; auctionIterator != nil; auctionIterator = auctionIterator.Next() {
-		tx := auctionIterator.Tx()
-
-		txBz, err := suite.encodingConfig.TxConfig.TxEncoder()(tx)
-		suite.Require().NoError(err)
-
-		suite.createVoteExtension(txBz)
-
-		voteExtensions = append(voteExtensions, comettypes.ExtendedVoteInfo{
-			VoteExtension: suite.createVoteExtension(txBz),
-		})
-	}
-
-	return comettypes.RequestPrepareProposal{
-		MaxTxBytes: maxBytes,
-		LocalLastCommit: comettypes.ExtendedCommitInfo{
-			Votes: voteExtensions,
-		},
-	}
-}
-
-func (suite *ABCITestSuite) createAuctionInfo(bidTxs [][]byte) abci.AuctionInfo {
-	size := int(0)
-	for _, tx := range bidTxs {
-		size += len(tx)
-	}
-
-	return abci.AuctionInfo{
-		NumTxs:         uint64(len(bidTxs)),
-		Size:           uint64(size),
-		VoteExtensions: bidTxs,
 	}
 }
