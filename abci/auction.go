@@ -138,9 +138,8 @@ func (h *ProposalHandler) GetBidsFromVoteExtensions(voteExtensions []abci.Extend
 
 	// Sort the auction transactions by their bid amount in descending order.
 	sort.Slice(bidTxs, func(i, j int) bool {
-		bidInfoI, err := h.mempool.GetAuctionBidInfo(bidTxs[i])
-
 		// In the case of an error, we want to sort the transaction to the end of the list.
+		bidInfoI, err := h.mempool.GetAuctionBidInfo(bidTxs[i])
 		if err != nil {
 			return false
 		}

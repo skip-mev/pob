@@ -74,7 +74,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		// Proposal includes all of the transactions that will be included in the
 		// block along with the vote extensions from the previous block included at
 		// the beginning of the proposal. Vote extensions must be included in the
-		// first slot of the proposal because they are inaccessable in ProcessProposal.
+		// first slot of the proposal because they are inaccessible in ProcessProposal.
 		proposal := make([][]byte, 0)
 
 		// Build the top of block portion of the proposal given the vote extensions
