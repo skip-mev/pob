@@ -87,83 +87,28 @@ func (m *AuctionInfo) GetNumTxs() uint64 {
 	return 0
 }
 
-// VoteExtensionInfo wraps all vote extension data into a registry which allows applications to define
-// multiple different vote extensions that can be applied to state.
-type VoteExtensionInfo struct {
-	// registry is the data of the vote extension.
-	Registry map[string][]byte `protobuf:"bytes,2,rep,name=registry,proto3" json:"registry,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-}
-
-func (m *VoteExtensionInfo) Reset()         { *m = VoteExtensionInfo{} }
-func (m *VoteExtensionInfo) String() string { return proto.CompactTextString(m) }
-func (*VoteExtensionInfo) ProtoMessage()    {}
-func (*VoteExtensionInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_ea32f9b647554bf5, []int{1}
-}
-func (m *VoteExtensionInfo) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *VoteExtensionInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_VoteExtensionInfo.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *VoteExtensionInfo) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_VoteExtensionInfo.Merge(m, src)
-}
-func (m *VoteExtensionInfo) XXX_Size() int {
-	return m.Size()
-}
-func (m *VoteExtensionInfo) XXX_DiscardUnknown() {
-	xxx_messageInfo_VoteExtensionInfo.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_VoteExtensionInfo proto.InternalMessageInfo
-
-func (m *VoteExtensionInfo) GetRegistry() map[string][]byte {
-	if m != nil {
-		return m.Registry
-	}
-	return nil
-}
-
 func init() {
 	proto.RegisterType((*AuctionInfo)(nil), "pob.abci.v1.AuctionInfo")
-	proto.RegisterType((*VoteExtensionInfo)(nil), "pob.abci.v1.VoteExtensionInfo")
-	proto.RegisterMapType((map[string][]byte)(nil), "pob.abci.v1.VoteExtensionInfo.RegistryEntry")
 }
 
 func init() { proto.RegisterFile("pob/abci/v1/auction.proto", fileDescriptor_ea32f9b647554bf5) }
 
 var fileDescriptor_ea32f9b647554bf5 = []byte{
-	// 313 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x64, 0x90, 0xc1, 0x4a, 0xfb, 0x40,
-	0x10, 0xc6, 0xbb, 0xcd, 0xff, 0x5f, 0x75, 0x5b, 0x41, 0x43, 0xc1, 0x28, 0xb2, 0x84, 0x9e, 0x72,
-	0xd0, 0x8d, 0x55, 0x10, 0xd1, 0x93, 0x95, 0x82, 0x5e, 0x97, 0xe2, 0xc1, 0x4b, 0xc8, 0xa6, 0xdb,
-	0xba, 0xd4, 0xdd, 0x0d, 0xd9, 0x4d, 0xd8, 0xf8, 0x14, 0x9e, 0x7d, 0x22, 0x8f, 0x3d, 0x7a, 0x94,
-	0xf6, 0x45, 0x24, 0xa9, 0x15, 0xc5, 0xdb, 0xcc, 0xfc, 0xe6, 0x1b, 0xbe, 0xf9, 0xe0, 0x7e, 0xaa,
-	0x68, 0x18, 0xd3, 0x84, 0x87, 0x45, 0x3f, 0x8c, 0xf3, 0xc4, 0x70, 0x25, 0x71, 0x9a, 0x29, 0xa3,
-	0xdc, 0x76, 0xaa, 0x28, 0xae, 0x10, 0x2e, 0xfa, 0xbd, 0x67, 0xd8, 0xbe, 0x5e, 0xd1, 0x3b, 0x39,
-	0x51, 0xee, 0x09, 0xec, 0x32, 0x6b, 0x98, 0x1c, 0xb3, 0x71, 0x94, 0x28, 0x21, 0xb8, 0x89, 0xb8,
-	0x9c, 0x28, 0x0f, 0xf8, 0x20, 0xe8, 0x10, 0x77, 0xcd, 0x6e, 0x6a, 0x54, 0x2b, 0x7c, 0xd8, 0x11,
-	0xb1, 0x8d, 0x8c, 0x8d, 0x68, 0x69, 0x98, 0xf6, 0x9a, 0x3e, 0x08, 0x1c, 0x02, 0x45, 0x6c, 0x47,
-	0x76, 0x50, 0x4d, 0xdc, 0x3d, 0xb8, 0x21, 0x73, 0x11, 0x19, 0xab, 0x3d, 0xc7, 0x07, 0xc1, 0x3f,
-	0xd2, 0x92, 0xb9, 0x18, 0x59, 0xdd, 0x7b, 0x05, 0x70, 0xf7, 0x5e, 0x19, 0x36, 0xac, 0xae, 0xea,
-	0xb5, 0x85, 0x5b, 0xb8, 0x99, 0xb1, 0x29, 0xd7, 0x26, 0x2b, 0xbd, 0xa6, 0xef, 0x04, 0xed, 0xd3,
-	0x23, 0xfc, 0xc3, 0x31, 0xfe, 0xa3, 0xc0, 0xe4, 0x6b, 0x7d, 0x28, 0x4d, 0x56, 0x92, 0x6f, 0xf5,
-	0xc1, 0x15, 0xdc, 0xfe, 0x85, 0xdc, 0x1d, 0xe8, 0xcc, 0x58, 0x59, 0x3f, 0xb3, 0x45, 0xaa, 0xd2,
-	0xed, 0xc2, 0xff, 0x45, 0xfc, 0x94, 0xb3, 0xda, 0x76, 0x87, 0xac, 0x9a, 0xcb, 0xe6, 0x05, 0x18,
-	0x9c, 0xbf, 0x2d, 0x10, 0x98, 0x2f, 0x10, 0xf8, 0x58, 0x20, 0xf0, 0xb2, 0x44, 0x8d, 0xf9, 0x12,
-	0x35, 0xde, 0x97, 0xa8, 0xf1, 0x70, 0x38, 0xe5, 0xe6, 0x31, 0xa7, 0x38, 0x51, 0x22, 0xd4, 0x33,
-	0x9e, 0x1e, 0x0b, 0x56, 0x84, 0xeb, 0xb8, 0x69, 0xab, 0x0e, 0xf9, 0xec, 0x33, 0x00, 0x00, 0xff,
-	0xff, 0x72, 0x46, 0x63, 0x6d, 0x81, 0x01, 0x00, 0x00,
+	// 224 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x2c, 0xc8, 0x4f, 0xd2,
+	0x4f, 0x4c, 0x4a, 0xce, 0xd4, 0x2f, 0x33, 0xd4, 0x4f, 0x2c, 0x4d, 0x2e, 0xc9, 0xcc, 0xcf, 0xd3,
+	0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0x2e, 0xc8, 0x4f, 0xd2, 0x03, 0x49, 0xe9, 0x95, 0x19,
+	0x2a, 0x55, 0x71, 0x71, 0x3b, 0x42, 0x64, 0x3d, 0xf3, 0xd2, 0xf2, 0x85, 0x0c, 0xb8, 0x44, 0x52,
+	0x2b, 0x4a, 0x52, 0xf3, 0x52, 0x52, 0x53, 0xe2, 0x93, 0xf3, 0x73, 0x73, 0x33, 0x4b, 0xe2, 0x33,
+	0xf3, 0xd2, 0xf2, 0x25, 0x18, 0x15, 0x18, 0x35, 0x78, 0x82, 0x84, 0x60, 0x72, 0xce, 0x60, 0x29,
+	0xb0, 0x0e, 0x05, 0x2e, 0x9e, 0xdc, 0xc4, 0x8a, 0xf8, 0x92, 0x8a, 0xf8, 0xa4, 0xca, 0x92, 0xd4,
+	0x62, 0x09, 0x26, 0x05, 0x46, 0x0d, 0xe6, 0x20, 0xae, 0xdc, 0xc4, 0x8a, 0x90, 0x0a, 0x27, 0x90,
+	0x88, 0x90, 0x38, 0x17, 0x7b, 0x5e, 0x69, 0x6e, 0x7c, 0x49, 0x45, 0xb1, 0x04, 0xb3, 0x02, 0xa3,
+	0x06, 0x4b, 0x10, 0x5b, 0x5e, 0x69, 0x6e, 0x48, 0x45, 0xb1, 0x93, 0xd9, 0x89, 0x47, 0x72, 0x8c,
+	0x17, 0x1e, 0xc9, 0x31, 0x3e, 0x78, 0x24, 0xc7, 0x38, 0xe1, 0xb1, 0x1c, 0xc3, 0x85, 0xc7, 0x72,
+	0x0c, 0x37, 0x1e, 0xcb, 0x31, 0x44, 0xc9, 0xa4, 0x67, 0x96, 0x64, 0x94, 0x26, 0xe9, 0x25, 0xe7,
+	0xe7, 0xea, 0x17, 0x67, 0x67, 0x16, 0xe8, 0xe6, 0xa6, 0x96, 0xe9, 0xc3, 0x7c, 0x94, 0xc4, 0x06,
+	0xf6, 0x87, 0x31, 0x20, 0x00, 0x00, 0xff, 0xff, 0xce, 0x6f, 0x84, 0x78, 0xe4, 0x00, 0x00, 0x00,
 }
 
 func (m *AuctionInfo) Marshal() (dAtA []byte, err error) {
@@ -206,50 +151,6 @@ func (m *AuctionInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *VoteExtensionInfo) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *VoteExtensionInfo) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *VoteExtensionInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if len(m.Registry) > 0 {
-		for k := range m.Registry {
-			v := m.Registry[k]
-			baseI := i
-			if len(v) > 0 {
-				i -= len(v)
-				copy(dAtA[i:], v)
-				i = encodeVarintAuction(dAtA, i, uint64(len(v)))
-				i--
-				dAtA[i] = 0x12
-			}
-			i -= len(k)
-			copy(dAtA[i:], k)
-			i = encodeVarintAuction(dAtA, i, uint64(len(k)))
-			i--
-			dAtA[i] = 0xa
-			i = encodeVarintAuction(dAtA, i, uint64(baseI-i))
-			i--
-			dAtA[i] = 0x12
-		}
-	}
-	return len(dAtA) - i, nil
-}
-
 func encodeVarintAuction(dAtA []byte, offset int, v uint64) int {
 	offset -= sovAuction(v)
 	base := offset
@@ -276,27 +177,6 @@ func (m *AuctionInfo) Size() (n int) {
 	}
 	if m.NumTxs != 0 {
 		n += 1 + sovAuction(uint64(m.NumTxs))
-	}
-	return n
-}
-
-func (m *VoteExtensionInfo) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if len(m.Registry) > 0 {
-		for k, v := range m.Registry {
-			_ = k
-			_ = v
-			l = 0
-			if len(v) > 0 {
-				l = 1 + len(v) + sovAuction(uint64(len(v)))
-			}
-			mapEntrySize := 1 + len(k) + sovAuction(uint64(len(k))) + l
-			n += mapEntrySize + 1 + sovAuction(uint64(mapEntrySize))
-		}
 	}
 	return n
 }
@@ -408,184 +288,6 @@ func (m *AuctionInfo) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
-		default:
-			iNdEx = preIndex
-			skippy, err := skipAuction(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
-				return ErrInvalidLengthAuction
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *VoteExtensionInfo) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowAuction
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: VoteExtensionInfo: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: VoteExtensionInfo: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Registry", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAuction
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthAuction
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthAuction
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Registry == nil {
-				m.Registry = make(map[string][]byte)
-			}
-			var mapkey string
-			mapvalue := []byte{}
-			for iNdEx < postIndex {
-				entryPreIndex := iNdEx
-				var wire uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowAuction
-					}
-					if iNdEx >= l {
-						return io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					wire |= uint64(b&0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				fieldNum := int32(wire >> 3)
-				if fieldNum == 1 {
-					var stringLenmapkey uint64
-					for shift := uint(0); ; shift += 7 {
-						if shift >= 64 {
-							return ErrIntOverflowAuction
-						}
-						if iNdEx >= l {
-							return io.ErrUnexpectedEOF
-						}
-						b := dAtA[iNdEx]
-						iNdEx++
-						stringLenmapkey |= uint64(b&0x7F) << shift
-						if b < 0x80 {
-							break
-						}
-					}
-					intStringLenmapkey := int(stringLenmapkey)
-					if intStringLenmapkey < 0 {
-						return ErrInvalidLengthAuction
-					}
-					postStringIndexmapkey := iNdEx + intStringLenmapkey
-					if postStringIndexmapkey < 0 {
-						return ErrInvalidLengthAuction
-					}
-					if postStringIndexmapkey > l {
-						return io.ErrUnexpectedEOF
-					}
-					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
-					iNdEx = postStringIndexmapkey
-				} else if fieldNum == 2 {
-					var mapbyteLen uint64
-					for shift := uint(0); ; shift += 7 {
-						if shift >= 64 {
-							return ErrIntOverflowAuction
-						}
-						if iNdEx >= l {
-							return io.ErrUnexpectedEOF
-						}
-						b := dAtA[iNdEx]
-						iNdEx++
-						mapbyteLen |= uint64(b&0x7F) << shift
-						if b < 0x80 {
-							break
-						}
-					}
-					intMapbyteLen := int(mapbyteLen)
-					if intMapbyteLen < 0 {
-						return ErrInvalidLengthAuction
-					}
-					postbytesIndex := iNdEx + intMapbyteLen
-					if postbytesIndex < 0 {
-						return ErrInvalidLengthAuction
-					}
-					if postbytesIndex > l {
-						return io.ErrUnexpectedEOF
-					}
-					mapvalue = make([]byte, mapbyteLen)
-					copy(mapvalue, dAtA[iNdEx:postbytesIndex])
-					iNdEx = postbytesIndex
-				} else {
-					iNdEx = entryPreIndex
-					skippy, err := skipAuction(dAtA[iNdEx:])
-					if err != nil {
-						return err
-					}
-					if (skippy < 0) || (iNdEx+skippy) < 0 {
-						return ErrInvalidLengthAuction
-					}
-					if (iNdEx + skippy) > postIndex {
-						return io.ErrUnexpectedEOF
-					}
-					iNdEx += skippy
-				}
-			}
-			m.Registry[mapkey] = mapvalue
-			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipAuction(dAtA[iNdEx:])

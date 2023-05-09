@@ -239,10 +239,8 @@ func (suite *ABCITestSuite) createPrepareProposalRequest(maxBytes int64) cometty
 		txBz, err := suite.encodingConfig.TxConfig.TxEncoder()(tx)
 		suite.Require().NoError(err)
 
-		suite.createVoteExtension(txBz)
-
 		voteExtensions = append(voteExtensions, comettypes.ExtendedVoteInfo{
-			VoteExtension: suite.createVoteExtension(txBz),
+			VoteExtension: txBz,
 		})
 	}
 
@@ -259,7 +257,7 @@ func (suite *ABCITestSuite) createExtendedCommitInfoFromTxBzs(txs [][]byte) []by
 
 	for _, txBz := range txs {
 		voteExtensions = append(voteExtensions, comettypes.ExtendedVoteInfo{
-			VoteExtension: suite.createVoteExtension(txBz),
+			VoteExtension: txBz,
 		})
 	}
 
@@ -303,24 +301,13 @@ func (suite *ABCITestSuite) getAllAuctionTxs() ([]sdk.Tx, [][]byte) {
 	return txs, txBzs
 }
 
-func (suite *ABCITestSuite) createVoteExtension(tx []byte) []byte {
-	voteExtensionInfo := abci.VoteExtensionInfo{}
-	voteExtensionInfo.Registry = map[string][]byte{
-		abci.VoteExtensionAuctionKey: tx,
-	}
-	voteExtensionInfoBz, err := voteExtensionInfo.Marshal()
-	suite.Require().NoError(err)
-
-	return voteExtensionInfoBz
-}
-
 func (suite *ABCITestSuite) createExtendedCommitInfoFromTxs(txs []sdk.Tx) comettypes.ExtendedCommitInfo {
 	voteExtensions := make([][]byte, 0)
 	for _, tx := range txs {
 		bz, err := suite.encodingConfig.TxConfig.TxEncoder()(tx)
 		suite.Require().NoError(err)
 
-		voteExtensions = append(voteExtensions, suite.createVoteExtension(bz))
+		voteExtensions = append(voteExtensions, bz)
 	}
 
 	return suite.createExtendedCommitInfo(voteExtensions)

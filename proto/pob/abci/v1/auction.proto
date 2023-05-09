@@ -15,10 +15,3 @@ message AuctionInfo {
     // num_txs is the number of transactions that were included in the proposal.
     uint64 num_txs = 3;
 }
-
-// VoteExtensionInfo wraps all vote extension data into a registry which allows applications to define
-// multiple different vote extensions that can be applied to state.
-message VoteExtensionInfo {
-    // registry is the data of the vote extension.
-    map<string, bytes> registry = 2;
-}

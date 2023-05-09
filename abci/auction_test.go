@@ -37,7 +37,7 @@ func (suite *ABCITestSuite) TestGetBidsFromVoteExtensions() {
 				suite.Require().NoError(err)
 
 				voteExtensions := [][]byte{
-					suite.createVoteExtension(bidTxBz),
+					bidTxBz,
 				}
 
 				expectedBids := [][]byte{
@@ -71,8 +71,8 @@ func (suite *ABCITestSuite) TestGetBidsFromVoteExtensions() {
 				suite.Require().NoError(err)
 
 				voteExtensions := [][]byte{
-					suite.createVoteExtension(bidTxBz1),
-					suite.createVoteExtension(bidTxBz2),
+					bidTxBz1,
+					bidTxBz2,
 				}
 
 				expectedBids := [][]byte{
@@ -107,9 +107,9 @@ func (suite *ABCITestSuite) TestGetBidsFromVoteExtensions() {
 				suite.Require().NoError(err)
 
 				voteExtensions := [][]byte{
-					suite.createVoteExtension(bidTxBz1),
+					bidTxBz1,
 					nil,
-					suite.createVoteExtension(bidTxBz2),
+					bidTxBz2,
 					[]byte("noise"),
 					[]byte("noise p2"),
 				}
@@ -155,8 +155,8 @@ func (suite *ABCITestSuite) TestGetBidsFromVoteExtensions() {
 				suite.Require().NoError(err)
 
 				voteExtensions := [][]byte{
-					suite.createVoteExtension(bidTxBz1),
-					suite.createVoteExtension(bidTxBz2),
+					bidTxBz1,
+					bidTxBz2,
 					nil,
 					randomBz,
 					[]byte("noise p2"),
@@ -203,8 +203,8 @@ func (suite *ABCITestSuite) TestGetBidsFromVoteExtensions() {
 				suite.Require().NoError(err)
 
 				voteExtensions := [][]byte{
-					suite.createVoteExtension(bidTxBz2),
-					suite.createVoteExtension(bidTxBz1),
+					bidTxBz2,
+					bidTxBz1,
 					nil,
 					randomBz,
 					[]byte("noise p2"),

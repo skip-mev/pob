@@ -15,9 +15,10 @@ import (
 )
 
 const (
-	// MinProposalSize is the minimum size of a proposal. Each proposal must contain
-	// at least the auction info.
-	MinProposalSize = 1
+	// NumInjectedTxs is the minimum number of transactions that were injected into
+	// the proposal but are not actual transactions. In this case, the auction
+	// info is injected into the proposal but should be ignored by the application.ß
+	NumInjectedTxs = 1
 
 	// AuctionInfoIndex is the index of the auction info in the proposal.
 	AuctionInfoIndex = 0
@@ -167,18 +168,14 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 		invalidProposal := false
 
 		// Verify that the remaining transactions in the proposal are valid.
-		for _, txBz := range proposal[auctionInfo.NumTxs+MinProposalSize:] {
+		for _, txBz := range proposal[auctionInfo.NumTxs+NumInjectedTxs:] {
 			tx, err := h.ProcessProposalVerifyTx(ctx, txBz)
-
-			// If the transaction is nil, it was unable to be decoded and thus is invalid.
-			if tx == nil {
+			if tx == nil || err != nil {
 				invalidProposal = true
-				continue
-			}
+				if tx != nil {
+					txsToRemove[tx] = struct{}{}
+				}
 
-			if err != nil {
-				invalidProposal = true
-				txsToRemove[tx] = struct{}{}
 				continue
 			}
 
@@ -188,7 +185,6 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 				invalidProposal = true
 			}
 		}
-
 		// Remove all invalid transactions from the mempool.
 		for tx := range txsToRemove {
 			h.RemoveTx(tx)

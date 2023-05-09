@@ -315,7 +315,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 
 			// Total bytes must be less than or equal to maxTxBytes
 			totalBytes := int64(0)
-			for _, tx := range res.Txs[abci.MinProposalSize:] {
+			for _, tx := range res.Txs[abci.NumInjectedTxs:] {
 				totalBytes += int64(len(tx))
 			}
 			suite.Require().LessOrEqual(totalBytes, maxTxBytes)
@@ -333,13 +333,13 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				suite.Require().NoError(err)
 
 				for index, tx := range bidInfo.Transactions {
-					suite.Require().Equal(tx, res.Txs[abci.MinProposalSize+index+1])
+					suite.Require().Equal(tx, res.Txs[abci.NumInjectedTxs+index+1])
 				}
 			}
 
 			// 5. All of the transactions must be unique
 			uniqueTxs := make(map[string]bool)
-			for _, tx := range res.Txs[abci.MinProposalSize:] {
+			for _, tx := range res.Txs[abci.NumInjectedTxs:] {
 				suite.Require().False(uniqueTxs[string(tx)])
 				uniqueTxs[string(tx)] = true
 			}
