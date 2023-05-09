@@ -11,11 +11,6 @@ import (
 	"github.com/skip-mev/pob/mempool"
 )
 
-const (
-	// VoteExtensionAuctionKey is the key used to extract the auction transaction from the vote extension.
-	VoteExtensionAuctionKey = "auction_tx"
-)
-
 type (
 	// VoteExtensionMempool contains the methods required by the VoteExtensionHandler
 	// to interact with the local mempool.
