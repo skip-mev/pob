@@ -14,6 +14,7 @@ import (
 	cometcfg "github.com/cometbft/cometbft/config"
 	cometjson "github.com/cometbft/cometbft/libs/json"
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"github.com/cosmos/cosmos-sdk/server"
 	srvconfig "github.com/cosmos/cosmos-sdk/server/config"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -29,21 +30,30 @@ import (
 
 var (
 	numValidators   = 3
+	numTestAccounts = 10
 	minGasPrice     = sdk.NewDecCoinFromDec(app.BondDenom, sdk.MustNewDecFromStr("0.02")).String()
-	initBalanceStr  = sdk.NewInt64Coin(app.BondDenom, 510000000000).String()
+	initBalanceStr  = sdk.NewInt64Coin(app.BondDenom, 1000000000000000000).String()
 	stakeAmount, _  = sdk.NewIntFromString("100000000000")
 	stakeAmountCoin = sdk.NewCoin(app.BondDenom, stakeAmount)
 )
 
-type IntegrationTestSuite struct {
-	suite.Suite
+type (
+	TestAccount struct {
+		PrivateKey *secp256k1.PrivKey
+		Address    sdk.AccAddress
+	}
 
-	tmpDirs      []string
-	chain        *chain
-	dkrPool      *dockertest.Pool
-	dkrNet       *dockertest.Network
-	valResources []*dockertest.Resource
-}
+	IntegrationTestSuite struct {
+		suite.Suite
+
+		tmpDirs      []string
+		chain        *chain
+		dkrPool      *dockertest.Pool
+		dkrNet       *dockertest.Network
+		valResources []*dockertest.Resource
+		accounts     []TestAccount
+	}
+)
 
 func TestIntegrationTestSuite(t *testing.T) {
 	suite.Run(t, new(IntegrationTestSuite))
@@ -110,6 +120,17 @@ func (s *IntegrationTestSuite) initNodes() {
 		s.Require().NoError(err)
 		s.Require().NoError(addGenesisAccount(val0ConfigDir, "", initBalanceStr, valAddr))
 	}
+
+	// Initialize test accounts with balances
+	accounts := make([]TestAccount, numTestAccounts)
+	for i := 0; i < numTestAccounts; i++ {
+		privKey := secp256k1.GenPrivKey()
+		addr := sdk.AccAddress(privKey.PubKey().Address())
+		accounts[i] = TestAccount{PrivateKey: privKey, Address: addr}
+
+		s.Require().NoError(addGenesisAccount(val0ConfigDir, "", initBalanceStr, addr))
+	}
+	s.accounts = accounts
 
 	// copy the genesis file to the remaining validators
 	for _, val := range s.chain.validators[1:] {
