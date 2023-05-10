@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	numValidators   = 3
+	numValidators   = 1
 	minGasPrice     = sdk.NewDecCoinFromDec(app.BondDenom, sdk.MustNewDecFromStr("0.02")).String()
 	initBalanceStr  = sdk.NewInt64Coin(app.BondDenom, 510000000000).String()
 	stakeAmount, _  = sdk.NewIntFromString("100000000000")

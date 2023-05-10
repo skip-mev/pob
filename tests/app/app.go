@@ -65,6 +65,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/upgrade"
 	upgradeclient "github.com/cosmos/cosmos-sdk/x/upgrade/client"
 	upgradekeeper "github.com/cosmos/cosmos-sdk/x/upgrade/keeper"
+	"github.com/skip-mev/pob/abci"
+	"github.com/skip-mev/pob/mempool"
+	buildermodule "github.com/skip-mev/pob/x/builder"
+	builderkeeper "github.com/skip-mev/pob/x/builder/keeper"
 )
 
 var (
@@ -101,6 +105,7 @@ var (
 		groupmodule.AppModuleBasic{},
 		vesting.AppModuleBasic{},
 		nftmodule.AppModuleBasic{},
+		buildermodule.AppModuleBasic{},
 		consensus.AppModuleBasic{},
 	)
 )
@@ -134,6 +139,7 @@ type TestApp struct {
 	EvidenceKeeper        evidencekeeper.Keeper
 	FeeGrantKeeper        feegrantkeeper.Keeper
 	GroupKeeper           groupkeeper.Keeper
+	BuilderKeeper         builderkeeper.Keeper
 	ConsensusParamsKeeper consensuskeeper.Keeper
 }
 
@@ -212,6 +218,7 @@ func New(
 		&app.EvidenceKeeper,
 		&app.FeeGrantKeeper,
 		&app.GroupKeeper,
+		&app.BuilderKeeper,
 		&app.ConsensusParamsKeeper,
 	); err != nil {
 		panic(err)
@@ -244,6 +251,14 @@ func New(
 	// baseAppOptions = append(baseAppOptions, prepareOpt)
 
 	app.App = appBuilder.Build(logger, db, traceStore, baseAppOptions...)
+
+	// Initialize the POB mempool and proposal handlers
+	mempool := mempool.NewAuctionMempool(app.txConfig.TxDecoder(), app.txConfig.TxEncoder(), 0, mempool.NewDefaultAuctionFactory(app.txConfig.TxDecoder()))
+	app.App.SetMempool(mempool)
+
+	proposalHandlers := abci.NewProposalHandler(mempool, app.App.Logger(), nil, app.txConfig.TxEncoder(), app.txConfig.TxDecoder())
+	app.App.SetPrepareProposal(proposalHandlers.PrepareProposalHandler())
+	app.App.SetProcessProposal(proposalHandlers.ProcessProposalHandler())
 
 	// load state streaming if enabled
 	if _, _, err := streaming.LoadStreamingServices(app.App.BaseApp, appOpts, app.appCodec, logger, app.kvStoreKeys()); err != nil {
