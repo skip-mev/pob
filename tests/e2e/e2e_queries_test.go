@@ -40,12 +40,11 @@ func (s *IntegrationTestSuite) queryAccount(node *dockertest.Resource, address s
 		Address: address.String(),
 	})
 	s.Require().NoError(err)
+	s.Require().NotNil(response)
 
 	account := &authtypes.BaseAccount{}
 	err = account.Unmarshal(response.Account.Value)
-	if err != nil {
-		panic(err)
-	}
+	s.Require().NoError(err)
 
 	return account
 }

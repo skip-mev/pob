@@ -26,7 +26,9 @@ func (s *IntegrationTestSuite) createClientContext() client.Context {
 		WithNodeURI(rpcURI).
 		WithClient(rpcClient).
 		WithGRPCClient(grpcClient).
-		WithInterfaceRegistry(encodingConfig.InterfaceRegistry)
+		WithInterfaceRegistry(encodingConfig.InterfaceRegistry).
+		WithCodec(encodingConfig.Codec).
+		WithChainID(s.chain.id)
 }
 
 // waitForBlockHeight will wait until the current block height is greater than or equal to the given height.

@@ -30,6 +30,7 @@ type validator struct {
 	index        int
 	moniker      string
 	mnemonic     string
+	keyring      keyring.Keyring
 	keyInfo      keyring.Record
 	privateKey   cryptotypes.PrivKey
 	consensusKey privval.FilePVKey
@@ -151,6 +152,7 @@ func (v *validator) createKeyFromMnemonic(name, mnemonic string) error {
 	v.keyInfo = *info
 	v.mnemonic = mnemonic
 	v.privateKey = privKey
+	v.keyring = kb
 
 	return nil
 }
