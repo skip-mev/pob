@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	numValidators   = 1
+	numValidators   = 3
 	minGasPrice     = sdk.NewDecCoinFromDec(app.BondDenom, sdk.MustNewDecFromStr("0.02")).String()
 	initBalanceStr  = sdk.NewInt64Coin(app.BondDenom, 510000000000).String()
 	stakeAmount, _  = sdk.NewIntFromString("100000000000")
@@ -221,6 +221,8 @@ func (s *IntegrationTestSuite) initValidatorConfigs() {
 		appConfig := srvconfig.DefaultConfig()
 		appConfig.API.Enable = true
 		appConfig.MinGasPrices = minGasPrice
+		appConfig.API.Address = "tcp://0.0.0.0:1317"
+		appConfig.GRPC.Address = "0.0.0.0:9090"
 
 		srvconfig.WriteConfigFile(appCfgPath, appConfig)
 	}

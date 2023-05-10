@@ -3,23 +3,17 @@
 package e2e
 
 import (
-	"fmt"
-	"time"
+	"context"
+
+	buildertypes "github.com/skip-mev/pob/x/builder/types"
 )
 
-func (s *IntegrationTestSuite) TestTmp() {
-	s.Require().Eventually(func() bool {
-		params, err := s.queryTopOfBlockParams(s.valResources[0])
-		s.Require().NoError(err)
-		s.Require().NotNil(params)
+func (s *IntegrationTestSuite) TestGetBuilderParams() {
+	queryClient := buildertypes.NewQueryClient(s.createClientContext())
 
-		fmt.Println(params)
-
-		return true
-	},
-		5*time.Minute,
-		3*time.Second,
-	)
-
-	s.Require().True(true)
+	request := &buildertypes.QueryParamsRequest{}
+	response, err := queryClient.Params(context.Background(), request)
+	s.Require().NoError(err)
+	s.Require().NotNil(response)
+	s.Require().Equal(buildertypes.DefaultParams(), response.Params)
 }
