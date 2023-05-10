@@ -1,12 +1,20 @@
+//go:build e2e
+
 package e2e
 
 import (
+	"time"
+
+	"github.com/cosmos/cosmos-sdk/client/flags"
+	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/tx/signing"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/skip-mev/pob/x/builder/types"
 )
 
 func (s *IntegrationTestSuite) TestInit() {
-	// ensure that all accounts have some funds
 	for _, account := range s.accounts {
 		node := s.valResources[0]
 		balances := s.queryBalancesOf(node, account.Address)
@@ -28,12 +36,34 @@ func (s *IntegrationTestSuite) TestSimpleTx() {
 	from := s.accounts[0]
 	to := s.accounts[1]
 	amount := sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(1000)))
-	sequenceOffset := uint64(0)
-	timeout := uint64(1000000)
-	tx := s.createMsgSendTx(from, to.Address.String(), amount, sequenceOffset, timeout)
 
-	// send tx
-	s.broadcastTx(s.valResources[0], tx)
+	msg := &banktypes.MsgSend{
+		FromAddress: from.Address.String(),
+		ToAddress:   to.Address.String(),
+		Amount:      amount,
+	}
+
+	ctx := s.createClientContext(s.valResources[0])
+	ctx = ctx.WithBroadcastMode(flags.BroadcastSync).
+		WithSkipConfirmation(true).
+		WithFrom(s.chain.validators[0].keyInfo.Name).
+		WithOutputFormat("json").
+		WithKeyring(s.chain.validators[0].keyring)
+
+	txFactory := tx.Factory{}.
+		WithChainID(s.chain.id).
+		WithKeybase(s.chain.validators[0].keyring).
+		WithTimeoutHeight(10000).
+		WithSignMode(signing.SignMode_SIGN_MODE_LEGACY_AMINO_JSON).
+		WithAccountRetriever(authtypes.AccountRetriever{}).
+		WithTxConfig(encodingConfig.TxConfig)
+
+	err := tx.BroadcastTx(ctx, txFactory, msg)
+	s.Require().NoError(err)
+
+	// TODO/XXX: Get tx hash from ctx.Output and confirm tx was successful, for now,
+	// we just sleep for a bit.
+	time.Sleep(3 * time.Second)
 
 	// check balances
 	balanceAfter := s.queryBalancesOf(s.valResources[0], s.accounts[0].Address)

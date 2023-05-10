@@ -25,6 +25,5 @@ func (s *IntegrationTestSuite) createClientContext(node *dockertest.Resource) cl
 		WithGRPCClient(grpcClient).
 		WithInterfaceRegistry(encodingConfig.InterfaceRegistry).
 		WithCodec(encodingConfig.Codec).
-		WithChainID(s.chain.id).
-		WithBroadcastMode("BROADCAST_MODE_SYNC")
+		WithChainID(s.chain.id)
 }
