@@ -14,6 +14,7 @@ import (
 	cometcfg "github.com/cometbft/cometbft/config"
 	cometjson "github.com/cometbft/cometbft/libs/json"
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"github.com/cosmos/cosmos-sdk/server"
 	srvconfig "github.com/cosmos/cosmos-sdk/server/config"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -36,15 +37,22 @@ var (
 	stakeAmountCoin = sdk.NewCoin(app.BondDenom, stakeAmount)
 )
 
-type IntegrationTestSuite struct {
-	suite.Suite
+type (
+	TestAccount struct {
+		PrivateKey *secp256k1.PrivKey
+		Address    sdk.AccAddress
+	}
 
-	tmpDirs      []string
-	chain        *chain
-	dkrPool      *dockertest.Pool
-	dkrNet       *dockertest.Network
-	valResources []*dockertest.Resource
-}
+	IntegrationTestSuite struct {
+		suite.Suite
+
+		tmpDirs      []string
+		chain        *chain
+		dkrPool      *dockertest.Pool
+		dkrNet       *dockertest.Network
+		valResources []*dockertest.Resource
+	}
+)
 
 func TestIntegrationTestSuite(t *testing.T) {
 	suite.Run(t, new(IntegrationTestSuite))
@@ -233,6 +241,8 @@ func (s *IntegrationTestSuite) initValidatorConfigs() {
 		appConfig := srvconfig.DefaultConfig()
 		appConfig.API.Enable = true
 		appConfig.MinGasPrices = minGasPrice
+		appConfig.API.Address = "tcp://0.0.0.0:1317"
+		appConfig.GRPC.Address = "0.0.0.0:9090"
 
 		srvconfig.WriteConfigFile(appCfgPath, appConfig)
 	}
