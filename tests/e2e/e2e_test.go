@@ -33,12 +33,14 @@ func (s *IntegrationTestSuite) TestGetBuilderParams() {
 func (s *IntegrationTestSuite) TestSimpleTx() {
 	// balanceBefore := s.queryBalancesOf(s.valResources[0], s.accounts[0].Address)
 
-	from := s.accounts[0]
+	from, err := s.chain.validators[0].keyInfo.GetAddress()
+	s.Require().NoError(err)
+
 	to := s.accounts[1]
 	amount := sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(1000)))
 
 	msg := &banktypes.MsgSend{
-		FromAddress: from.Address.String(),
+		FromAddress: from.String(),
 		ToAddress:   to.Address.String(),
 		Amount:      amount,
 	}
@@ -47,6 +49,7 @@ func (s *IntegrationTestSuite) TestSimpleTx() {
 	ctx = ctx.WithBroadcastMode(flags.BroadcastSync).
 		WithSkipConfirmation(true).
 		WithFrom(s.chain.validators[0].keyInfo.Name).
+		WithFromAddress(from).
 		WithOutputFormat("json").
 		WithKeyring(s.chain.validators[0].keyring)
 
@@ -58,7 +61,7 @@ func (s *IntegrationTestSuite) TestSimpleTx() {
 		WithAccountRetriever(authtypes.AccountRetriever{}).
 		WithTxConfig(encodingConfig.TxConfig)
 
-	err := tx.BroadcastTx(ctx, txFactory, msg)
+	err = tx.BroadcastTx(ctx, txFactory, msg)
 	s.Require().NoError(err)
 
 	// TODO/XXX: Get tx hash from ctx.Output and confirm tx was successful, for now,
