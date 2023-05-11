@@ -23,6 +23,7 @@ import (
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
 	"github.com/skip-mev/pob/tests/app"
+	"github.com/skip-mev/pob/x/builder/types"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 )
@@ -105,7 +106,21 @@ func (s *IntegrationTestSuite) initNodes() {
 
 	// initialize a genesis file for the first validator
 	val0ConfigDir := s.chain.validators[0].configDir()
+
+	// Define the builder module parameters
+	params := types.Params{
+		MaxBundleSize:        5,
+		EscrowAccountAddress: "cosmos14j5j2lsx7629590jvpk3vj0xe9w8203jf4yknk",
+		ReserveFee:           sdk.NewCoin(app.BondDenom, sdk.NewInt(1000000)),
+		MinBuyInFee:          sdk.NewCoin(app.BondDenom, sdk.NewInt(1000000)),
+		MinBidIncrement:      sdk.NewCoin(app.BondDenom, sdk.NewInt(1000000)),
+		ProposerFee:          sdk.NewDecWithPrec(1, 2),
+	}
+
 	for _, val := range s.chain.validators {
+		err := initBuilderModule(val0ConfigDir, "", params)
+		s.Require().NoError(err)
+
 		valAddr, err := val.keyInfo.GetAddress()
 		s.Require().NoError(err)
 		s.Require().NoError(addGenesisAccount(val0ConfigDir, "", initBalanceStr, valAddr))
@@ -283,7 +298,7 @@ func (s *IntegrationTestSuite) runValidators() {
 
 			return true
 		},
-		5*time.Minute,
+		2*time.Minute,
 		time.Second,
 		"POB TestApp node failed to produce blocks",
 	)

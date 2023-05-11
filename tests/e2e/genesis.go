@@ -12,6 +12,7 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/cosmos-sdk/x/genutil"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
+	"github.com/skip-mev/pob/x/builder/types"
 )
 
 func getGenDoc(path string) (*comettypes.GenesisDoc, error) {
@@ -36,6 +37,37 @@ func getGenDoc(path string) (*comettypes.GenesisDoc, error) {
 	}
 
 	return doc, nil
+}
+
+func initBuilderModule(path, moniker string, params types.Params) error {
+	serverCtx := server.NewDefaultContext()
+	config := serverCtx.Config
+
+	config.SetRoot(path)
+	config.Moniker = moniker
+
+	genFile := config.GenesisFile()
+	appState, genDoc, err := genutiltypes.GenesisStateFromGenFile(genFile)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal genesis state: %w", err)
+	}
+
+	builderGenState := types.GetGenesisStateFromAppState(cdc, appState)
+	builderGenState.Params = params
+
+	builderGenStateBz, err := cdc.MarshalJSON(&builderGenState)
+	if err != nil {
+		return fmt.Errorf("failed to marshal builder genesis state: %w", err)
+	}
+
+	appState[types.ModuleName] = builderGenStateBz
+	appStateJSON, err := json.Marshal(appState)
+	if err != nil {
+		return fmt.Errorf("failed to marshal application genesis state: %w", err)
+	}
+
+	genDoc.AppState = appStateJSON
+	return genutil.ExportGenesisFile(genDoc, genFile)
 }
 
 func addGenesisAccount(path, moniker, amountStr string, accAddr sdk.AccAddress) error {
