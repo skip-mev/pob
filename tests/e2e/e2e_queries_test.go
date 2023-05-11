@@ -11,6 +11,7 @@ import (
 	buildertypes "github.com/skip-mev/pob/x/builder/types"
 )
 
+// queryBuilderParams returns the params of the builder module.
 func (s *IntegrationTestSuite) queryBuilderParams(node *dockertest.Resource) *buildertypes.Params {
 	queryClient := buildertypes.NewQueryClient(s.createClientContext())
 
@@ -22,6 +23,7 @@ func (s *IntegrationTestSuite) queryBuilderParams(node *dockertest.Resource) *bu
 	return &response.Params
 }
 
+// queryBalancesOf returns the balances of an account.
 func (s *IntegrationTestSuite) queryBalancesOf(node *dockertest.Resource, address sdk.AccAddress) sdk.Coins {
 	queryClient := banktypes.NewQueryClient(s.createClientContext())
 
@@ -33,6 +35,7 @@ func (s *IntegrationTestSuite) queryBalancesOf(node *dockertest.Resource, addres
 	return response.Balances
 }
 
+// queryAccount returns the account of an address.
 func (s *IntegrationTestSuite) queryAccount(node *dockertest.Resource, address sdk.AccAddress) *authtypes.BaseAccount {
 	queryClient := authtypes.NewQueryClient(s.createClientContext())
 
@@ -49,6 +52,7 @@ func (s *IntegrationTestSuite) queryAccount(node *dockertest.Resource, address s
 	return account
 }
 
+// queryCurrentHeight returns the current block height.
 func (s *IntegrationTestSuite) queryCurrentHeight() int64 {
 	client := tmclient.NewServiceClient(s.createClientContext())
 
@@ -58,6 +62,7 @@ func (s *IntegrationTestSuite) queryCurrentHeight() int64 {
 	return resp.Block.Header.Height
 }
 
+// queryBlock returns the block at the given height.
 func (s *IntegrationTestSuite) queryBlock(height int64) *tmclient.Block {
 	client := tmclient.NewServiceClient(s.createClientContext())
 
@@ -67,6 +72,7 @@ func (s *IntegrationTestSuite) queryBlock(height int64) *tmclient.Block {
 	return resp.GetSdkBlock()
 }
 
+// queryBlockTxs returns the txs of the block at the given height.
 func (s *IntegrationTestSuite) queryBlockTxs(height int64) [][]byte {
 	block := s.queryBlock(height)
 
