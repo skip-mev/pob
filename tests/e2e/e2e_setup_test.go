@@ -118,12 +118,9 @@ func (s *IntegrationTestSuite) initNodes() {
 	}
 
 	for _, val := range s.chain.validators {
-		err := initBuilderModule(val0ConfigDir, "", params)
-		s.Require().NoError(err)
-
 		valAddr, err := val.keyInfo.GetAddress()
 		s.Require().NoError(err)
-		s.Require().NoError(addGenesisAccount(val0ConfigDir, "", initBalanceStr, valAddr))
+		s.Require().NoError(initGenesisFile(val0ConfigDir, "", initBalanceStr, valAddr, params))
 	}
 
 	// copy the genesis file to the remaining validators
