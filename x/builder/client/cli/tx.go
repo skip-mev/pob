@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -51,6 +52,12 @@ where each transaction is a hex-encoded string of a signed transaction.
 			bid, err := sdk.ParseCoinNormalized(args[1])
 			if err != nil {
 				return err
+			}
+
+			// ensure timeout is non-zero
+			timeoutHeight, _ := cmd.Flags().GetUint64(flags.FlagTimeoutHeight)
+			if timeoutHeight == 0 {
+				return errors.New("timeout height must be greater than 0")
 			}
 
 			tokens := strings.Split(args[2], ",")
