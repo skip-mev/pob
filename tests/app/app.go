@@ -26,7 +26,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/cosmos/cosmos-sdk/x/auth/ante"
-	authante "github.com/cosmos/cosmos-sdk/x/auth/ante"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	_ "github.com/cosmos/cosmos-sdk/x/auth/tx/config" // import for side-effects
 	"github.com/cosmos/cosmos-sdk/x/auth/vesting"
@@ -260,7 +259,7 @@ func New(
 
 	// Create a global ante handler that will be called on each transaction when
 	// proposals are being built and verified.
-	handlerOptions := authante.HandlerOptions{
+	handlerOptions := ante.HandlerOptions{
 		AccountKeeper:   app.AccountKeeper,
 		BankKeeper:      app.BankKeeper,
 		FeegrantKeeper:  app.FeeGrantKeeper,
