@@ -2,51 +2,77 @@ package e2e
 
 import (
 	"context"
+	"fmt"
 
 	tmclient "github.com/cosmos/cosmos-sdk/client/grpc/tmservice"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/ory/dockertest/v3"
 	buildertypes "github.com/skip-mev/pob/x/builder/types"
 )
 
+// queryTx queries a transaction by its hash and returns whether there was an
+// error in including the transaction in a block.
+func (s *IntegrationTestSuite) queryTxPassed(txHash string) error {
+	queryClient := txtypes.NewServiceClient(s.createClientContext())
+
+	req := &txtypes.GetTxRequest{Hash: txHash}
+	resp, err := queryClient.GetTx(context.Background(), req)
+	if err != nil {
+		return err
+	}
+
+	if resp.TxResponse.Code != 0 {
+		return fmt.Errorf("tx failed: %s", resp.TxResponse.RawLog)
+	}
+
+	return nil
+}
+
 // queryBuilderParams returns the params of the builder module.
-func (s *IntegrationTestSuite) queryBuilderParams(node *dockertest.Resource) *buildertypes.Params {
+func (s *IntegrationTestSuite) queryBuilderParams() buildertypes.Params {
 	queryClient := buildertypes.NewQueryClient(s.createClientContext())
 
-	request := &buildertypes.QueryParamsRequest{}
-	response, err := queryClient.Params(context.Background(), request)
+	req := &buildertypes.QueryParamsRequest{}
+	resp, err := queryClient.Params(context.Background(), req)
 	s.Require().NoError(err)
-	s.Require().NotNil(response)
 
-	return &response.Params
+	return resp.Params
 }
 
 // queryBalancesOf returns the balances of an account.
-func (s *IntegrationTestSuite) queryBalancesOf(node *dockertest.Resource, address sdk.AccAddress) sdk.Coins {
+func (s *IntegrationTestSuite) queryBalancesOf(address string) sdk.Coins {
 	queryClient := banktypes.NewQueryClient(s.createClientContext())
 
-	request := &banktypes.QueryAllBalancesRequest{Address: address.String()}
-	response, err := queryClient.AllBalances(context.Background(), request)
+	req := &banktypes.QueryAllBalancesRequest{Address: address}
+	resp, err := queryClient.AllBalances(context.Background(), req)
 	s.Require().NoError(err)
-	s.Require().NotNil(response)
 
-	return response.Balances
+	return resp.Balances
+}
+
+// queryBalanceOf returns the balance of an account for a specific denom.
+func (s *IntegrationTestSuite) queryBalanceOf(address string, denom string) sdk.Coin {
+	queryClient := banktypes.NewQueryClient(s.createClientContext())
+
+	req := &banktypes.QueryBalanceRequest{Address: address, Denom: denom}
+	resp, err := queryClient.Balance(context.Background(), req)
+	s.Require().NoError(err)
+
+	return *resp.Balance
 }
 
 // queryAccount returns the account of an address.
-func (s *IntegrationTestSuite) queryAccount(node *dockertest.Resource, address sdk.AccAddress) *authtypes.BaseAccount {
+func (s *IntegrationTestSuite) queryAccount(address sdk.AccAddress) *authtypes.BaseAccount {
 	queryClient := authtypes.NewQueryClient(s.createClientContext())
 
-	response, err := queryClient.Account(context.Background(), &authtypes.QueryAccountRequest{
-		Address: address.String(),
-	})
+	req := &authtypes.QueryAccountRequest{Address: address.String()}
+	resp, err := queryClient.Account(context.Background(), req)
 	s.Require().NoError(err)
-	s.Require().NotNil(response)
 
 	account := &authtypes.BaseAccount{}
-	err = account.Unmarshal(response.Account.Value)
+	err = account.Unmarshal(resp.Account.Value)
 	s.Require().NoError(err)
 
 	return account
@@ -54,27 +80,22 @@ func (s *IntegrationTestSuite) queryAccount(node *dockertest.Resource, address s
 
 // queryCurrentHeight returns the current block height.
 func (s *IntegrationTestSuite) queryCurrentHeight() int64 {
-	client := tmclient.NewServiceClient(s.createClientContext())
+	queryClient := tmclient.NewServiceClient(s.createClientContext())
 
-	resp, err := client.GetLatestBlock(context.Background(), &tmclient.GetLatestBlockRequest{})
+	req := &tmclient.GetLatestBlockRequest{}
+	resp, err := queryClient.GetLatestBlock(context.Background(), req)
 	s.Require().NoError(err)
 
-	return resp.Block.Header.Height
-}
-
-// queryBlock returns the block at the given height.
-func (s *IntegrationTestSuite) queryBlock(height int64) *tmclient.Block {
-	client := tmclient.NewServiceClient(s.createClientContext())
-
-	resp, err := client.GetBlockByHeight(context.Background(), &tmclient.GetBlockByHeightRequest{Height: height})
-	s.Require().NoError(err)
-
-	return resp.GetSdkBlock()
+	return resp.SdkBlock.Header.Height
 }
 
 // queryBlockTxs returns the txs of the block at the given height.
 func (s *IntegrationTestSuite) queryBlockTxs(height int64) [][]byte {
-	block := s.queryBlock(height)
+	queryClient := tmclient.NewServiceClient(s.createClientContext())
 
-	return block.Data.Txs
+	req := &tmclient.GetBlockByHeightRequest{Height: height}
+	resp, err := queryClient.GetBlockByHeight(context.Background(), req)
+	s.Require().NoError(err)
+
+	return resp.GetSdkBlock().Data.Txs
 }

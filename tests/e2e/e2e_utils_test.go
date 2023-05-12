@@ -1,10 +1,16 @@
 package e2e
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -33,20 +39,158 @@ func (s *IntegrationTestSuite) createClientContext() client.Context {
 		WithBroadcastMode(flags.BroadcastSync)
 }
 
-// waitForBlockHe6ight will wait until the current block height is greater than or equal to the given height.
-func (s *IntegrationTestSuite) waitForBlockHeight(height int64) {
-	s.Require().Eventually(
-		func() bool {
-			return s.queryCurrentHeight() >= height
+// createTestAccounts creates and funds test accounts with a balance.
+func (s *IntegrationTestSuite) createTestAccounts(numAccounts int, balance sdk.Coin) []TestAccount {
+	accounts := make([]TestAccount, numAccounts)
+
+	for i := 0; i < numAccounts; i++ {
+		// Generate a new account with private key that will be used to sign transactions.
+		privKey := secp256k1.GenPrivKey()
+		pubKey := privKey.PubKey()
+		addr := sdk.AccAddress(pubKey.Address())
+
+		account := TestAccount{
+			PrivateKey: privKey,
+			Address:    addr,
+		}
+
+		// Fund the account.
+		s.execMsgSendTx(0, account.Address, balance)
+
+		// Wait for the balance to be updated.
+		s.Require().Eventually(func() bool {
+			return !s.queryBalancesOf(addr.String()).IsZero()
 		},
-		10*time.Second,
-		500*time.Millisecond,
-	)
+			10*time.Second,
+			1*time.Second,
+		)
+
+		accounts[i] = account
+	}
+
+	return accounts
+}
+
+// calculateProposerEscrowSplit calculates the amount of a bid that should go to the escrow account
+// and the amount that should go to the proposer. The simluation environment does not support
+// checking the proposer's balance, it only validates that the escrow address has the correct balance.
+func (s *IntegrationTestSuite) calculateProposerEscrowSplit(bid sdk.Coin) sdk.Coin {
+	// Get the params to determine the proposer fee.
+	params := s.queryBuilderParams()
+	proposerFee := params.ProposerFee
+
+	var proposerReward sdk.Coins
+	if proposerFee.IsZero() {
+		// send the entire bid to the escrow account when no proposer fee is set
+		return bid
+	}
+
+	// determine the amount of the bid that goes to the (previous) proposer
+	bidDec := sdk.NewDecCoinsFromCoins(bid)
+	proposerReward, _ = bidDec.MulDecTruncate(proposerFee).TruncateDecimal()
+
+	// Determine the amount of the remaining bid that goes to the escrow account.
+	// If a decimal remainder exists, it'll stay with the bidding account.
+	escrowTotal := bidDec.Sub(sdk.NewDecCoinsFromCoins(proposerReward...))
+	escrowReward, _ := escrowTotal.TruncateDecimal()
+
+	return sdk.NewCoin(bid.Denom, escrowReward.AmountOf(bid.Denom))
 }
 
 // waitForABlock will wait until the current block height has increased by a single block.
-func (s *IntegrationTestSuite) waitForABlock() int64 {
+func (s *IntegrationTestSuite) waitForABlock() {
 	height := s.queryCurrentHeight()
-	s.waitForBlockHeight(height + 1)
-	return height + 1
+	s.Require().Eventually(
+		func() bool {
+			return s.queryCurrentHeight() >= height+1
+		},
+		10*time.Second,
+		50*time.Millisecond,
+	)
+}
+
+// bundleToTxHashes converts a bundle to a slice of transaction hashes.
+func (s *IntegrationTestSuite) bundleToTxHashes(bundle []string) []string {
+	hashes := make([]string, len(bundle))
+
+	for i, tx := range bundle {
+		hashBz, err := hex.DecodeString(tx)
+		s.Require().NoError(err)
+
+		shaBz := sha256.Sum256(hashBz)
+		hashes[i] = hex.EncodeToString(shaBz[:])
+	}
+
+	return hashes
+}
+
+// verifyBlock verifies that the transactions in the block at the given height were seen
+// and executed in the order they were submitted i.e. how they are broadcasted in the bundle.
+func (s *IntegrationTestSuite) verifyBlock(height int64, bidTx string, bundle []string, expectedExecution map[string]bool) {
+	s.waitForABlock()
+	s.T().Logf("Verifying block %d", height)
+
+	// Get the block's transactions and display the expected and actual block for debugging.
+	txs := s.queryBlockTxs(height)
+	s.displayBlock(txs, bidTx, bundle)
+
+	// Ensure that all transactions executed as expected (i.e. landed or failed to land).
+	for tx, landed := range expectedExecution {
+		s.T().Logf("Verifying tx %s executed as %t", tx, landed)
+		s.Require().Equal(landed, s.queryTxPassed(tx) == nil)
+	}
+	s.T().Logf("All txs executed as expected")
+
+	// Check that the block contains the expected transactions in the expected order
+	// iff the bid transaction was expected to execute.
+	if expectedExecution[bidTx] {
+		hashBz := sha256.Sum256(txs[0])
+		hash := hex.EncodeToString(hashBz[:])
+		s.Require().Equal(strings.ToUpper(bidTx), strings.ToUpper(hash))
+
+		for index, bundleTx := range bundle {
+			hashBz := sha256.Sum256(txs[index+1])
+			txHash := hex.EncodeToString(hashBz[:])
+
+			s.Require().Equal(strings.ToUpper(bundleTx), strings.ToUpper(txHash))
+		}
+	}
+}
+
+// displayExpectedBlock displays the expected and actual blocks.
+func (s *IntegrationTestSuite) displayBlock(txs [][]byte, bidTx string, bundle []string) {
+	expectedBlock := fmt.Sprintf("Expected block:\n\t(%d, %s)\n", 0, bidTx)
+	for index, bundleTx := range bundle {
+		expectedBlock += fmt.Sprintf("\t(%d, %s)\n", index+1, bundleTx)
+	}
+
+	s.T().Logf(expectedBlock)
+
+	// Display the actual block.
+	if len(txs) == 0 {
+		s.T().Logf("Actual block is empty")
+		return
+	}
+
+	hashBz := sha256.Sum256(txs[0])
+	hash := hex.EncodeToString(hashBz[:])
+	actualBlock := fmt.Sprintf("Actual block:\n\t(%d, %s)\n", 0, hash)
+	for index, tx := range txs[1:] {
+		hashBz := sha256.Sum256(tx)
+		txHash := hex.EncodeToString(hashBz[:])
+
+		actualBlock += fmt.Sprintf("\t(%d, %s)\n", index+1, txHash)
+	}
+
+	s.T().Logf(actualBlock)
+}
+
+// displayExpectedBundle displays the expected order of the bid and bundled transactions.
+func (s *IntegrationTestSuite) displayExpectedBundle(prefix, bidTx string, bundle []string) {
+	expectedBundle := fmt.Sprintf("%s expected bundle:\n\t(%d, %s)\n", prefix, 0, bidTx)
+	for index, bundleTx := range s.bundleToTxHashes(bundle) {
+		expectedBundle += fmt.Sprintf("\t(%d, %s)\n", index+1, bundleTx)
+	}
+
+	s.T().Logf(expectedBundle)
 }
