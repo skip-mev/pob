@@ -1,5 +1,3 @@
-//go:build e2e
-
 package e2e
 
 import (
@@ -404,11 +402,6 @@ func (s *IntegrationTestSuite) TestBundles() {
 				// Get escrow account balance to ensure that it is updated correctly
 				escrowBalance := s.queryBalanceOf(escrowAddress, app.BondDenom)
 
-				// Execute a few other messages to be included in the block after the bid and bundle
-				txHash1 := s.execMsgSendTx(1, accounts[0].Address, sdk.NewCoin(app.BondDenom, sdk.NewInt(100)))
-				txHash2 := s.execMsgSendTx(2, accounts[0].Address, sdk.NewCoin(app.BondDenom, sdk.NewInt(100)))
-				txHash3 := s.execMsgSendTx(3, accounts[0].Address, sdk.NewCoin(app.BondDenom, sdk.NewInt(100)))
-
 				// Create a bundle with a multiple transaction that is valid
 				bundle := []string{
 					s.createMsgSendTx(accounts[0], accounts[1].Address.String(), defaultSendAmount, 0, 1000),
@@ -417,11 +410,19 @@ func (s *IntegrationTestSuite) TestBundles() {
 					s.createMsgSendTx(accounts[0], accounts[1].Address.String(), defaultSendAmount, 3, 1000),
 				}
 
+				// Wait for a block to ensure all transactions are included in the same block
+				s.waitForABlock()
+
 				// Create a bid transaction that includes the bundle and is valid
 				bid := reserveFee
 				height := s.queryCurrentHeight()
 				bidTxHash := s.execAuctionBidTx(0, bid, height+1, bundle)
 				s.displayExpectedBundle("good bid", bidTxHash, bundle)
+
+				// Execute a few other messages to be included in the block after the bid and bundle
+				txHash1 := s.execMsgSendTx(1, accounts[0].Address, sdk.NewCoin(app.BondDenom, sdk.NewInt(100)))
+				txHash2 := s.execMsgSendTx(2, accounts[0].Address, sdk.NewCoin(app.BondDenom, sdk.NewInt(100)))
+				txHash3 := s.execMsgSendTx(3, accounts[0].Address, sdk.NewCoin(app.BondDenom, sdk.NewInt(100)))
 
 				// Wait for a block to be created
 				s.waitForABlock()
