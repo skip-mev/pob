@@ -72,7 +72,7 @@ func (s *IntegrationTestSuite) createTestAccounts(numAccounts int, balance sdk.C
 }
 
 // calculateProposerEscrowSplit calculates the amount of a bid that should go to the escrow account
-// and the amount that should go to the proposer. The simluation environment does not support
+// and the amount that should go to the proposer. The simulation e2e environment does not support
 // checking the proposer's balance, it only validates that the escrow address has the correct balance.
 func (s *IntegrationTestSuite) calculateProposerEscrowSplit(bid sdk.Coin) sdk.Coin {
 	// Get the params to determine the proposer fee.

@@ -152,6 +152,7 @@ func (s *IntegrationTestSuite) createMsgSendTx(account TestAccount, toAddress st
 
 	// Get account info of the sender to set the account number and sequence number
 	baseAccount := s.queryAccount(account.Address)
+	sequenceNumber := baseAccount.Sequence + uint64(sequenceOffset)
 
 	// Set the messages, fees, and timeout.
 	txBuilder.SetMsgs(msgs...)
@@ -165,7 +166,7 @@ func (s *IntegrationTestSuite) createMsgSendTx(account TestAccount, toAddress st
 			SignMode:  txConfig.SignModeHandler().DefaultMode(),
 			Signature: nil,
 		},
-		Sequence: uint64(baseAccount.Sequence) + uint64(sequenceOffset),
+		Sequence: sequenceNumber,
 	}
 
 	s.Require().NoError(txBuilder.SetSignatures(sigV2))
@@ -173,7 +174,7 @@ func (s *IntegrationTestSuite) createMsgSendTx(account TestAccount, toAddress st
 	signerData := authsigning.SignerData{
 		ChainID:       s.chain.id,
 		AccountNumber: baseAccount.AccountNumber,
-		Sequence:      uint64(baseAccount.Sequence) + uint64(sequenceOffset),
+		Sequence:      sequenceNumber,
 	}
 
 	sigV2, err := clienttx.SignWithPrivKey(
@@ -182,7 +183,7 @@ func (s *IntegrationTestSuite) createMsgSendTx(account TestAccount, toAddress st
 		txBuilder,
 		account.PrivateKey,
 		txConfig,
-		uint64(baseAccount.Sequence)+uint64(sequenceOffset),
+		sequenceNumber,
 	)
 	s.Require().NoError(err)
 	s.Require().NoError(txBuilder.SetSignatures(sigV2))
