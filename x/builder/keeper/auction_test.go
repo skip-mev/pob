@@ -21,7 +21,6 @@ func (suite *KeeperTestSuite) TestValidateBidInfo() {
 		// Auction params
 		maxBundleSize          uint32 = 10
 		reserveFee                    = sdk.NewCoin("foo", sdk.NewInt(1000))
-		minBuyInFee                   = sdk.NewCoin("foo", sdk.NewInt(1000))
 		minBidIncrement               = sdk.NewCoin("foo", sdk.NewInt(1000))
 		escrowAddress                 = sdk.AccAddress([]byte("escrow"))
 		frontRunningProtection        = true
@@ -174,7 +173,6 @@ func (suite *KeeperTestSuite) TestValidateBidInfo() {
 			params := buildertypes.Params{
 				MaxBundleSize:          maxBundleSize,
 				ReserveFee:             reserveFee,
-				MinBuyInFee:            minBuyInFee,
 				EscrowAccountAddress:   escrowAddress.String(),
 				FrontRunningProtection: frontRunningProtection,
 				MinBidIncrement:        minBidIncrement,
