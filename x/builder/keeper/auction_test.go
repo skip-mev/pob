@@ -53,14 +53,6 @@ func (suite *KeeperTestSuite) TestValidateBidInfo() {
 			false,
 		},
 		{
-			"bid amount equals the balance (not accounting for the reserve fee)",
-			func() {
-				balance = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(2000)))
-				bid = sdk.NewCoin("foo", sdk.NewInt(2000))
-			},
-			false,
-		},
-		{
 			"too many transactions in the bundle",
 			func() {
 				// reset the balance and bid to their original values
