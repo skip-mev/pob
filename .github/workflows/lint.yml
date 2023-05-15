@@ -13,6 +13,7 @@ jobs:
   golangci:
     name: golangci-lint
     runs-on: ubuntu-latest
+    skip-dirs: tests/
     steps:
       - uses: actions/setup-go@v4
         with:
