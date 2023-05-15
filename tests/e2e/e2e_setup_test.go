@@ -117,11 +117,12 @@ func (s *IntegrationTestSuite) initNodes() {
 
 	// Define the builder module parameters
 	params := types.Params{
-		MaxBundleSize:        5,
-		EscrowAccountAddress: "cosmos14j5j2lsx7629590jvpk3vj0xe9w8203jf4yknk",
-		ReserveFee:           sdk.NewCoin(app.BondDenom, sdk.NewInt(1000000)),
-		MinBidIncrement:      sdk.NewCoin(app.BondDenom, sdk.NewInt(1000000)),
-		ProposerFee:          sdk.NewDecWithPrec(1, 2),
+		MaxBundleSize:          5,
+		EscrowAccountAddress:   "cosmos14j5j2lsx7629590jvpk3vj0xe9w8203jf4yknk",
+		ReserveFee:             sdk.NewCoin(app.BondDenom, sdk.NewInt(1000000)),
+		MinBidIncrement:        sdk.NewCoin(app.BondDenom, sdk.NewInt(1000000)),
+		ProposerFee:            sdk.NewDecWithPrec(1, 2),
+		FrontRunningProtection: true,
 	}
 
 	for _, val := range s.chain.validators {
