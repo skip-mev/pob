@@ -1,4 +1,4 @@
-package abci_test
+package v2_test
 
 import (
 	"math/rand"
@@ -12,6 +12,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/golang/mock/gomock"
 	"github.com/skip-mev/pob/abci"
+	v2 "github.com/skip-mev/pob/abci/v2"
 	"github.com/skip-mev/pob/mempool"
 	testutils "github.com/skip-mev/pob/testutils"
 	"github.com/skip-mev/pob/x/builder/ante"
@@ -28,8 +29,8 @@ type ABCITestSuite struct {
 	mempool              *mempool.AuctionMempool
 	logger               log.Logger
 	encodingConfig       testutils.EncodingConfig
-	proposalHandler      *abci.ProposalHandler
-	voteExtensionHandler *abci.VoteExtensionHandler
+	proposalHandler      *v2.ProposalHandler
+	voteExtensionHandler *v2.VoteExtensionHandler
 	config               mempool.AuctionFactory
 	txs                  map[string]struct{}
 
@@ -106,8 +107,8 @@ func (suite *ABCITestSuite) SetupTest() {
 
 	// Proposal handler set up
 	suite.logger = log.NewNopLogger()
-	suite.proposalHandler = abci.NewProposalHandler(suite.mempool, suite.logger, suite.anteHandler, suite.encodingConfig.TxConfig.TxEncoder(), suite.encodingConfig.TxConfig.TxDecoder())
-	suite.voteExtensionHandler = abci.NewVoteExtensionHandler(suite.mempool, suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), suite.anteHandler)
+	suite.proposalHandler = v2.NewProposalHandler(suite.mempool, suite.logger, suite.anteHandler, suite.encodingConfig.TxConfig.TxEncoder(), suite.encodingConfig.TxConfig.TxDecoder())
+	suite.voteExtensionHandler = v2.NewVoteExtensionHandler(suite.mempool, suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), suite.anteHandler)
 }
 
 func (suite *ABCITestSuite) anteHandler(ctx sdk.Context, tx sdk.Tx, _ bool) (sdk.Context, error) {
