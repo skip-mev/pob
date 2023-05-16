@@ -186,6 +186,9 @@ $ go install github.com/skip-mev/pob
     }
     ```
 
+    **NOTE**: *The `AuctionDecorator` must be placed after the `auth.SetUpContextDecorator` and before all other decorators as the
+    `AuctionDecorator` is responsible for verifying the validity of the transactions included in the bundle.*
+
 ## Params
 
 Note, before building or upgrading the application, make sure to initialize the
