@@ -96,6 +96,27 @@ func (ad BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 		if err := ad.builderKeeper.ValidateBidInfo(ctx, topBid, bidInfo); err != nil {
 			return ctx, errors.Wrap(err, "failed to validate auction bid")
 		}
+
+		// Check that all bundle transactions are valid.
+		for _, txBz := range bidInfo.Transactions {
+			tx, err := ad.txDecoder(txBz)
+			if err != nil {
+				return ctx, errors.Wrap(err, "failed to decode bundled transaction")
+			}
+
+			// Check if the transaction has already been accepted into the mempool.
+			contains, err := ad.mempool.Contains(tx)
+			if err != nil {
+				return ctx, errors.Wrap(err, "failed to check if transaction is in mempool")
+			}
+
+			// If the transaction is not in the mempool, we need to validate it.
+			if !contains {
+				if ctx, err = next(ctx, tx, simulate); err != nil {
+					return ctx, errors.Wrap(err, "failed to validate bundled transaction")
+				}
+			}
+		}
 	}
 
 	return next(ctx, tx, simulate)
