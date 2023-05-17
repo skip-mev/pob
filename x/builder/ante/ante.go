@@ -112,7 +112,7 @@ func (bd BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 		}
 
 		// Validate the bundled transactions.
-		if ctx, err = bd.ValidateBundleTxs(ctx, bidInfo.Transactions, simulate, next); err != nil {
+		if err = bd.ValidateBundleTxs(ctx, bidInfo.Transactions, simulate, next); err != nil {
 			return ctx, errors.Wrap(err, "failed to validate bundled transactions")
 		}
 
@@ -124,53 +124,48 @@ func (bd BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 	return next(ctx, tx, simulate)
 }
 
-func (bd BuilderDecorator) ValidateBundleTxs(ctx sdk.Context, txs [][]byte, simulate bool, next sdk.AnteHandler) (sdk.Context, error) {
-	// Store the gas meter from the context.
-	gasMeter := ctx.GasMeter()
+// ValidateBundleTxs validates the bundled transactions using the cache context. We do not directly write all of the changes
+// to the state since we do not know if the bid tx will be accepted into the mempool. Additionally, we want
+// to ensure that transactions that are broadcasted normally (not in a bundle) are able to be processed
+// normally.
+func (bd BuilderDecorator) ValidateBundleTxs(ctx sdk.Context, txs [][]byte, simulate bool, next sdk.AnteHandler) error {
+	cacheCtx, _ := ctx.CacheContext()
 
-	// Validate each transaction in the bundle.
+	// Validate each transaction in the bundle and apply state changes to the cache context in
+	// the order that they are received.
 	for _, txBz := range txs {
 		tx, err := bd.txDecoder(txBz)
 		if err != nil {
-			return ctx, errors.Wrap(err, "failed to decode bundled transaction")
-		}
-
-		// Check if the transaction has already been accepted into the mempool.
-		contains, err := bd.mempool.Contains(tx)
-		if err != nil {
-			return ctx, errors.Wrap(err, "failed to check if transaction is in mempool")
+			return errors.Wrap(err, "failed to decode bundled transaction")
 		}
 
 		// If the transaction is not in the mempool, we need to validate it.
+		//
+		// Is this a safe assumption? What if the transaction is in the mempool but the mempool
+		// is out of sync with the application state?
+		contains, err := bd.mempool.Contains(tx)
+		if err != nil {
+			return errors.Wrap(err, "failed to check if transaction is in mempool")
+		}
+
 		if !contains {
 			// Set the gas meter to the gas limit of the transaction.
 			gasTx, ok := tx.(GasTx)
 			if !ok {
-				// Set a gas meter with limit 0 as to prevent an infinite gas meter attack
-				// during runTx.
-				//
-				// NOTE: Do we need to do this or can we return the same context as defined before?
-				newCtx := SetGasMeter(simulate, ctx, 0)
-				return newCtx, fmt.Errorf("transaction must implement GasTx interface")
+				return fmt.Errorf("transaction must implement GasTx interface")
 			}
 
-			newCtx := SetGasMeter(simulate, ctx, gasTx.GetGas())
+			// Set the gas meter to the gas limit of the transaction.
+			cacheCtx = SetGasMeter(simulate, cacheCtx, gasTx.GetGas())
 
-			if ctx, err = next(newCtx, tx, simulate); err != nil {
-				// Reset the gas meter to the original gas meter.
-				ctx = ctx.WithGasMeter(gasMeter)
-
-				return ctx, errors.Wrap(err, "failed to validate bundled transaction")
+			// Validate the transaction by running the ante handler chain.
+			if cacheCtx, err = next(cacheCtx, tx, simulate); err != nil {
+				return errors.Wrap(err, "failed to validate bundled transaction")
 			}
 		}
 	}
 
-	// Reset the gas meter to the original gas meter.
-	//
-	// NOTE: We probably need to reset other context values as well.
-	ctx = ctx.WithGasMeter(gasMeter)
-
-	return ctx, nil
+	return nil
 }
 
 // SetGasMeter returns a new context with a gas meter set from a given context.
