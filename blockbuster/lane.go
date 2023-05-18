@@ -3,28 +3,38 @@ package blockbuster
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
+	"github.com/skip-mev/pob/mempool"
 )
 
-// Lane defines an interface used for block construction
-type Lane interface {
-	sdkmempool.Mempool
+type (
+	// LaneConfig defines the configuration for a lane.
+	LaneConfig[C comparable] struct {
+		// XXX: For now we use the PriorityNonceMempoolConfig as the base config,
+		// which should be removed once Cosmos SDK v0.48 is released.
+		mempool.PriorityNonceMempoolConfig[C]
+	}
 
-	// Name returns the name of the lane.
-	Name() string
+	// Lane defines an interface used for block construction
+	Lane interface {
+		sdkmempool.Mempool
 
-	// Match determines if a transaction belongs to this lane.
-	Match(tx sdk.Tx) bool
+		// Name returns the name of the lane.
+		Name() string
 
-	// VerifyTx verifies the transaction belonging to this lane.
-	VerifyTx(ctx sdk.Context, tx sdk.Tx) error
+		// Match determines if a transaction belongs to this lane.
+		Match(tx sdk.Tx) bool
 
-	// Contains returns true if the mempool contains the given transaction.
-	Contains(tx sdk.Tx) (bool, error)
+		// VerifyTx verifies the transaction belonging to this lane.
+		VerifyTx(ctx sdk.Context, tx sdk.Tx) error
 
-	// PrepareLane which builds a portion of the block. Inputs a cache of transactions
-	// that have already been included by a previous lane.
-	PrepareLane(ctx sdk.Context, cache map[string]struct{}) [][]byte
+		// Contains returns true if the mempool contains the given transaction.
+		Contains(tx sdk.Tx) (bool, error)
 
-	// ProcessLane which verifies the lane's portion of a proposed block.
-	ProcessLane(ctx sdk.Context, txs [][]byte) error
-}
+		// PrepareLane which builds a portion of the block. Inputs a cache of transactions
+		// that have already been included by a previous lane.
+		PrepareLane(ctx sdk.Context, cache map[string]struct{}) [][]byte
+
+		// ProcessLane which verifies the lane's portion of a proposed block.
+		ProcessLane(ctx sdk.Context, txs [][]byte) error
+	}
+)

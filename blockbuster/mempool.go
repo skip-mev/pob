@@ -1,0 +1,29 @@
+package blockbuster
+
+import (
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
+)
+
+var _ sdkmempool.Mempool = (*Mempool)(nil)
+
+// Mempool defines the Blockbuster mempool implement. It contains a registry
+// of lanes, which allows for customizable block proposal construction.
+type Mempool struct {
+	registry []Lane
+}
+
+func (m *Mempool) CountTx() int {
+	var total int
+	for _, lane := range m.registry {
+		// TODO: If a global lane exists, we assume that lane has all transactions
+		// and we return the total.
+		//
+		// if lane.Name() == LaneNameGlobal {
+		// 	return lane.CountTx()
+		// }
+
+		total += lane.CountTx()
+	}
+
+	return total
+}
