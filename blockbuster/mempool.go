@@ -1,6 +1,9 @@
 package blockbuster
 
 import (
+	"context"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
@@ -26,4 +29,16 @@ func (m *Mempool) CountTx() int {
 	}
 
 	return total
+}
+
+func (m *Mempool) Insert(ctx context.Context, tx sdk.Tx) error {
+	panic("not implemented")
+}
+
+func (m *Mempool) Select(context.Context, [][]byte) sdkmempool.Iterator {
+	panic("not implemented")
+}
+
+func (m *Mempool) Remove(sdk.Tx) error {
+	panic("not implemented")
 }
