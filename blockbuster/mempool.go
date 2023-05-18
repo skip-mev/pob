@@ -2,6 +2,7 @@ package blockbuster
 
 import (
 	"context"
+	"errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
@@ -31,22 +32,43 @@ func (m *Mempool) CountTx() int {
 	return total
 }
 
+// Insert inserts a transaction into every lane that it matches. Insertion will
+// be attempted on all lanes, even if an error is encountered.
 func (m *Mempool) Insert(ctx context.Context, tx sdk.Tx) error {
+	errs := make([]error, 0, len(m.registry))
+
 	for _, lane := range m.registry {
 		if lane.Match(tx) {
-			if err := lane.Insert(ctx, tx); err != nil {
-				return err
-			}
+			err := lane.Insert(ctx, tx)
+			errs = append(errs, err)
 		}
 	}
 
+	return errors.Join(errs...)
+}
+
+// Insert returns a nil iterator.
+//
+// TODO:
+//
+// - Determine if it even makes sense to return an iterator. What does that even
+// mean in the context where you have multiple lanes?
+// - Perhaps consider returning a no-op iterator?
+func (m *Mempool) Select(_ context.Context, _ [][]byte) sdkmempool.Iterator {
 	return nil
 }
 
-func (m *Mempool) Select(context.Context, [][]byte) sdkmempool.Iterator {
-	panic("not implemented")
-}
+// Remove removes a transaction from every lane that it matches. Removal will be
+// attempted on all lanes, even if an error is encountered.
+func (m *Mempool) Remove(tx sdk.Tx) error {
+	errs := make([]error, 0, len(m.registry))
 
-func (m *Mempool) Remove(sdk.Tx) error {
-	panic("not implemented")
+	for _, lane := range m.registry {
+		if lane.Match(tx) {
+			err := lane.Remove(tx)
+			errs = append(errs, err)
+		}
+	}
+
+	return errors.Join(errs...)
 }
