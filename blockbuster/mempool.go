@@ -32,7 +32,15 @@ func (m *Mempool) CountTx() int {
 }
 
 func (m *Mempool) Insert(ctx context.Context, tx sdk.Tx) error {
-	panic("not implemented")
+	for _, lane := range m.registry {
+		if lane.Match(tx) {
+			if err := lane.Insert(ctx, tx); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func (m *Mempool) Select(context.Context, [][]byte) sdkmempool.Iterator {
