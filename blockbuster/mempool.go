@@ -16,6 +16,8 @@ type Mempool struct {
 	registry []Lane
 }
 
+// TODO: Consider using a tx cache in Mempool and returning the length of that
+// cache instead of relying on lane count tracking.
 func (m *Mempool) CountTx() int {
 	var total int
 	for _, lane := range m.registry {
