@@ -3,7 +3,6 @@ package e2e
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
@@ -16,6 +15,7 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/ory/dockertest/v3/docker"
 	"github.com/skip-mev/pob/tests/app"
+	buildertypes "github.com/skip-mev/pob/x/builder/types"
 )
 
 // execAuctionBidTx executes an auction bid transaction on the given validator given the provided
@@ -46,6 +46,7 @@ func (s *IntegrationTestSuite) execAuctionBidTx(valIdx int, bid sdk.Coin, timeou
 			fmt.Sprintf("--%s=%s", flags.FlagFrom, s.chain.validators[valIdx].keyInfo.Name),
 			fmt.Sprintf("--%s=%s", flags.FlagChainID, s.chain.id),
 			fmt.Sprintf("--%s=%s", flags.FlagFees, sdk.NewCoin(app.BondDenom, sdk.NewInt(1000000000)).String()),
+			fmt.Sprintf("--%s=%d", flags.FlagSequence, offset),
 			"--keyring-backend=test",
 			"--broadcast-mode=sync",
 			"-y",
@@ -136,12 +137,22 @@ func (s *IntegrationTestSuite) execMsgSendTx(valIdx int, to sdk.AccAddress, amou
 	return txHash
 }
 
+// createAuctionBidTx creates a transaction that bids on an auction given the provided bidder, bid, and transactions.
+func (s *IntegrationTestSuite) createAuctionBidTx(account TestAccount, bid sdk.Coin, transactions [][]byte, sequenceOffset, height uint64) []byte {
+	msgs := []sdk.Msg{
+		&buildertypes.MsgAuctionBid{
+			Bidder:       account.Address.String(),
+			Bid:          bid,
+			Transactions: transactions,
+		},
+	}
+
+	return s.createTx(account, msgs, sequenceOffset, height)
+}
+
 // createMsgSendTx creates a send transaction given the provided signer, recipient, amount, sequence number offset, and block height timeout.
 // This function is primarily used to create bundles of transactions.
-func (s *IntegrationTestSuite) createMsgSendTx(account TestAccount, toAddress string, amount sdk.Coins, sequenceOffset, height int) string {
-	txConfig := encodingConfig.TxConfig
-	txBuilder := txConfig.NewTxBuilder()
-
+func (s *IntegrationTestSuite) createMsgSendTx(account TestAccount, toAddress string, amount sdk.Coins, sequenceOffset, height uint64) []byte {
 	msgs := []sdk.Msg{
 		&banktypes.MsgSend{
 			FromAddress: account.Address.String(),
@@ -150,15 +161,22 @@ func (s *IntegrationTestSuite) createMsgSendTx(account TestAccount, toAddress st
 		},
 	}
 
+	return s.createTx(account, msgs, sequenceOffset, height)
+}
+
+func (s *IntegrationTestSuite) createTx(account TestAccount, msgs []sdk.Msg, sequenceOffset, height uint64) []byte {
+	txConfig := encodingConfig.TxConfig
+	txBuilder := txConfig.NewTxBuilder()
+
 	// Get account info of the sender to set the account number and sequence number
 	baseAccount := s.queryAccount(account.Address)
-	sequenceNumber := baseAccount.Sequence + uint64(sequenceOffset)
+	sequenceNumber := baseAccount.Sequence + sequenceOffset
 
 	// Set the messages, fees, and timeout.
 	txBuilder.SetMsgs(msgs...)
 	txBuilder.SetGasLimit(5000000)
 	txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(150000))))
-	txBuilder.SetTimeoutHeight(uint64(height))
+	txBuilder.SetTimeoutHeight(height)
 
 	sigV2 := signing.SignatureV2{
 		PubKey: account.PrivateKey.PubKey(),
@@ -191,8 +209,5 @@ func (s *IntegrationTestSuite) createMsgSendTx(account TestAccount, toAddress st
 	bz, err := txConfig.TxEncoder()(txBuilder.GetTx())
 	s.Require().NoError(err)
 
-	// Hex encode the transaction
-	hash := hex.EncodeToString(bz)
-
-	return hash
+	return bz
 }
