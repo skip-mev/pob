@@ -361,13 +361,18 @@ func (app *TestApp) GetContextForBidTx(req cometabci.RequestCheckTx) sdk.Context
 	return ctx.
 		WithBlockHeight(app.App.LastBlockHeight()).
 		WithTxBytes(req.Tx).
-		WithChainID("chain-id-0")
+		WithChainID("chain-id-0") // TODO: Replace with actual chain ID. This is currently not exposed by the app.
 }
 
+// CheckTx will check the transaction with the provided checkTxHandler. We override the default
+// handler so that we can verify bid transactions before they are inserted into the mempool.
+// With the POB CheckTx, we can verify the bid transaction and all of the bundled transactions
+// before inserting the bid transaction into the mempool.
 func (app *TestApp) CheckTx(req cometabci.RequestCheckTx) cometabci.ResponseCheckTx {
 	return app.checkTxHandler(req)
 }
 
+// SetCheckTx sets the checkTxHandler for the app.
 func (app *TestApp) SetCheckTx(handler abci.CheckTx) {
 	app.checkTxHandler = handler
 }

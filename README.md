@@ -90,8 +90,13 @@ $ go install github.com/skip-mev/pob
 
       ```go
       type App struct {
-        BuilderKeeper builderkeeper.Keeper
-        ...
+          ...
+          // BuilderKeeper is the keeper that handles processing auction transactions
+        	BuilderKeeper         builderkeeper.Keeper
+          ...
+
+          // Custom checkTx handler
+          checkTxHandler abci.CheckTx
       }
       ```
 
@@ -133,7 +138,7 @@ $ go install github.com/skip-mev/pob
       ```
 
     d. Searchers bid to have their bundles executed at the top of the block
-    using `MsgAuctionBid` messages. While the builder `Keeper` is capable of
+    using `MsgAuctionBid` messages (by default). While the builder `Keeper` is capable of
     tracking valid bids, it is unable to correctly sequence the auction
     transactions alongside the normal transactions without having access to the
     application’s mempool. As such, we have to instantiate POB’s custom
@@ -141,8 +146,17 @@ $ go install github.com/skip-mev/pob
     mempool - into the application. Note, this should be done after `BaseApp` is
     instantiated.
 
+    d.1. Application developers can choose to implement their own `AuctionFactory` implementation
+    or use the default implementation provided by POB. The `AuctionFactory` is responsible
+    for determining what is an auction bid transaction and how to extract the bid information
+    from the transaction. The default implementation provided by POB is `DefaultAuctionFactory`
+    which uses the `MsgAuctionBid` message to determine if a transaction is an auction bid
+    transaction and extracts the bid information from the message. 
+
     ```go
-    mempool := mempool.NewAuctionMempool(txConfig.TxDecoder(), GetMaxMempoolSize())
+    config := mempool.NewDefaultAuctionFactory(txDecoder)
+
+    mempool := mempool.NewAuctionMempool(txDecoder, txEncoder, maxTx, config)
     bApp.SetMempool(mempool)
     ```
 
@@ -155,16 +169,95 @@ $ go install github.com/skip-mev/pob
     handlers allows the application to verifiably build valid blocks with
     top-of-block block space reserved for auctions.
 
+    e.1. We override the `BaseApp`'s `CheckTx` handler with our own custom
+    `CheckTx` handler that will be responsible for checking the validity of
+    auction transactions. Since each auction transaction must be checked against
+    the latest committed state, we need to provide the `CheckTx` handler with a
+    context that is aware of the latest committed state. We do this by creating
+    a new context for each auction transaction that is aware of the latest
+    committed state.
+
     ```go
+    // Create the entire chain of AnteDecorators for the application.
+    anteDecorators := []sdk.AnteDecorator{
+      auction.NewAuctionDecorator(
+        app.BuilderKeeper,
+        txConfig.TxEncoder(),
+        mempool,
+      ),
+      ...,
+    }
+
+    // Create the antehandler that will be used to check transactions throughout the lifecycle
+    // of the application.
+    anteHandler := sdk.ChainAnteDecorators(anteDecorators...)
+  	app.SetAnteHandler(anteHandler)
+
+    // Create the proposal handler that will be used to build and validate blocks.
     handler := proposalhandler.NewProposalHandler(
       mempool, 
       bApp.Logger(), 
-      bApp,
+      anteHandler,
       txConfig.TxEncoder(),
       txConfig.TxDecoder(),
     )
-    bApp.SetPrepareProposal(handler.PrepareProposalHandler())
-    bApp.SetProcessProposal(handler.ProcessProposalHandler())
+    app.SetPrepareProposal(handler.PrepareProposalHandler())
+    app.SetProcessProposal(handler.ProcessProposalHandler())
+
+    // Set the custom CheckTx handler on BaseApp.
+    checkTxHandler := abci.CheckTxHandler(
+      app.App,
+      app.GetContextForBidTx,
+      app.TxDecoder,
+      mempool,
+      anteHandler,
+    )
+    app.SetCheckTx(checkTxHandler)
+
+    ...
+
+    }
+
+    // GetContextForBidTx returns a context that can be used to verify a bid transaction. This context
+    // is based off of the latest committed state and is used to verify transactions as if they were
+    // to be executed at the top of the block. After verification, this context will be discarded and
+    // will not apply any state changes.
+    func (app *TestApp) GetContextForBidTx(req cometabci.RequestCheckTx) sdk.Context {
+      // Retrieve the commit multi-store which is used to retrieve the latest committed state.
+      ms := app.App.CommitMultiStore().CacheMultiStore()
+
+      // Create a new context based off of the latest committed state.
+      ctx, _ := sdk.NewContext(ms, tmproto.Header{}, false, app.Logger()).CacheContext()
+
+      // Set the context to the correct checking mode.
+      switch req.Type {
+      case cometabci.CheckTxType_New:
+        ctx = ctx.WithIsCheckTx(true)
+      case cometabci.CheckTxType_Recheck:
+        ctx = ctx.WithIsReCheckTx(true)
+      default:
+        panic("unknown check tx type")
+      }
+
+      // Set the remaining important context values.
+      return ctx.
+        WithBlockHeight(app.App.LastBlockHeight()).
+        WithTxBytes(req.Tx).
+        WithChainID("chain-id-0") // TODO: Replace with actual chain ID. This is currently not exposed by the app.
+    }
+
+    // CheckTx will check the transaction with the provided checkTxHandler. We override the default
+    // handler so that we can verify bid transactions before they are inserted into the mempool.
+    // With the POB CheckTx, we can verify the bid transaction and all of the bundled transactions
+    // before inserting the bid transaction into the mempool.
+    func (app *TestApp) CheckTx(req cometabci.RequestCheckTx) cometabci.ResponseCheckTx {
+      return app.checkTxHandler(req)
+    }
+
+    // SetCheckTx sets the checkTxHandler for the app.
+    func (app *TestApp) SetCheckTx(handler abci.CheckTx) {
+      app.checkTxHandler = handler
+    }
     ```
 
     f. Finally, update the app's `InitGenesis` order and ante-handler chain.
@@ -174,20 +267,8 @@ $ go install github.com/skip-mev/pob
       buildertypes.ModuleName,
       ...,
     }
-
-    anteDecorators := []sdk.AnteDecorator{
-      auction.NewAuctionDecorator(
-        app.BuilderKeeper,
-        txConfig.TxDecoder(),
-        txConfig.TxEncoder(),
-        mempool,
-      ),
-      ...,
-    }
     ```
 
-    **NOTE**: *The `AuctionDecorator` must be placed after the `auth.SetUpContextDecorator` and before all other decorators as the
-    `AuctionDecorator` is responsible for verifying the validity of the transactions included in the bundle.*
 
 ## Params
 

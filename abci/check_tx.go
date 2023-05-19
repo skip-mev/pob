@@ -33,10 +33,12 @@ type (
 	}
 )
 
-// CheckTxHandler is a wrapper around baseapp's CheckTx method that also checks
-// for bundle txs and executes them. It only checks for bundle txs if the
-// request type is "new". If the request type is "recheck", it will not check
-// for bundle txs.
+// CheckTxHandler is a wrapper around baseapp's CheckTx method that allows us to
+// verify bid transactions against the latest committed state. All other transactions
+// are executed normally. We must verify each bid tx and all of its bundled transactions
+// before we can insert it into the mempool against the latest commit state because
+// otherwise the auction can be griefed. No state changes are applied to the state
+// during this process.
 func CheckTxHandler(baseApp BaseApp, getContextForBidTx GetContextForBidTx, txDecoder sdk.TxDecoder, mempool CheckTxMempool, anteHandler sdk.AnteHandler) CheckTx {
 	return func(req abci.RequestCheckTx) abci.ResponseCheckTx {
 		sdkTx, err := txDecoder(req.Tx)
@@ -44,8 +46,7 @@ func CheckTxHandler(baseApp BaseApp, getContextForBidTx GetContextForBidTx, txDe
 			return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("failed to decode tx: %w", err), 0, 0, nil, false)
 		}
 
-		// Attempt to get the bid info of the transaction. If this is not a bid
-		// transaction, bidInfo will be nil.
+		// Attempt to get the bid info of the transaction.
 		bidInfo, err := mempool.GetAuctionBidInfo(sdkTx)
 		if err != nil {
 			return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("failed to get auction bid info: %w", err), 0, 0, nil, false)
@@ -64,28 +65,37 @@ func CheckTxHandler(baseApp BaseApp, getContextForBidTx GetContextForBidTx, txDe
 		// Verify the bid transaction.
 		ctx, err = anteHandler(ctx, sdkTx, false)
 		if err != nil {
-			return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("failed to execute ante handler: %w", err), 0, 0, nil, false)
+			return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("invalid bid tx; failed to execute ante handler: %w", err), 0, 0, nil, false)
 		}
+
+		// Get the gas used and logs from the context.
+		gasUsed := ctx.GasMeter().GasConsumed()
+		logs := ctx.EventManager().ABCIEvents()
+		sender := bidInfo.Bidder.String()
 
 		// Verify all of the bundled transactions.
 		for _, tx := range bidInfo.Transactions {
 			bundledTx, err := mempool.WrapBundleTransaction(tx)
 			if err != nil {
-				return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("failed to decode bundled tx: %w", err), 0, 0, nil, false)
+				return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("invalid bid tx; failed to decode bundled tx: %w", err), 0, 0, nil, false)
 			}
 
 			if ctx, err = anteHandler(ctx, bundledTx, false); err != nil {
-				return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("failed to execute bundled transaction: %w", err), 0, 0, nil, false)
+				return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("invalid bid tx; failed to execute bundled transaction: %w", err), 0, 0, nil, false)
 			}
 		}
 
 		// If the bid transaction is valid, we know we can insert it into the mempool for consideration in the next block.
 		if err := mempool.Insert(ctx, sdkTx); err != nil {
-			return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("failed to insert bid transaction into mempool: %w", err), 0, 0, nil, false)
+			return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("invalid bid tx; failed to insert bid transaction into mempool: %w", err), 0, 0, nil, false)
 		}
 
 		return abci.ResponseCheckTx{
-			Code: abci.CodeTypeOK,
+			Code:    abci.CodeTypeOK,
+			GasUsed: int64(gasUsed),
+			Events:  logs,
+			Info:    "valid bid transaction inserted into mempool",
+			Sender:  sender,
 		}
 	}
 }
