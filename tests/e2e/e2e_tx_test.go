@@ -21,7 +21,7 @@ import (
 // execAuctionBidTx executes an auction bid transaction on the given validator given the provided
 // bid, timeout, and bundle. This function returns the transaction hash. It does not wait for the
 // transaction to be committed.
-func (s *IntegrationTestSuite) execAuctionBidTx(valIdx int, bid sdk.Coin, timeout int64, bundle []string) string {
+func (s *IntegrationTestSuite) execAuctionBidTx(valIdx int, bid sdk.Coin, timeout int64, bundle []string, offset uint64) string {
 	address, err := s.chain.validators[valIdx].keyInfo.GetAddress()
 	s.Require().NoError(err)
 
@@ -157,7 +157,7 @@ func (s *IntegrationTestSuite) createMsgSendTx(account TestAccount, toAddress st
 	// Set the messages, fees, and timeout.
 	txBuilder.SetMsgs(msgs...)
 	txBuilder.SetGasLimit(5000000)
-	txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(75000))))
+	txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(150000))))
 	txBuilder.SetTimeoutHeight(uint64(height))
 
 	sigV2 := signing.SignatureV2{

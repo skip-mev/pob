@@ -51,7 +51,7 @@ func (s *IntegrationTestSuite) TestBundles() {
 				// Create a bid transaction that includes the bundle and is valid
 				bid := reserveFee
 				height := s.queryCurrentHeight()
-				bidTxHash := s.execAuctionBidTx(0, bid, height+1, bundle)
+				bidTxHash := s.execAuctionBidTx(0, bid, height+1, bundle, 0)
 				s.displayExpectedBundle("Valid auction bid", bidTxHash, bundle)
 
 				// Wait for a block to be created
@@ -84,7 +84,7 @@ func (s *IntegrationTestSuite) TestBundles() {
 				// Create a bid transaction that includes a bid that is smaller than the reserve fee
 				bid := reserveFee.Sub(sdk.NewInt64Coin(app.BondDenom, 1))
 				height := s.queryCurrentHeight()
-				bidTxHash := s.execAuctionBidTx(0, bid, height+1, bundle)
+				bidTxHash := s.execAuctionBidTx(0, bid, height+1, bundle, 0)
 				s.displayExpectedBundle("invalid bid", bidTxHash, bundle)
 
 				// Wait for a block to be created
@@ -117,7 +117,7 @@ func (s *IntegrationTestSuite) TestBundles() {
 				// Create a bid transaction that includes the bundle
 				bid := reserveFee
 				height := s.queryCurrentHeight()
-				bidTxHash := s.execAuctionBidTx(0, bid, height+1, bundle)
+				bidTxHash := s.execAuctionBidTx(0, bid, height+1, bundle, 0)
 				s.displayExpectedBundle("invalid bid", bidTxHash, bundle)
 
 				// Wait for a block to be created
@@ -152,7 +152,7 @@ func (s *IntegrationTestSuite) TestBundles() {
 				// Create a bid transaction that includes the bundle and has a bad timeout
 				bid := reserveFee
 				height := s.queryCurrentHeight()
-				bidTxHash := s.execAuctionBidTx(0, bid, height, bundle)
+				bidTxHash := s.execAuctionBidTx(0, bid, height, bundle, 0)
 				s.displayExpectedBundle("invalid bid", bidTxHash, bundle)
 
 				// Wait for a block to be created
@@ -184,12 +184,12 @@ func (s *IntegrationTestSuite) TestBundles() {
 				// Create a bid transaction that includes the bundle and is valid
 				bid := reserveFee
 				height := s.queryCurrentHeight()
-				bidTxHash := s.execAuctionBidTx(0, bid, height+1, bundle)
+				bidTxHash := s.execAuctionBidTx(0, bid, height+1, bundle, 0)
 				s.displayExpectedBundle("bid 1", bidTxHash, bundle)
 
 				// Create a second bid transaction that includes the bundle and is valid (but smaller than the min bid increment)
 				badBid := reserveFee.Add(sdk.NewInt64Coin(app.BondDenom, 10))
-				bidTxHash2 := s.execAuctionBidTx(0, badBid, height+1, bundle)
+				bidTxHash2 := s.execAuctionBidTx(0, badBid, height+1, bundle, 0)
 				s.displayExpectedBundle("bid 2", bidTxHash2, bundle)
 
 				// Wait for a block to be created
@@ -223,12 +223,12 @@ func (s *IntegrationTestSuite) TestBundles() {
 				// Create a bid transaction that includes the bundle and is valid
 				bid := reserveFee
 				height := s.queryCurrentHeight()
-				bidTxHash := s.execAuctionBidTx(0, bid, height+2, bundle)
+				bidTxHash := s.execAuctionBidTx(0, bid, height+1, bundle, 0)
 				s.displayExpectedBundle("bid 1", bidTxHash, bundle)
 
 				// Create a second bid transaction that includes the bundle and is valid
 				bid2 := reserveFee.Add(minBidIncrement)
-				bidTxHash2 := s.execAuctionBidTx(1, bid2, height+1, bundle)
+				bidTxHash2 := s.execAuctionBidTx(0, bid2, height+1, bundle, 1)
 				s.displayExpectedBundle("bid 2", bidTxHash2, bundle)
 
 				// Wait for a block to be created
@@ -253,7 +253,7 @@ func (s *IntegrationTestSuite) TestBundles() {
 			},
 		},
 		{
-			name: "Multiple transactions with increasing bids and different bundles (both should execute)",
+			name: "Multiple transactions with increasing bids and different bundles (one should execute)",
 			test: func() {
 				// Get escrow account balance
 				escrowBalance := s.queryBalanceOf(escrowAddress, app.BondDenom)
@@ -271,12 +271,12 @@ func (s *IntegrationTestSuite) TestBundles() {
 				// Create a bid transaction that includes the bundle and is valid
 				bid := reserveFee
 				height := s.queryCurrentHeight()
-				bidTxHash := s.execAuctionBidTx(0, bid, height+2, firstBundle) // height+2 to ensure it is executed after the second bid
+				bidTxHash := s.execAuctionBidTx(0, bid, height+2, firstBundle, 0) // height+2 to ensure it is executed after the second bid
 				s.displayExpectedBundle("bid 1", bidTxHash, firstBundle)
 
 				// Create a second bid transaction that includes the bundle and is valid
 				bid2 := reserveFee.Add(minBidIncrement)
-				bidTxHash2 := s.execAuctionBidTx(1, bid2, height+1, secondBundle)
+				bidTxHash2 := s.execAuctionBidTx(1, bid2, height+1, secondBundle, 0)
 				s.displayExpectedBundle("bid 2", bidTxHash2, secondBundle)
 
 				// Wait for a block to be created
@@ -288,13 +288,15 @@ func (s *IntegrationTestSuite) TestBundles() {
 				expectedExecution := map[string]bool{
 					bidTxHash2:            true,
 					secondBundleHashes[0]: true,
+					bidTxHash:             false,
+					firstBundleHashes[0]:  false,
 				}
 				s.verifyBlock(height+1, bidTxHash2, secondBundleHashes, expectedExecution)
 
 				// Wait for a block to be created and ensure that the second bid is executed
-				s.waitForABlock()
 				expectedExecution[bidTxHash] = true
 				expectedExecution[firstBundleHashes[0]] = true
+				s.waitForABlock()
 				s.verifyBlock(height+2, bidTxHash, firstBundleHashes, expectedExecution)
 
 				// Ensure that the escrow account has the correct balance
@@ -316,7 +318,7 @@ func (s *IntegrationTestSuite) TestBundles() {
 				// Create a bid transaction that includes the bundle and is valid
 				bid := reserveFee
 				height := s.queryCurrentHeight()
-				bidTxHash := s.execAuctionBidTx(0, bid, height+1, bundle)
+				bidTxHash := s.execAuctionBidTx(0, bid, height+1, bundle, 0)
 				s.displayExpectedBundle("bad bid", bidTxHash, bundle)
 
 				// Wait for a block to be created
@@ -349,7 +351,7 @@ func (s *IntegrationTestSuite) TestBundles() {
 				// Create a bid transaction that includes the bundle and is valid
 				bid := reserveFee
 				height := s.queryCurrentHeight()
-				bidTxHash := s.execAuctionBidTx(0, bid, height+1, bundle)
+				bidTxHash := s.execAuctionBidTx(0, bid, height+1, bundle, 0)
 				s.displayExpectedBundle("bad bid", bidTxHash, bundle)
 
 				// Wait for a block to be created
@@ -382,7 +384,7 @@ func (s *IntegrationTestSuite) TestBundles() {
 				// Create a bid transaction that includes the bundle and is valid
 				bid := sdk.NewCoin(app.BondDenom, sdk.NewInt(999999999999999999))
 				height := s.queryCurrentHeight()
-				bidTxHash := s.execAuctionBidTx(0, bid, height+1, bundle)
+				bidTxHash := s.execAuctionBidTx(0, bid, height+1, bundle, 0)
 				s.displayExpectedBundle("bad bid", bidTxHash, bundle)
 
 				// Wait for a block to be created
@@ -419,7 +421,7 @@ func (s *IntegrationTestSuite) TestBundles() {
 				// Create a bid transaction that includes the bundle and is valid
 				bid := reserveFee
 				height := s.queryCurrentHeight()
-				bidTxHash := s.execAuctionBidTx(0, bid, height+1, bundle)
+				bidTxHash := s.execAuctionBidTx(0, bid, height+1, bundle, 0)
 				s.displayExpectedBundle("good bid", bidTxHash, bundle)
 
 				// Execute a few other messages to be included in the block after the bid and bundle

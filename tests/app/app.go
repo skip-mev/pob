@@ -9,7 +9,9 @@ import (
 
 	"cosmossdk.io/depinject"
 	dbm "github.com/cometbft/cometbft-db"
+	cometabci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/libs/log"
+	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -142,6 +144,9 @@ type TestApp struct {
 	GroupKeeper           groupkeeper.Keeper
 	ConsensusParamsKeeper consensuskeeper.Keeper
 	BuilderKeeper         builderkeeper.Keeper
+
+	// custom checkTx handler
+	checkTxHandler abci.CheckTx
 }
 
 func init() {
@@ -275,7 +280,7 @@ func New(
 	}
 	anteHandler := NewPOBAnteHandler(options)
 
-	// Set the proposal handlers on the BaseApp.
+	// Set the proposal handlers on the BaseApp along with the custom antehandler.
 	proposalHandlers := abci.NewProposalHandler(
 		mempool,
 		app.App.Logger(),
@@ -285,6 +290,17 @@ func New(
 	)
 	app.App.SetPrepareProposal(proposalHandlers.PrepareProposalHandler())
 	app.App.SetProcessProposal(proposalHandlers.ProcessProposalHandler())
+	app.App.SetAnteHandler(anteHandler)
+
+	// Set the custom CheckTx handler on BaseApp.
+	checkTxHandler := abci.CheckTxHandler(
+		app.App,
+		app.GetContextForBidTx,
+		app.txConfig.TxDecoder(),
+		mempool,
+		anteHandler,
+	)
+	app.SetCheckTx(checkTxHandler)
 
 	// load state streaming if enabled
 	if _, _, err := streaming.LoadStreamingServices(app.App.BaseApp, appOpts, app.appCodec, logger, app.kvStoreKeys()); err != nil {
@@ -318,6 +334,42 @@ func New(
 	}
 
 	return app
+}
+
+// GetContextForBidTx returns a context that can be used to verify a bid transaction. This context
+// is based off of the latest committed state and is used to verify transactions as if they were
+// to be executed at the top of the block. After verification, this context will be discarded and
+// will not apply any state changes.
+func (app *TestApp) GetContextForBidTx(req cometabci.RequestCheckTx) sdk.Context {
+	// Retrieve the commit multi-store which is used to retrieve the latest committed state.
+	ms := app.App.CommitMultiStore().CacheMultiStore()
+
+	// Create a new context based off of the latest committed state.
+	ctx, _ := sdk.NewContext(ms, tmproto.Header{}, false, app.Logger()).CacheContext()
+
+	// Set the context to the correct checking mode.
+	switch req.Type {
+	case cometabci.CheckTxType_New:
+		ctx = ctx.WithIsCheckTx(true)
+	case cometabci.CheckTxType_Recheck:
+		ctx = ctx.WithIsReCheckTx(true)
+	default:
+		panic("unknown check tx type")
+	}
+
+	// Set the remaining important context values.
+	return ctx.
+		WithBlockHeight(app.App.LastBlockHeight()).
+		WithTxBytes(req.Tx).
+		WithChainID("chain-id-0")
+}
+
+func (app *TestApp) CheckTx(req cometabci.RequestCheckTx) cometabci.ResponseCheckTx {
+	return app.checkTxHandler(req)
+}
+
+func (app *TestApp) SetCheckTx(handler abci.CheckTx) {
+	app.checkTxHandler = handler
 }
 
 // Name returns the name of the App
