@@ -68,11 +68,6 @@ func CheckTxHandler(baseApp BaseApp, getContextForBidTx GetContextForBidTx, txDe
 			return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("invalid bid tx; failed to execute ante handler: %w", err), 0, 0, nil, false)
 		}
 
-		// Get the gas used and logs from the context.
-		gasUsed := ctx.GasMeter().GasConsumed()
-		logs := ctx.EventManager().ABCIEvents()
-		sender := bidInfo.Bidder.String()
-
 		// Verify all of the bundled transactions.
 		for _, tx := range bidInfo.Transactions {
 			bundledTx, err := mempool.WrapBundleTransaction(tx)
@@ -90,12 +85,6 @@ func CheckTxHandler(baseApp BaseApp, getContextForBidTx GetContextForBidTx, txDe
 			return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("invalid bid tx; failed to insert bid transaction into mempool: %w", err), 0, 0, nil, false)
 		}
 
-		return abci.ResponseCheckTx{
-			Code:    abci.CodeTypeOK,
-			GasUsed: int64(gasUsed),
-			Events:  logs,
-			Info:    "valid bid transaction inserted into mempool",
-			Sender:  sender,
-		}
+		return abci.ResponseCheckTx{Code: abci.CodeTypeOK}
 	}
 }
