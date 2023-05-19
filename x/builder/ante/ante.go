@@ -24,16 +24,14 @@ type (
 	// BuilderDecorator is an AnteDecorator that validates the auction bid and bundled transactions.
 	BuilderDecorator struct {
 		builderKeeper keeper.Keeper
-		txDecoder     sdk.TxDecoder
 		txEncoder     sdk.TxEncoder
 		mempool       Mempool
 	}
 )
 
-func NewBuilderDecorator(ak keeper.Keeper, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, mempool Mempool) BuilderDecorator {
+func NewBuilderDecorator(ak keeper.Keeper, txEncoder sdk.TxEncoder, mempool Mempool) BuilderDecorator {
 	return BuilderDecorator{
 		builderKeeper: ak,
-		txDecoder:     txDecoder,
 		txEncoder:     txEncoder,
 		mempool:       mempool,
 	}

@@ -133,7 +133,6 @@ func (s *IntegrationTestSuite) bundleToTxHashes(bundle []string) []string {
 // verifyBlock verifies that the transactions in the block at the given height were seen
 // and executed in the order they were submitted i.e. how they are broadcasted in the bundle.
 func (s *IntegrationTestSuite) verifyBlock(height int64, bidTx string, bundle []string, expectedExecution map[string]bool) {
-	s.waitForABlock()
 	s.T().Logf("Verifying block %d", height)
 
 	// Get the block's transactions and display the expected and actual block for debugging.
