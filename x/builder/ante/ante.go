@@ -106,9 +106,9 @@ func (bd BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 func (bd BuilderDecorator) ValidateTimeout(ctx sdk.Context, timeout int64) error {
 	currentBlockHeight := ctx.BlockHeight()
 
-	// If the mode is checkTx, we increment the current block height by one to account for the fact that the
+	// If the mode is CheckTx or ReCheckTx, we increment the current block height by one to account for the fact that the
 	// transaction will be executed in the next block.
-	if ctx.IsCheckTx() {
+	if ctx.IsCheckTx() || ctx.IsReCheckTx() {
 		currentBlockHeight++
 	}
 

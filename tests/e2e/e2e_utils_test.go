@@ -165,29 +165,32 @@ func (s *IntegrationTestSuite) verifyBlock(height uint64, bundle []string, expec
 
 	// Check that the block contains the expected transactions in the expected order
 	// iff the bid transaction was expected to execute.
-	bidTx := bundle[0]
-	if expectedExecution[bidTx] {
-		hashBz := sha256.Sum256(txs[0])
-		hash := hex.EncodeToString(hashBz[:])
-		s.Require().Equal(strings.ToUpper(bidTx), strings.ToUpper(hash))
+	if len(bundle) > 0 && expectedExecution[bundle[0]] {
+		if expectedExecution[bundle[0]] {
+			hashBz := sha256.Sum256(txs[0])
+			hash := hex.EncodeToString(hashBz[:])
+			s.Require().Equal(strings.ToUpper(bundle[0]), strings.ToUpper(hash))
 
-		for index, bundleTx := range bundle[1:] {
-			hashBz := sha256.Sum256(txs[index+1])
-			txHash := hex.EncodeToString(hashBz[:])
+			for index, bundleTx := range bundle[1:] {
+				hashBz := sha256.Sum256(txs[index+1])
+				txHash := hex.EncodeToString(hashBz[:])
 
-			s.Require().Equal(strings.ToUpper(bundleTx), strings.ToUpper(txHash))
+				s.Require().Equal(strings.ToUpper(bundleTx), strings.ToUpper(txHash))
+			}
 		}
 	}
 }
 
 // displayExpectedBlock displays the expected and actual blocks.
 func (s *IntegrationTestSuite) displayBlock(txs [][]byte, bundle []string) {
-	expectedBlock := fmt.Sprintf("Expected block:\n\t(%d, %s)\n", 0, bundle[0])
-	for index, bundleTx := range bundle[1:] {
-		expectedBlock += fmt.Sprintf("\t(%d, %s)\n", index+1, bundleTx)
-	}
+	if len(bundle) != 0 {
+		expectedBlock := fmt.Sprintf("Expected block:\n\t(%d, %s)\n", 0, bundle[0])
+		for index, bundleTx := range bundle[1:] {
+			expectedBlock += fmt.Sprintf("\t(%d, %s)\n", index+1, bundleTx)
+		}
 
-	s.T().Logf(expectedBlock)
+		s.T().Logf(expectedBlock)
+	}
 
 	// Display the actual block.
 	if len(txs) == 0 {
