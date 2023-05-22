@@ -86,6 +86,7 @@ func CheckTxHandler(baseApp BaseApp, getContextForBidTx GetContextForBidTx, txDe
 				return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("invalid bid tx; failed to get auction bid info: %w", err), 0, 0, nil, false)
 			}
 
+			// bid txs cannot be bundled txs
 			if bidInfo != nil {
 				return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("invalid bid tx; bundled tx cannot be a bid tx"), 0, 0, nil, false)
 			}
