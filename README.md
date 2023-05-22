@@ -167,15 +167,16 @@ $ go install github.com/skip-mev/pob
     will verify the contents of the block proposal by all validators. The
     combination of the `AuctionMempool`, `PrepareProposal` and `ProcessProposal`
     handlers allows the application to verifiably build valid blocks with
-    top-of-block block space reserved for auctions.
-
-    e.1. We override the `BaseApp`'s `CheckTx` handler with our own custom
-    `CheckTx` handler that will be responsible for checking the validity of
-    auction transactions. Since each auction transaction must be checked against
-    the latest committed state, we need to provide the `CheckTx` handler with a
-    context that is aware of the latest committed state. We do this by creating
-    a new context for each auction transaction that is aware of the latest
-    committed state.
+    top-of-block block space reserved for auctions. Additionally, We override the 
+    `BaseApp`'s `CheckTx` handler with our own custom `CheckTx` handler that will 
+    be responsible for checking the validity of transactions. We override the
+    `CheckTx` handler so that we can verify auction transactions before they are
+    inserted into the mempool. With the POB `CheckTx`, we can verify the auction
+    transaction and all of the bundled transactions before inserting the auction
+    transaction into the mempool. This is important because we otherwise there may be
+    discrepencies between the auction transaction and the bundled transactions
+    are validated in `CheckTx` and `PrepareProposal` such that the auction can be 
+    griefed. All other transactions will be executed with base app's `CheckTx`.
 
     ```go
     // Create the entire chain of AnteDecorators for the application.
@@ -207,10 +208,10 @@ $ go install github.com/skip-mev/pob
     // Set the custom CheckTx handler on BaseApp.
     checkTxHandler := abci.CheckTxHandler(
       app.App,
-      app.GetContextForBidTx,
       app.TxDecoder,
       mempool,
       anteHandler,
+      chainID,
     )
     app.SetCheckTx(checkTxHandler)
 

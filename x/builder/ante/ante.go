@@ -101,13 +101,13 @@ func (bd BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 	return next(ctx, tx, simulate)
 }
 
-// ValidateTimeout validates that the timeout is greater than the expected block height
+// ValidateTimeout validates that the timeout is greater than or equal to the expected block height
 // the bid transaction will be executed in.
 func (bd BuilderDecorator) ValidateTimeout(ctx sdk.Context, timeout int64) error {
 	currentBlockHeight := ctx.BlockHeight()
 
-	// If the mode is CheckTx or ReCheckTx, we increment the current block height by one to account for the fact that the
-	// transaction will be executed in the next block.
+	// If the mode is CheckTx or ReCheckTx, we increment the current block height by one to
+	// account for the fact that the transaction will be executed in the next block.
 	if ctx.IsCheckTx() || ctx.IsReCheckTx() {
 		currentBlockHeight++
 	}

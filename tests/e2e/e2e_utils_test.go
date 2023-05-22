@@ -124,9 +124,7 @@ func (s *IntegrationTestSuite) bundleToTxHashes(bidTx []byte, bundle [][]byte) [
 	hash := hex.EncodeToString(hashBz[:])
 	hashes[0] = hash
 
-	for i, tx := range bundle {
-		hashBz := sha256.Sum256(tx)
-		hash := hex.EncodeToString(hashBz[:])
+	for i, hash := range s.normalTxsToTxHashes(bundle) {
 		hashes[i+1] = hash
 	}
 

@@ -15,22 +15,35 @@ import (
 type (
 	// CheckTxHandler is a wrapper around baseapp's CheckTx method that allows us to
 	// verify bid transactions against the latest committed state. All other transactions
-	// are executed normally. This defines all of the dependencies that are required to
-	// verify a bid transaction.
+	// are executed normally using base app's CheckTx. This defines all of the
+	// dependencies that are required to verify a bid transaction.
 	CheckTxHandler struct {
-		baseApp     BaseApp
-		txDecoder   sdk.TxDecoder
-		mempool     CheckTxMempool
+		// baseApp is utilized to retrieve the latest committed state and to call
+		// baseapp's CheckTx method.
+		baseApp BaseApp
+
+		// txDecoder is utilized to decode transactions to determine if they are
+		// bid transactions.
+		txDecoder sdk.TxDecoder
+
+		// mempool is utilized to retrieve the bid info of a transaction and to
+		// insert a transaction into the application-side mempool.
+		mempool CheckTxMempool
+
+		// anteHandler is utilized to verify the bid transaction against the latest
+		// committed state.
 		anteHandler sdk.AnteHandler
-		chainID     string
+
+		// chainID is the chain ID of the blockchain.
+		chainID string
 	}
 
 	// CheckTx is baseapp's CheckTx method that checks the validity of a
 	// transaction.
 	CheckTx func(cometabci.RequestCheckTx) cometabci.ResponseCheckTx
 
-	// CheckTxMempool is an interface that allows us to check if a transaction
-	// exists in the mempool and get the bid info of a transaction.
+	// CheckTxMempool is the interface that defines all of the dependencies that
+	// are required to interact with the application-side mempool.
 	CheckTxMempool interface {
 		// GetAuctionBidInfo is utilized to retrieve the bid info of a transaction.
 		GetAuctionBidInfo(tx sdk.Tx) (*mempool.AuctionBidInfo, error)
@@ -144,8 +157,8 @@ func (handler *CheckTxHandler) CheckTx() CheckTx {
 	}
 }
 
-// GetContextForBidTx is a function that returns a context for a bid transaction.
-// This context is used to verify the bid transaction against the latest committed state.
+// GetContextForBidTx is returns the latest committed state and sets the context given
+// the checkTx request.
 func (handler *CheckTxHandler) GetContextForBidTx(req cometabci.RequestCheckTx) sdk.Context {
 	// Retrieve the commit multi-store which is used to retrieve the latest committed state.
 	ms := handler.baseApp.CommitMultiStore().CacheMultiStore()
