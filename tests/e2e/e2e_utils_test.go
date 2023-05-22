@@ -222,6 +222,7 @@ func (s *IntegrationTestSuite) displayExpectedBundle(prefix string, bidTx []byte
 	s.T().Logf(expectedBundle)
 }
 
+// broadcastTx broadcasts a transaction to the network using the given validator.
 func (s *IntegrationTestSuite) broadcastTx(tx []byte, valIdx int) {
 	node := s.valResources[valIdx]
 	gRPCURI := node.GetHostPort("9090/tcp")
