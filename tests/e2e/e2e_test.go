@@ -810,6 +810,39 @@ func (s *IntegrationTestSuite) TestBundles() {
 				s.Require().Equal(escrowBalance.Add(expectedEscrowFee), s.queryBalanceOf(escrowAddress, app.BondDenom))
 			},
 		},
+		{
+			name: "searcher is attempting to submit a bundle that includes a bid",
+			test: func() {
+				// Get escrow account balance to ensure that it is updated correctly
+				escrowBalance := s.queryBalanceOf(escrowAddress, app.BondDenom)
+
+				// Create a bundle with a multiple transaction that is valid
+				bundle := [][]byte{
+					s.createAuctionBidTx(accounts[0], reserveFee, nil, 0, 1000),
+				}
+
+				// Wait for a block to ensure all transactions are included in the same block
+				s.waitForABlock()
+
+				// Create a bid transaction that includes the bundle and is valid
+				bid := reserveFee
+				height := s.queryCurrentHeight()
+				bidTx := s.createAuctionBidTx(accounts[2], bid, bundle, 0, height+1)
+				s.broadcastTx(bidTx, 0)
+
+				// Ensure that the block was built correctly and that the bid was not executed
+				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
+				expectedExecution := map[string]bool{
+					bundleHashes[0]: false,
+					bundleHashes[1]: false,
+				}
+
+				s.verifyBlock(height+1, bundleHashes, expectedExecution)
+
+				// Ensure that the escrow account has the correct balance
+				s.Require().Equal(escrowBalance, s.queryBalanceOf(escrowAddress, app.BondDenom))
+			},
+		},
 	}
 
 	for _, tc := range testCases {

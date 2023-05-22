@@ -40,7 +40,13 @@ type (
 // otherwise the auction can be griefed. No state changes are applied to the state
 // during this process.
 func CheckTxHandler(baseApp BaseApp, getContextForBidTx GetContextForBidTx, txDecoder sdk.TxDecoder, mempool CheckTxMempool, anteHandler sdk.AnteHandler) CheckTx {
-	return func(req abci.RequestCheckTx) abci.ResponseCheckTx {
+	return func(req abci.RequestCheckTx) (resp abci.ResponseCheckTx) {
+		defer func() {
+			if err := recover(); err != nil {
+				resp = sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("panic in check tx handler: %s", err), 0, 0, nil, false)
+			}
+		}()
+
 		sdkTx, err := txDecoder(req.Tx)
 		if err != nil {
 			return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("failed to decode tx: %w", err), 0, 0, nil, false)
@@ -73,6 +79,15 @@ func CheckTxHandler(baseApp BaseApp, getContextForBidTx GetContextForBidTx, txDe
 			bundledTx, err := mempool.WrapBundleTransaction(tx)
 			if err != nil {
 				return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("invalid bid tx; failed to decode bundled tx: %w", err), 0, 0, nil, false)
+			}
+
+			bidInfo, err := mempool.GetAuctionBidInfo(bundledTx)
+			if err != nil {
+				return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("invalid bid tx; failed to get auction bid info: %w", err), 0, 0, nil, false)
+			}
+
+			if bidInfo != nil {
+				return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("invalid bid tx; bundled tx cannot be a bid tx"), 0, 0, nil, false)
 			}
 
 			if ctx, err = anteHandler(ctx, bundledTx, false); err != nil {
