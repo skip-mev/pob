@@ -370,11 +370,11 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 				// Create a bid transaction that includes the bundle and is valid
 				bid := reserveFee
 				height := s.queryCurrentHeight()
-				bidTx := s.createAuctionBidTx(accounts[2], bid, bundle, 0, height+2)
+				bidTx := s.createAuctionBidTx(accounts[2], bid, bundle, 0, height+5)
 
 				// Createa a second bid transaction that includes the bundle and is valid
-				bid2 := reserveFee
-				bidTx2 := s.createAuctionBidTx(accounts[3], bid2, bundle2, 0, height+2)
+				bid2 := reserveFee.Add(sdk.NewCoin(app.BondDenom, sdk.NewInt(10)))
+				bidTx2 := s.createAuctionBidTx(accounts[3], bid2, bundle2, 0, height+5)
 
 				// Broadcast the transactions to different validators
 				s.broadcastTx(bidTx, 0)
@@ -384,6 +384,7 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 				s.displayExpectedBundle("gud auction bid 2", bidTx2, bundle2)
 
 				// Wait for both blocks to be created to verify that both bids were executed
+				s.waitForABlock()
 				s.waitForABlock()
 				s.waitForABlock()
 
