@@ -73,7 +73,17 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, txs [][]byte) error {
 }
 
 func (l *TOBLane) Insert(goCtx context.Context, tx sdk.Tx) error {
-	panic("not implemented")
+	if err := l.index.Insert(goCtx, tx); err != nil {
+		return fmt.Errorf("failed to insert tx into auction index: %w", err)
+	}
+
+	txHashStr, err := l.getTxHashStr(tx)
+	if err != nil {
+		return err
+	}
+
+	l.txIndex[txHashStr] = struct{}{}
+	return nil
 }
 
 func (l *TOBLane) Select(goCtx context.Context, txs [][]byte) sdkmempool.Iterator {
