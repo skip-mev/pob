@@ -71,12 +71,15 @@ type (
 
 		// LastBlockHeight is utilized to retrieve the latest block height.
 		LastBlockHeight() int64
+
+		// GetConsensusParams is utilized to retrieve the consensus params.
+		GetConsensusParams(ctx sdk.Context) *tmproto.ConsensusParams
 	}
 )
 
 // NewCheckTxHandler is a constructor for CheckTxHandler.
-func NewCheckTxHandler(baseApp BaseApp, txDecoder sdk.TxDecoder, mempool CheckTxMempool, anteHandler sdk.AnteHandler, chainID string) CheckTxHandler {
-	return CheckTxHandler{
+func NewCheckTxHandler(baseApp BaseApp, txDecoder sdk.TxDecoder, mempool CheckTxMempool, anteHandler sdk.AnteHandler, chainID string) *CheckTxHandler {
+	return &CheckTxHandler{
 		baseApp:     baseApp,
 		txDecoder:   txDecoder,
 		mempool:     mempool,
@@ -99,13 +102,13 @@ func (handler *CheckTxHandler) CheckTx() CheckTx {
 			}
 		}()
 
-		sdkTx, err := handler.txDecoder(req.Tx)
+		tx, err := handler.txDecoder(req.Tx)
 		if err != nil {
 			return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("failed to decode tx: %w", err), 0, 0, nil, false)
 		}
 
 		// Attempt to get the bid info of the transaction.
-		bidInfo, err := handler.mempool.GetAuctionBidInfo(sdkTx)
+		bidInfo, err := handler.mempool.GetAuctionBidInfo(tx)
 		if err != nil {
 			return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("failed to get auction bid info: %w", err), 0, 0, nil, false)
 		}
@@ -121,40 +124,61 @@ func (handler *CheckTxHandler) CheckTx() CheckTx {
 		ctx := handler.GetContextForBidTx(req)
 
 		// Verify the bid transaction.
-		ctx, err = handler.anteHandler(ctx, sdkTx, false)
+		gasInfo, err := handler.ValidateBidTx(ctx, tx, bidInfo)
 		if err != nil {
-			return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("invalid bid tx; failed to execute ante handler: %w", err), 0, 0, nil, false)
-		}
-
-		// Verify all of the bundled transactions.
-		for _, tx := range bidInfo.Transactions {
-			bundledTx, err := handler.mempool.WrapBundleTransaction(tx)
-			if err != nil {
-				return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("invalid bid tx; failed to decode bundled tx: %w", err), 0, 0, nil, false)
-			}
-
-			bidInfo, err := handler.mempool.GetAuctionBidInfo(bundledTx)
-			if err != nil {
-				return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("invalid bid tx; failed to get auction bid info: %w", err), 0, 0, nil, false)
-			}
-
-			// Bid txs cannot be included in bundled txs.
-			if bidInfo != nil {
-				return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("invalid bid tx; bundled tx cannot be a bid tx"), 0, 0, nil, false)
-			}
-
-			if ctx, err = handler.anteHandler(ctx, bundledTx, false); err != nil {
-				return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("invalid bid tx; failed to execute bundled transaction: %w", err), 0, 0, nil, false)
-			}
+			return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("invalid bid tx: %w", err), gasInfo.GasWanted, gasInfo.GasUsed, nil, false)
 		}
 
 		// If the bid transaction is valid, we know we can insert it into the mempool for consideration in the next block.
-		if err := handler.mempool.Insert(ctx, sdkTx); err != nil {
-			return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("invalid bid tx; failed to insert bid transaction into mempool: %w", err), 0, 0, nil, false)
+		if err := handler.mempool.Insert(ctx, tx); err != nil {
+			return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("invalid bid tx; failed to insert bid transaction into mempool: %w", err), gasInfo.GasWanted, gasInfo.GasUsed, nil, false)
 		}
 
-		return cometabci.ResponseCheckTx{Code: cometabci.CodeTypeOK}
+		return cometabci.ResponseCheckTx{
+			Code:      cometabci.CodeTypeOK,
+			GasWanted: int64(gasInfo.GasWanted),
+			GasUsed:   int64(gasInfo.GasUsed),
+		}
 	}
+}
+
+// ValidateBidTx is utilized to verify the bid transaction against the latest committed state.
+func (handler *CheckTxHandler) ValidateBidTx(ctx sdk.Context, bidTx sdk.Tx, bidInfo *mempool.AuctionBidInfo) (sdk.GasInfo, error) {
+	// Verify the bid transaction.
+	ctx, err := handler.anteHandler(ctx, bidTx, false)
+	if err != nil {
+		return sdk.GasInfo{}, fmt.Errorf("invalid bid tx; failed to execute ante handler: %w", err)
+	}
+
+	// Store the gas info and priority of the bid transaction before applying changes with other transactions.
+	gasInfo := sdk.GasInfo{
+		GasWanted: ctx.GasMeter().Limit(),
+		GasUsed:   ctx.GasMeter().GasConsumed(),
+	}
+
+	// Verify all of the bundled transactions.
+	for _, tx := range bidInfo.Transactions {
+		bundledTx, err := handler.mempool.WrapBundleTransaction(tx)
+		if err != nil {
+			return gasInfo, fmt.Errorf("invalid bid tx; failed to decode bundled tx: %w", err)
+		}
+
+		bidInfo, err := handler.mempool.GetAuctionBidInfo(bundledTx)
+		if err != nil {
+			return gasInfo, fmt.Errorf("invalid bid tx; failed to get auction bid info: %w", err)
+		}
+
+		// Bid txs cannot be included in bundled txs.
+		if bidInfo != nil {
+			return gasInfo, fmt.Errorf("invalid bid tx; bundled tx cannot be a bid tx")
+		}
+
+		if ctx, err = handler.anteHandler(ctx, bundledTx, false); err != nil {
+			return gasInfo, fmt.Errorf("invalid bid tx; failed to execute bundled transaction: %w", err)
+		}
+	}
+
+	return gasInfo, nil
 }
 
 // GetContextForBidTx is returns the latest committed state and sets the context given
@@ -164,7 +188,11 @@ func (handler *CheckTxHandler) GetContextForBidTx(req cometabci.RequestCheckTx) 
 	ms := handler.baseApp.CommitMultiStore().CacheMultiStore()
 
 	// Create a new context based off of the latest committed state.
-	ctx, _ := sdk.NewContext(ms, tmproto.Header{}, false, handler.baseApp.Logger()).CacheContext()
+	header := tmproto.Header{
+		Height:  handler.baseApp.LastBlockHeight(),
+		ChainID: handler.chainID, // TODO: Replace with actual chain ID. This is currently not exposed by the app.
+	}
+	ctx, _ := sdk.NewContext(ms, header, true, handler.baseApp.Logger()).CacheContext()
 
 	// Set the context to the correct checking mode.
 	switch req.Type {
@@ -178,9 +206,9 @@ func (handler *CheckTxHandler) GetContextForBidTx(req cometabci.RequestCheckTx) 
 
 	// Set the remaining important context values.
 	ctx = ctx.
-		WithBlockHeight(handler.baseApp.LastBlockHeight()).
 		WithTxBytes(req.Tx).
-		WithChainID(handler.chainID) // TODO: Replace with actual chain ID. This is currently not exposed by the app.
+		WithEventManager(sdk.NewEventManager()).
+		WithConsensusParams(handler.baseApp.GetConsensusParams(ctx))
 
 	return ctx
 }

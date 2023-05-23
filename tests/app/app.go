@@ -73,6 +73,10 @@ import (
 	builderkeeper "github.com/skip-mev/pob/x/builder/keeper"
 )
 
+const (
+	ChainID = "chain-id-0"
+)
+
 var (
 	BondDenom = sdk.DefaultBondDenom
 
@@ -297,7 +301,7 @@ func New(
 		app.txConfig.TxDecoder(),
 		mempool,
 		anteHandler,
-		"chain-id-0",
+		ChainID,
 	)
 	app.SetCheckTx(checkTxHandler.CheckTx())
 

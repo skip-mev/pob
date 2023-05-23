@@ -46,7 +46,7 @@ func newChain() (*chain, error) {
 	}
 
 	return &chain{
-		id:      "chain-id-0",
+		id:      app.ChainID,
 		dataDir: tmpDir,
 	}, nil
 }
