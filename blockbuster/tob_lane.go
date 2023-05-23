@@ -87,7 +87,7 @@ func (l *TOBLane) Insert(goCtx context.Context, tx sdk.Tx) error {
 }
 
 func (l *TOBLane) Select(goCtx context.Context, txs [][]byte) sdkmempool.Iterator {
-	panic("not implemented")
+	return l.index.Select(goCtx, txs)
 }
 
 func (l *TOBLane) CountTx() int {
