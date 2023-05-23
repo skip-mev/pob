@@ -90,13 +90,12 @@ $ go install github.com/skip-mev/pob
 
       ```go
       type App struct {
-          ...
-          // BuilderKeeper is the keeper that handles processing auction transactions
-        	BuilderKeeper         builderkeeper.Keeper
-          ...
+        ...
+        // BuilderKeeper is the keeper that handles processing auction transactions
+        BuilderKeeper         builderkeeper.Keeper
 
-          // Custom checkTx handler
-          checkTxHandler abci.CheckTx
+        // Custom checkTx handler
+        checkTxHandler abci.CheckTx
       }
       ```
 
@@ -167,7 +166,7 @@ $ go install github.com/skip-mev/pob
     will verify the contents of the block proposal by all validators. The
     combination of the `AuctionMempool`, `PrepareProposal` and `ProcessProposal`
     handlers allows the application to verifiably build valid blocks with
-    top-of-block block space reserved for auctions. Additionally, We override the 
+    top-of-block block space reserved for auctions. Additionally, we override the 
     `BaseApp`'s `CheckTx` handler with our own custom `CheckTx` handler that will 
     be responsible for checking the validity of transactions. We override the
     `CheckTx` handler so that we can verify auction transactions before they are
@@ -192,7 +191,7 @@ $ go install github.com/skip-mev/pob
     // Create the antehandler that will be used to check transactions throughout the lifecycle
     // of the application.
     anteHandler := sdk.ChainAnteDecorators(anteDecorators...)
-  	app.SetAnteHandler(anteHandler)
+    app.SetAnteHandler(anteHandler)
 
     // Create the proposal handler that will be used to build and validate blocks.
     handler := proposalhandler.NewProposalHandler(
@@ -206,7 +205,7 @@ $ go install github.com/skip-mev/pob
     app.SetProcessProposal(handler.ProcessProposalHandler())
 
     // Set the custom CheckTx handler on BaseApp.
-    checkTxHandler := abci.CheckTxHandler(
+    checkTxHandler := pobabci.CheckTxHandler(
       app.App,
       app.TxDecoder,
       mempool,
@@ -216,8 +215,6 @@ $ go install github.com/skip-mev/pob
     app.SetCheckTx(checkTxHandler)
 
     ...
-
-    }
 
     // CheckTx will check the transaction with the provided checkTxHandler. We override the default
     // handler so that we can verify bid transactions before they are inserted into the mempool.
@@ -241,7 +238,6 @@ $ go install github.com/skip-mev/pob
       ...,
     }
     ```
-
 
 ## Params
 
