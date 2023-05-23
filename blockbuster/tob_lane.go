@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -44,13 +45,19 @@ func (l *TOBLane) Match(tx sdk.Tx) bool {
 	return true
 }
 
-// VerifyTx verifies the transaction belonging to this lane.
-func (l *TOBLane) VerifyTx(ctx sdk.Context, tx sdk.Tx) error {
-	panic("not implemented")
-}
-
 // Contains returns true if the mempool contains the given transaction.
 func (l *TOBLane) Contains(tx sdk.Tx) (bool, error) {
+	txHashStr, err := l.getTxHashStr(tx)
+	if err != nil {
+		return false, fmt.Errorf("failed to get tx hash string: %w", err)
+	}
+
+	_, ok := l.txIndex[txHashStr]
+	return ok, nil
+}
+
+// VerifyTx verifies the transaction belonging to this lane.
+func (l *TOBLane) VerifyTx(ctx sdk.Context, tx sdk.Tx) error {
 	panic("not implemented")
 }
 
@@ -77,8 +84,19 @@ func (l *TOBLane) CountTx() int {
 	return l.index.CountTx()
 }
 
-func (l *TOBLane) Remove(sdk.Tx) error {
-	panic("not implemented")
+func (l *TOBLane) Remove(tx sdk.Tx) error {
+	err := l.index.Remove(tx)
+	if err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
+		return fmt.Errorf("failed to remove invalid transaction from the mempool: %w", err)
+	}
+
+	txHashStr, err := l.getTxHashStr(tx)
+	if err != nil {
+		return fmt.Errorf("failed to get tx hash string: %w", err)
+	}
+
+	delete(l.txIndex, txHashStr)
+	return nil
 }
 
 // getTxHashStr returns the transaction hash string for a given transaction.
