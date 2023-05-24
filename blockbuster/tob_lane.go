@@ -38,11 +38,7 @@ func (l *TOBLane) Name() string {
 // Match determines if a transaction belongs to this lane.
 func (l *TOBLane) Match(tx sdk.Tx) bool {
 	_, err := l.af.GetAuctionBidInfo(tx)
-	if err != nil {
-		return false
-	}
-
-	return true
+	return err == nil
 }
 
 // Contains returns true if the mempool contains the given transaction.
