@@ -13,6 +13,7 @@ import (
 )
 
 const (
+	// LaneNameTOB defines the name of the top-of-block auction lane.
 	LaneNameTOB = "tob"
 )
 
@@ -110,13 +111,13 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, txs [][]byte) error {
 }
 
 func (l *TOBLane) Insert(goCtx context.Context, tx sdk.Tx) error {
-	if err := l.index.Insert(goCtx, tx); err != nil {
-		return fmt.Errorf("failed to insert tx into auction index: %w", err)
-	}
-
 	txHashStr, err := l.getTxHashStr(tx)
 	if err != nil {
 		return err
+	}
+
+	if err := l.index.Insert(goCtx, tx); err != nil {
+		return fmt.Errorf("failed to insert tx into auction index: %w", err)
 	}
 
 	l.txIndex[txHashStr] = struct{}{}
@@ -132,14 +133,13 @@ func (l *TOBLane) CountTx() int {
 }
 
 func (l *TOBLane) Remove(tx sdk.Tx) error {
-	err := l.index.Remove(tx)
-	if err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
-		return fmt.Errorf("failed to remove invalid transaction from the mempool: %w", err)
-	}
-
 	txHashStr, err := l.getTxHashStr(tx)
 	if err != nil {
 		return fmt.Errorf("failed to get tx hash string: %w", err)
+	}
+
+	if err := l.index.Remove(tx); err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
+		return fmt.Errorf("failed to remove invalid transaction from the mempool: %w", err)
 	}
 
 	delete(l.txIndex, txHashStr)
