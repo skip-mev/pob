@@ -16,6 +16,12 @@ type Mempool struct {
 	registry []Lane
 }
 
+func NewMempool(lanes ...Lane) *Mempool {
+	return &Mempool{
+		registry: lanes,
+	}
+}
+
 // TODO: Consider using a tx cache in Mempool and returning the length of that
 // cache instead of relying on lane count tracking.
 func (m *Mempool) CountTx() int {

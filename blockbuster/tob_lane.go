@@ -19,29 +19,42 @@ const (
 var _ Lane = (*TOBLane)(nil)
 
 type TOBLane struct {
-	index sdkmempool.Mempool
-	af    mempool.AuctionFactory
+	index       sdkmempool.Mempool
+	af          mempool.AuctionFactory
+	txEncoder   sdk.TxEncoder
+	txDecoder   sdk.TxDecoder
+	anteHandler sdk.AnteHandler
 
 	// txIndex is a map of all transactions in the mempool. It is used
 	// to quickly check if a transaction is already in the mempool.
 	txIndex map[string]struct{}
+}
 
-	// txEncoder defines the sdk.Tx encoder that allows us to encode transactions
-	// to bytes.
-	txEncoder sdk.TxEncoder
+func NewTOBLane(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int, af mempool.AuctionFactory, anteHandler sdk.AnteHandler) *TOBLane {
+	return &TOBLane{
+		index: mempool.NewPriorityMempool(
+			mempool.PriorityNonceMempoolConfig[int64]{
+				TxPriority: mempool.NewDefaultTxPriority(),
+				MaxTx:      maxTx,
+			},
+		),
+		af:          af,
+		txEncoder:   txEncoder,
+		txDecoder:   txDecoder,
+		anteHandler: anteHandler,
+		txIndex:     make(map[string]struct{}),
+	}
 }
 
 func (l *TOBLane) Name() string {
 	return LaneNameTOB
 }
 
-// Match determines if a transaction belongs to this lane.
 func (l *TOBLane) Match(tx sdk.Tx) bool {
-	_, err := l.af.GetAuctionBidInfo(tx)
-	return err == nil
+	bidInfo, err := l.af.GetAuctionBidInfo(tx)
+	return bidInfo != nil && err == nil
 }
 
-// Contains returns true if the mempool contains the given transaction.
 func (l *TOBLane) Contains(tx sdk.Tx) (bool, error) {
 	txHashStr, err := l.getTxHashStr(tx)
 	if err != nil {
@@ -52,9 +65,37 @@ func (l *TOBLane) Contains(tx sdk.Tx) (bool, error) {
 	return ok, nil
 }
 
-// VerifyTx verifies the transaction belonging to this lane.
-func (l *TOBLane) VerifyTx(ctx sdk.Context, tx sdk.Tx) error {
-	panic("not implemented")
+func (l *TOBLane) VerifyTx(ctx sdk.Context, bidTx sdk.Tx) error {
+	bidInfo, err := l.af.GetAuctionBidInfo(bidTx)
+	if err != nil {
+		return fmt.Errorf("failed to get auction bid info: %w", err)
+	}
+
+	// verify the top-level bid transaction
+	ctx, err = l.anteHandler(ctx, bidTx, false)
+	if err != nil {
+		return fmt.Errorf("invalid bid tx; failed to execute ante handler: %w", err)
+	}
+
+	// verify all of the bundled transactions
+	for _, tx := range bidInfo.Transactions {
+		bundledTx, err := l.af.WrapBundleTransaction(tx)
+		if err != nil {
+			return fmt.Errorf("invalid bid tx; failed to decode bundled tx: %w", err)
+		}
+
+		// bid txs cannot be included in bundled txs
+		bidInfo, _ := l.af.GetAuctionBidInfo(bundledTx)
+		if bidInfo != nil {
+			return fmt.Errorf("invalid bid tx; bundled tx cannot be a bid tx")
+		}
+
+		if ctx, err = l.anteHandler(ctx, bundledTx, false); err != nil {
+			return fmt.Errorf("invalid bid tx; failed to execute bundled transaction: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // PrepareLane which builds a portion of the block. Inputs a cache of transactions
