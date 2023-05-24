@@ -60,7 +60,7 @@ func (m *Mempool) Insert(ctx context.Context, tx sdk.Tx) error {
 // TODO:
 // - Determine if it even makes sense to return an iterator. What does that even
 // mean in the context where you have multiple lanes?
-// - Perhaps consider returning a no-op iterator?
+// - Perhaps consider implementing and returning a no-op iterator?
 func (m *Mempool) Select(_ context.Context, _ [][]byte) sdkmempool.Iterator {
 	return nil
 }
