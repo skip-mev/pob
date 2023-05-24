@@ -1,6 +1,7 @@
 package blockbuster
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -209,8 +210,53 @@ selectBidTxLoop:
 }
 
 // ProcessLane which verifies the lane's portion of a proposed block.
-func (l *TOBLane) ProcessLane(ctx sdk.Context, txs [][]byte) error {
-	panic("not implemented")
+func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte) error {
+	for index, txBz := range proposalTxs {
+		tx, err := l.processProposalVerifyTx(ctx, txBz)
+		if err != nil {
+			return err
+		}
+
+		bidInfo, err := l.af.GetAuctionBidInfo(tx)
+		if err != nil {
+			return err
+		}
+
+		// If the transaction is an auction bid, then we need to ensure that it is
+		// the first transaction in the block proposal and that the order of
+		// transactions in the block proposal follows the order of transactions in
+		// the bid.
+		if bidInfo != nil {
+			if index != 0 {
+				return errors.New("auction bid must be the first transaction in the block proposal")
+			}
+
+			bundledTransactions := bidInfo.Transactions
+			if len(proposalTxs) < len(bundledTransactions)+1 {
+				return errors.New("block proposal does not contain enough transactions to match the bundled transactions in the auction bid")
+			}
+
+			for i, refTxRaw := range bundledTransactions {
+				// Wrap and then encode the bundled transaction to ensure that the underlying
+				// reference transaction can be processed as an sdk.Tx.
+				wrappedTx, err := l.af.WrapBundleTransaction(refTxRaw)
+				if err != nil {
+					return err
+				}
+
+				refTxBz, err := l.txEncoder(wrappedTx)
+				if err != nil {
+					return err
+				}
+
+				if !bytes.Equal(refTxBz, proposalTxs[i+1]) {
+					return errors.New("block proposal does not match the bundled transactions in the auction bid")
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 func (l *TOBLane) Insert(goCtx context.Context, tx sdk.Tx) error {

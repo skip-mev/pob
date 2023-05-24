@@ -37,6 +37,6 @@ type (
 		PrepareLane(ctx sdk.Context, maxTxBytes int64, selectedTxs map[string][]byte) ([][]byte, error)
 
 		// ProcessLane which verifies the lane's portion of a proposed block.
-		ProcessLane(ctx sdk.Context, txs [][]byte) error
+		ProcessLane(ctx sdk.Context, proposalTxs [][]byte) error
 	}
 )
