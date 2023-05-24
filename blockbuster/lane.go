@@ -30,9 +30,11 @@ type (
 		// Contains returns true if the mempool contains the given transaction.
 		Contains(tx sdk.Tx) (bool, error)
 
-		// PrepareLane which builds a portion of the block. Inputs a cache of transactions
-		// that have already been included by a previous lane.
-		PrepareLane(ctx sdk.Context, cache map[string]struct{}) [][]byte
+		// PrepareLane which builds a portion of the block. Inputs include the max
+		// number of bytes that can be included in the block and the selected transactions
+		// thus from from previous lane(s) as mapping from their HEX-encoded hash to
+		// the raw transaction.
+		PrepareLane(ctx sdk.Context, maxTxBytes int64, selectedTxs map[string][]byte) ([][]byte, error)
 
 		// ProcessLane which verifies the lane's portion of a proposed block.
 		ProcessLane(ctx sdk.Context, txs [][]byte) error
