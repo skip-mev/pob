@@ -106,15 +106,7 @@ func (l *TOBLane) VerifyTx(ctx sdk.Context, bidTx sdk.Tx) error {
 // PrepareLane which builds a portion of the block. Inputs a cache of transactions
 // that have already been included by a previous lane.
 func (l *TOBLane) PrepareLane(ctx sdk.Context, maxTxBytes int64, selectedTxs map[string][]byte) ([][]byte, error) {
-	var (
-		tmpSelectedTxs [][]byte
-		totalTxBytes   int64
-	)
-
-	// compute the total size of the transactions selected thus far
-	for _, tx := range selectedTxs {
-		totalTxBytes += int64(len(tx))
-	}
+	var tmpSelectedTxs [][]byte
 
 	bidTxIterator := l.index.Select(ctx, nil)
 	txsToRemove := make(map[sdk.Tx]struct{}, 0)
@@ -180,7 +172,6 @@ selectBidTxLoop:
 			// transactions are valid. So we select the bid transaction along with
 			// all the bundled transactions. We also mark these transactions as seen and
 			// update the total size selected thus far.
-			totalTxBytes += bidTxSize
 			tmpSelectedTxs = append(tmpSelectedTxs, bidTxBz)
 			tmpSelectedTxs = append(tmpSelectedTxs, sdkTxBytes...)
 
