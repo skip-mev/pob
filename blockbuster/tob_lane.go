@@ -208,6 +208,11 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte) error {
 			return err
 		}
 
+		// skip transaction if it does not match this lane
+		if !l.Match(tx) {
+			continue
+		}
+
 		bidInfo, err := l.af.GetAuctionBidInfo(tx)
 		if err != nil {
 			return err
