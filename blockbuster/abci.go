@@ -24,7 +24,7 @@ func NewProposalHandler(logger log.Logger, mempool Mempool) *ProposalHandler {
 func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 	return func(ctx sdk.Context, req abci.RequestPrepareProposal) abci.ResponsePrepareProposal {
 		var (
-			selectedTxs  map[string][]byte
+			selectedTxs  = make(map[string][]byte)
 			totalTxBytes int64
 		)
 
