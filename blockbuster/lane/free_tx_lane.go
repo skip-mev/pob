@@ -13,8 +13,11 @@ const (
 
 var _ Lane = (*FreeTxLane)(nil)
 
+// FreeTxLane defines a free transaction lane, which extends a base lane.
 type FreeTxLane struct {
 	*BaseLane
+
+	matchFn func(tx sdk.Tx) bool
 }
 
 func NewFreeTxLane(
@@ -24,12 +27,14 @@ func NewFreeTxLane(
 	maxTx int,
 	af mempool.AuctionFactory,
 	anteHandler sdk.AnteHandler,
+	matchFn func(tx sdk.Tx) bool,
 ) *FreeTxLane {
 	logger = logger.With("lane", LaneNameTOB)
 	baseLane := NewBaseLane(logger, txDecoder, txEncoder, maxTx, af, anteHandler)
 
 	return &FreeTxLane{
 		BaseLane: baseLane,
+		matchFn:  matchFn,
 	}
 }
 
@@ -38,7 +43,7 @@ func (l *FreeTxLane) Name() string {
 }
 
 func (l *FreeTxLane) Match(tx sdk.Tx) bool {
-	panic("not implemented")
+	return l.matchFn(tx)
 }
 
 func (l *FreeTxLane) VerifyTx(ctx sdk.Context, tx sdk.Tx) error {

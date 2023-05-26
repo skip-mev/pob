@@ -17,6 +17,7 @@ const (
 
 var _ Lane = (*TOBLane)(nil)
 
+// TOBLane defines a top-of-block auction lane, which extends a base lane.
 type TOBLane struct {
 	*BaseLane
 }
