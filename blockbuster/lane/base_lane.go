@@ -55,7 +55,7 @@ func (l *BaseLane) Name() string {
 	return LaneNameBase
 }
 
-func (l *BaseLane) Match(tx sdk.Tx) bool {
+func (l *BaseLane) Match(sdk.Tx) bool {
 	return false
 }
 
