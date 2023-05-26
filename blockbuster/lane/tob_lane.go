@@ -21,7 +21,14 @@ type TOBLane struct {
 	*BaseLane
 }
 
-func NewTOBLane(logger log.Logger, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int, af mempool.AuctionFactory, anteHandler sdk.AnteHandler) *TOBLane {
+func NewTOBLane(
+	logger log.Logger,
+	txDecoder sdk.TxDecoder,
+	txEncoder sdk.TxEncoder,
+	maxTx int,
+	af mempool.AuctionFactory,
+	anteHandler sdk.AnteHandler,
+) *TOBLane {
 	logger = logger.With("lane", LaneNameTOB)
 	baseLane := NewBaseLane(logger, txDecoder, txEncoder, maxTx, af, anteHandler)
 
