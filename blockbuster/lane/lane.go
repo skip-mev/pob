@@ -1,4 +1,4 @@
-package blockbuster
+package lane
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"

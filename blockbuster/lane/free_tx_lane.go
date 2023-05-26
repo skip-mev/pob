@@ -1,7 +1,8 @@
-package blockbuster
+package lane
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -47,7 +48,7 @@ func NewFreeTxLane(logger log.Logger, txDecoder sdk.TxDecoder, txEncoder sdk.TxE
 }
 
 func (l *FreeTxLane) Name() string {
-	panic("not implemented")
+	return LaneNameFreeTx
 }
 
 func (l *FreeTxLane) Match(tx sdk.Tx) bool {
@@ -59,7 +60,13 @@ func (l *FreeTxLane) VerifyTx(ctx sdk.Context, tx sdk.Tx) error {
 }
 
 func (l *FreeTxLane) Contains(tx sdk.Tx) (bool, error) {
-	panic("not implemented")
+	txHashStr, err := getTxHashStr(l.txEncoder, tx)
+	if err != nil {
+		return false, fmt.Errorf("failed to get tx hash string: %w", err)
+	}
+
+	_, ok := l.txIndex[txHashStr]
+	return ok, nil
 }
 
 func (l *FreeTxLane) PrepareLane(ctx sdk.Context, maxTxBytes int64, selectedTxs map[string][]byte) ([][]byte, error) {
@@ -74,12 +81,12 @@ func (l *FreeTxLane) Insert(context.Context, sdk.Tx) error {
 	panic("not implemented")
 }
 
-func (l *FreeTxLane) Select(context.Context, [][]byte) sdkmempool.Iterator {
-	panic("not implemented")
+func (l *FreeTxLane) Select(goCtx context.Context, txs [][]byte) sdkmempool.Iterator {
+	return l.index.Select(goCtx, txs)
 }
 
 func (l *FreeTxLane) CountTx() int {
-	panic("not implemented")
+	return l.index.CountTx()
 }
 
 func (l *FreeTxLane) Remove(sdk.Tx) error {

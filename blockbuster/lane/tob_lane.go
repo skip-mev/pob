@@ -1,16 +1,12 @@
-package blockbuster
+package lane
 
 import (
 	"bytes"
-	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 
 	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	"github.com/skip-mev/pob/mempool"
 )
 
@@ -22,32 +18,15 @@ const (
 var _ Lane = (*TOBLane)(nil)
 
 type TOBLane struct {
-	logger      log.Logger
-	index       sdkmempool.Mempool
-	af          mempool.AuctionFactory
-	txEncoder   sdk.TxEncoder
-	txDecoder   sdk.TxDecoder
-	anteHandler sdk.AnteHandler
-
-	// txIndex is a map of all transactions in the mempool. It is used
-	// to quickly check if a transaction is already in the mempool.
-	txIndex map[string]struct{}
+	*BaseLane
 }
 
 func NewTOBLane(logger log.Logger, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int, af mempool.AuctionFactory, anteHandler sdk.AnteHandler) *TOBLane {
+	logger = logger.With("lane", LaneNameTOB)
+	baseLane := NewBaseLane(logger, txDecoder, txEncoder, maxTx, af, anteHandler)
+
 	return &TOBLane{
-		logger: logger,
-		index: mempool.NewPriorityMempool(
-			mempool.PriorityNonceMempoolConfig[int64]{
-				TxPriority: mempool.NewDefaultTxPriority(),
-				MaxTx:      maxTx,
-			},
-		),
-		af:          af,
-		txEncoder:   txEncoder,
-		txDecoder:   txDecoder,
-		anteHandler: anteHandler,
-		txIndex:     make(map[string]struct{}),
+		BaseLane: baseLane,
 	}
 }
 
@@ -58,16 +37,6 @@ func (l *TOBLane) Name() string {
 func (l *TOBLane) Match(tx sdk.Tx) bool {
 	bidInfo, err := l.af.GetAuctionBidInfo(tx)
 	return bidInfo != nil && err == nil
-}
-
-func (l *TOBLane) Contains(tx sdk.Tx) (bool, error) {
-	txHashStr, err := l.getTxHashStr(tx)
-	if err != nil {
-		return false, fmt.Errorf("failed to get tx hash string: %w", err)
-	}
-
-	_, ok := l.txIndex[txHashStr]
-	return ok, nil
 }
 
 func (l *TOBLane) VerifyTx(ctx sdk.Context, bidTx sdk.Tx) error {
@@ -103,8 +72,6 @@ func (l *TOBLane) VerifyTx(ctx sdk.Context, bidTx sdk.Tx) error {
 	return nil
 }
 
-// PrepareLane which builds a portion of the block. Inputs a cache of transactions
-// that have already been included by a previous lane.
 func (l *TOBLane) PrepareLane(ctx sdk.Context, maxTxBytes int64, selectedTxs map[string][]byte) ([][]byte, error) {
 	var tmpSelectedTxs [][]byte
 
@@ -119,7 +86,7 @@ selectBidTxLoop:
 		tmpBidTx := bidTxIterator.Tx()
 
 		// if the transaction is already in the (partial) block proposal, we skip it
-		txHash, err := l.getTxHashStr(tmpBidTx)
+		txHash, err := getTxHashStr(l.txEncoder, tmpBidTx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get bid tx hash: %w", err)
 		}
@@ -200,7 +167,6 @@ selectBidTxLoop:
 	return tmpSelectedTxs, nil
 }
 
-// ProcessLane which verifies the lane's portion of a proposed block.
 func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte) error {
 	for index, txBz := range proposalTxs {
 		tx, err := l.processProposalVerifyTx(ctx, txBz)
@@ -255,42 +221,6 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte) error {
 	return nil
 }
 
-func (l *TOBLane) Insert(goCtx context.Context, tx sdk.Tx) error {
-	txHashStr, err := l.getTxHashStr(tx)
-	if err != nil {
-		return err
-	}
-
-	if err := l.index.Insert(goCtx, tx); err != nil {
-		return fmt.Errorf("failed to insert tx into auction index: %w", err)
-	}
-
-	l.txIndex[txHashStr] = struct{}{}
-	return nil
-}
-
-func (l *TOBLane) Select(goCtx context.Context, txs [][]byte) sdkmempool.Iterator {
-	return l.index.Select(goCtx, txs)
-}
-
-func (l *TOBLane) CountTx() int {
-	return l.index.CountTx()
-}
-
-func (l *TOBLane) Remove(tx sdk.Tx) error {
-	txHashStr, err := l.getTxHashStr(tx)
-	if err != nil {
-		return fmt.Errorf("failed to get tx hash string: %w", err)
-	}
-
-	if err := l.index.Remove(tx); err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
-		return fmt.Errorf("failed to remove invalid transaction from the mempool: %w", err)
-	}
-
-	delete(l.txIndex, txHashStr)
-	return nil
-}
-
 func (l *TOBLane) prepareProposalVerifyTx(ctx sdk.Context, tx sdk.Tx) ([]byte, error) {
 	txBz, err := l.txEncoder(tx)
 	if err != nil {
@@ -324,17 +254,4 @@ func (l *TOBLane) verifyTx(ctx sdk.Context, tx sdk.Tx) (sdk.Context, error) {
 	}
 
 	return ctx, nil
-}
-
-// getTxHashStr returns the transaction hash string for a given transaction.
-func (l *TOBLane) getTxHashStr(tx sdk.Tx) (string, error) {
-	txBz, err := l.txEncoder(tx)
-	if err != nil {
-		return "", fmt.Errorf("failed to encode transaction: %w", err)
-	}
-
-	txHash := sha256.Sum256(txBz)
-	txHashStr := hex.EncodeToString(txHash[:])
-
-	return txHashStr, nil
 }
