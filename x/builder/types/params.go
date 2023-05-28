@@ -12,7 +12,7 @@ var (
 	DefaultEscrowAccountAddress   string
 	DefaultReserveFee             = sdk.Coin{}
 	DefaultMinBidIncrement        = sdk.Coin{}
-	DefaultFrontRunningProtection = true
+	DefaultFrontRunningProtection = false
 	DefaultProposerFee            = sdk.ZeroDec()
 )
 
