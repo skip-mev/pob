@@ -178,6 +178,8 @@ selectBidTxLoop:
 			// store the bytes of each ref tx as sdk.Tx bytes in order to build a valid proposal
 			bundledTxBz := make([][]byte, len(bidInfo.Transactions))
 			for index, rawRefTx := range bidInfo.Transactions {
+				bundleTxBz := make([]byte, len(rawRefTx))
+				copy(bundleTxBz, rawRefTx)
 				bundledTxBz[index] = rawRefTx
 			}
 
@@ -307,19 +309,6 @@ func (l *TOBLane) Remove(tx sdk.Tx) error {
 
 	delete(l.txIndex, txHashStr)
 	return nil
-}
-
-func (l *TOBLane) prepareProposalVerifyTx(ctx sdk.Context, tx sdk.Tx) ([]byte, error) {
-	txBz, err := l.txEncoder(tx)
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := l.verifyTx(ctx, tx); err != nil {
-		return nil, err
-	}
-
-	return txBz, nil
 }
 
 func (l *TOBLane) processProposalVerifyTx(ctx sdk.Context, txBz []byte) (sdk.Tx, error) {
