@@ -1,4 +1,4 @@
-package lane
+package base
 
 import (
 	"context"
@@ -8,15 +8,16 @@ import (
 	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
+	"github.com/skip-mev/pob/blockbuster/lanes"
 	"github.com/skip-mev/pob/mempool"
 )
 
 const (
-	// LaneNameBase defines the name of the base lane, which other lanes can extend.
-	LaneNameBase = "base"
+	// key defines the name of the base lane.
+	key = "base"
 )
 
-var _ Lane = (*BaseLane)(nil)
+var _ lanes.Lane = (*BaseLane)(nil)
 
 // BaseLane defines a base lane implementation. It contains a priority-nonce
 // index along with core lane functionality. The base lane is meant to be extended
@@ -24,7 +25,6 @@ var _ Lane = (*BaseLane)(nil)
 type BaseLane struct {
 	logger      log.Logger
 	index       sdkmempool.Mempool
-	af          mempool.AuctionFactory
 	txEncoder   sdk.TxEncoder
 	txDecoder   sdk.TxDecoder
 	anteHandler sdk.AnteHandler
@@ -32,9 +32,12 @@ type BaseLane struct {
 	// txIndex is a map of all transactions in the mempool. It is used
 	// to quickly check if a transaction is already in the mempool.
 	txIndex map[string]struct{}
+
+	// Key defines the name of the lane.
+	key string
 }
 
-func NewBaseLane(logger log.Logger, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int, af mempool.AuctionFactory, anteHandler sdk.AnteHandler) *BaseLane {
+func NewBaseLane(logger log.Logger, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int, anteHandler sdk.AnteHandler) *BaseLane {
 	return &BaseLane{
 		logger: logger,
 		index: mempool.NewPriorityMempool(
@@ -43,16 +46,16 @@ func NewBaseLane(logger log.Logger, txDecoder sdk.TxDecoder, txEncoder sdk.TxEnc
 				MaxTx:      maxTx,
 			},
 		),
-		af:          af,
 		txEncoder:   txEncoder,
 		txDecoder:   txDecoder,
 		anteHandler: anteHandler,
 		txIndex:     make(map[string]struct{}),
+		key:         key,
 	}
 }
 
 func (l *BaseLane) Name() string {
-	return LaneNameBase
+	return l.key
 }
 
 func (l *BaseLane) Match(sdk.Tx) bool {
@@ -60,7 +63,7 @@ func (l *BaseLane) Match(sdk.Tx) bool {
 }
 
 func (l *BaseLane) Contains(tx sdk.Tx) (bool, error) {
-	txHashStr, err := getTxHashStr(l.txEncoder, tx)
+	txHashStr, err := lanes.GetTxHashStr(l.txEncoder, tx)
 	if err != nil {
 		return false, fmt.Errorf("failed to get tx hash string: %w", err)
 	}
@@ -82,7 +85,7 @@ func (l *BaseLane) ProcessLane(sdk.Context, [][]byte) error {
 }
 
 func (l *BaseLane) Insert(goCtx context.Context, tx sdk.Tx) error {
-	txHashStr, err := getTxHashStr(l.txEncoder, tx)
+	txHashStr, err := lanes.GetTxHashStr(l.txEncoder, tx)
 	if err != nil {
 		return err
 	}
@@ -104,7 +107,7 @@ func (l *BaseLane) CountTx() int {
 }
 
 func (l *BaseLane) Remove(tx sdk.Tx) error {
-	txHashStr, err := getTxHashStr(l.txEncoder, tx)
+	txHashStr, err := lanes.GetTxHashStr(l.txEncoder, tx)
 	if err != nil {
 		return fmt.Errorf("failed to get tx hash string: %w", err)
 	}

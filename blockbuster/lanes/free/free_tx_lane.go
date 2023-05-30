@@ -1,8 +1,10 @@
-package lane
+package free
 
 import (
 	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/skip-mev/pob/blockbuster/lanes"
+	"github.com/skip-mev/pob/blockbuster/lanes/base"
 	"github.com/skip-mev/pob/mempool"
 )
 
@@ -11,11 +13,11 @@ const (
 	LaneNameFreeTx = "free-tx"
 )
 
-var _ Lane = (*FreeTxLane)(nil)
+var _ lanes.Lane = (*FreeTxLane)(nil)
 
 // FreeTxLane defines a free transaction lane, which extends a base lane.
 type FreeTxLane struct {
-	*BaseLane
+	*base.BaseLane
 
 	matchFn func(tx sdk.Tx) bool
 }
@@ -29,13 +31,7 @@ func NewFreeTxLane(
 	anteHandler sdk.AnteHandler,
 	matchFn func(tx sdk.Tx) bool,
 ) *FreeTxLane {
-	logger = logger.With("lane", LaneNameTOB)
-	baseLane := NewBaseLane(logger, txDecoder, txEncoder, maxTx, af, anteHandler)
-
-	return &FreeTxLane{
-		BaseLane: baseLane,
-		matchFn:  matchFn,
-	}
+	panic("not implemented")
 }
 
 func (l *FreeTxLane) Name() string {

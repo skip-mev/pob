@@ -1,4 +1,4 @@
-package lane
+package lanes
 
 import (
 	"crypto/sha256"
@@ -8,7 +8,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-func getTxHashStr(txEncoder sdk.TxEncoder, tx sdk.Tx) (string, error) {
+func GetTxHashStr(txEncoder sdk.TxEncoder, tx sdk.Tx) (string, error) {
 	txBz, err := txEncoder(tx)
 	if err != nil {
 		return "", fmt.Errorf("failed to encode transaction: %w", err)

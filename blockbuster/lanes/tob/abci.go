@@ -1,77 +1,17 @@
-package lane
+package tob
 
 import (
 	"bytes"
 	"errors"
 	"fmt"
 
-	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/skip-mev/pob/mempool"
+	"github.com/skip-mev/pob/blockbuster/lanes"
 )
 
-const (
-	// LaneNameTOB defines the name of the top-of-block auction lane.
-	LaneNameTOB = "tob"
-)
-
-type (
-	// AuctionBidInfo defines the information about a bid to the auction house.
-	AuctionBidInfo struct {
-		Bidder       sdk.AccAddress
-		Bid          sdk.Coin
-		Transactions [][]byte
-		Timeout      uint64
-		Signers      []map[string]struct{}
-	}
-
-	// AuctionFactory defines the interface for processing auction transactions. It is
-	// a wrapper around all of the functionality that each application chain must implement
-	// in order for auction processing to work.
-	AuctionFactory interface {
-		// WrapBundleTransaction defines a function that wraps a bundle transaction into a sdk.Tx. Since
-		// this is a potentially expensive operation, we allow each application chain to define how
-		// they want to wrap the transaction such that it is only called when necessary (i.e. when the
-		// transaction is being considered in the proposal handlers).
-		WrapBundleTransaction(tx []byte) (sdk.Tx, error)
-
-		// GetAuctionBidInfo defines a function that returns the bid info from an auction transaction.
-		GetAuctionBidInfo(tx sdk.Tx) (*AuctionBidInfo, error)
-	}
-)
-
-var _ Lane = (*TOBLane)(nil)
-
-// TOBLane defines a top-of-block auction lane, which extends a base lane.
-type TOBLane struct {
-	*BaseLane
-}
-
-func NewTOBLane(
-	logger log.Logger,
-	txDecoder sdk.TxDecoder,
-	txEncoder sdk.TxEncoder,
-	maxTx int,
-	af mempool.AuctionFactory,
-	anteHandler sdk.AnteHandler,
-) *TOBLane {
-	logger = logger.With("lane", LaneNameTOB)
-	baseLane := NewBaseLane(logger, txDecoder, txEncoder, maxTx, af, anteHandler)
-
-	return &TOBLane{
-		BaseLane: baseLane,
-	}
-}
-
-func (l *TOBLane) Name() string {
-	return LaneNameTOB
-}
-
-func (l *TOBLane) Match(tx sdk.Tx) bool {
-	bidInfo, err := l.af.GetAuctionBidInfo(tx)
-	return bidInfo != nil && err == nil
-}
-
+// VerifyTx will verify that the bid transaction and all of its bundled
+// transactions are valid. It will return an error if any of the transactions
+// are invalid.
 func (l *TOBLane) VerifyTx(ctx sdk.Context, bidTx sdk.Tx) error {
 	bidInfo, err := l.af.GetAuctionBidInfo(bidTx)
 	if err != nil {
@@ -108,7 +48,7 @@ func (l *TOBLane) VerifyTx(ctx sdk.Context, bidTx sdk.Tx) error {
 func (l *TOBLane) PrepareLane(ctx sdk.Context, maxTxBytes int64, selectedTxs map[string][]byte) ([][]byte, error) {
 	var tmpSelectedTxs [][]byte
 
-	bidTxIterator := l.index.Select(ctx, nil)
+	bidTxIterator := l.Mempool.Select(ctx, nil)
 	txsToRemove := make(map[sdk.Tx]struct{}, 0)
 
 	// Attempt to select the highest bid transaction that is valid and whose
@@ -119,7 +59,7 @@ selectBidTxLoop:
 		tmpBidTx := bidTxIterator.Tx()
 
 		// if the transaction is already in the (partial) block proposal, we skip it
-		txHash, err := getTxHashStr(l.txEncoder, tmpBidTx)
+		txHash, err := lanes.GetTxHashStr(l.TxEncoder, tmpBidTx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get bid tx hash: %w", err)
 		}
@@ -127,7 +67,7 @@ selectBidTxLoop:
 			continue selectBidTxLoop
 		}
 
-		bidTxBz, err := l.txEncoder(tmpBidTx)
+		bidTxBz, err := l.TxEncoder(tmpBidTx)
 		if err != nil {
 			txsToRemove[tmpBidTx] = struct{}{}
 			continue selectBidTxLoop
@@ -173,7 +113,7 @@ selectBidTxLoop:
 		}
 
 		txsToRemove[tmpBidTx] = struct{}{}
-		l.logger.Info(
+		l.Logger.Info(
 			"failed to select auction bid tx; tx size is too large",
 			"tx_size", bidTxSize,
 			"max_size", maxTxBytes,
@@ -192,7 +132,7 @@ selectBidTxLoop:
 
 func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte) error {
 	for index, txBz := range proposalTxs {
-		tx, err := l.txDecoder(txBz)
+		tx, err := l.TxDecoder(txBz)
 		if err != nil {
 			return err
 		}
@@ -234,7 +174,7 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte) error {
 					return err
 				}
 
-				refTxBz, err := l.txEncoder(wrappedTx)
+				refTxBz, err := l.TxEncoder(wrappedTx)
 				if err != nil {
 					return err
 				}
@@ -249,21 +189,8 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte) error {
 	return nil
 }
 
-func (l *TOBLane) prepareProposalVerifyTx(ctx sdk.Context, tx sdk.Tx) ([]byte, error) {
-	txBz, err := l.txEncoder(tx)
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := l.verifyTx(ctx, tx); err != nil {
-		return nil, err
-	}
-
-	return txBz, nil
-}
-
 func (l *TOBLane) processProposalVerifyTx(ctx sdk.Context, txBz []byte) (sdk.Tx, error) {
-	tx, err := l.txDecoder(txBz)
+	tx, err := l.TxDecoder(txBz)
 	if err != nil {
 		return nil, err
 	}
@@ -276,8 +203,8 @@ func (l *TOBLane) processProposalVerifyTx(ctx sdk.Context, txBz []byte) (sdk.Tx,
 }
 
 func (l *TOBLane) verifyTx(ctx sdk.Context, tx sdk.Tx) (sdk.Context, error) {
-	if l.anteHandler != nil {
-		newCtx, err := l.anteHandler(ctx, tx, false)
+	if l.AnteHandler != nil {
+		newCtx, err := l.AnteHandler(ctx, tx, false)
 		return newCtx, err
 	}
 
