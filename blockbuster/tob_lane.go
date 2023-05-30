@@ -216,7 +216,7 @@ selectBidTxLoop:
 // ProcessLane which verifies the lane's portion of a proposed block.
 func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte) error {
 	for index, txBz := range proposalTxs {
-		tx, err := l.processProposalVerifyTx(ctx, txBz)
+		tx, err := l.txDecoder(txBz)
 		if err != nil {
 			return err
 		}
@@ -224,6 +224,11 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte) error {
 		// skip transaction if it does not match this lane
 		if !l.Match(tx) {
 			continue
+		}
+
+		_, err = l.processProposalVerifyTx(ctx, txBz)
+		if err != nil {
+			return err
 		}
 
 		bidInfo, err := l.af.GetAuctionBidInfo(tx)
