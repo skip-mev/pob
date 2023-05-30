@@ -8,6 +8,7 @@ import (
 	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
+	"github.com/skip-mev/pob/blockbuster"
 	"github.com/skip-mev/pob/blockbuster/lanes"
 	"github.com/skip-mev/pob/mempool"
 )
@@ -17,7 +18,7 @@ const (
 	key = "base"
 )
 
-var _ lanes.Lane = (*BaseLane)(nil)
+var _ blockbuster.Lane = (*BaseLane)(nil)
 
 // BaseLane defines a base lane implementation. It contains a priority-nonce
 // index along with core lane functionality. The base lane is meant to be extended

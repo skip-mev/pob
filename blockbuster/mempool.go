@@ -6,7 +6,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
-	"github.com/skip-mev/pob/blockbuster/lane"
 )
 
 var _ sdkmempool.Mempool = (*Mempool)(nil)
@@ -14,10 +13,10 @@ var _ sdkmempool.Mempool = (*Mempool)(nil)
 // Mempool defines the Blockbuster mempool implement. It contains a registry
 // of lanes, which allows for customizable block proposal construction.
 type Mempool struct {
-	registry []lane.Lane
+	registry []Lane
 }
 
-func NewMempool(lanes ...lane.Lane) *Mempool {
+func NewMempool(lanes ...Lane) *Mempool {
 	return &Mempool{
 		registry: lanes,
 	}

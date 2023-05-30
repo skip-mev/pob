@@ -9,46 +9,10 @@ import (
 	"github.com/skip-mev/pob/blockbuster/lanes"
 )
 
-// VerifyTx will verify that the bid transaction and all of its bundled
-// transactions are valid. It will return an error if any of the transactions
-// are invalid.
-func (l *TOBLane) VerifyTx(ctx sdk.Context, bidTx sdk.Tx) error {
-	bidInfo, err := l.af.GetAuctionBidInfo(bidTx)
-	if err != nil {
-		return fmt.Errorf("failed to get auction bid info: %w", err)
-	}
-
-	// verify the top-level bid transaction
-	ctx, err = l.verifyTx(ctx, bidTx)
-	if err != nil {
-		return fmt.Errorf("invalid bid tx; failed to execute ante handler: %w", err)
-	}
-
-	// verify all of the bundled transactions
-	for _, tx := range bidInfo.Transactions {
-		bundledTx, err := l.af.WrapBundleTransaction(tx)
-		if err != nil {
-			return fmt.Errorf("invalid bid tx; failed to decode bundled tx: %w", err)
-		}
-
-		// bid txs cannot be included in bundled txs
-		bidInfo, _ := l.af.GetAuctionBidInfo(bundledTx)
-		if bidInfo != nil {
-			return fmt.Errorf("invalid bid tx; bundled tx cannot be a bid tx")
-		}
-
-		if ctx, err = l.verifyTx(ctx, bundledTx); err != nil {
-			return fmt.Errorf("invalid bid tx; failed to execute bundled transaction: %w", err)
-		}
-	}
-
-	return nil
-}
-
 func (l *TOBLane) PrepareLane(ctx sdk.Context, maxTxBytes int64, selectedTxs map[string][]byte) ([][]byte, error) {
 	var tmpSelectedTxs [][]byte
 
-	bidTxIterator := l.Mempool.Select(ctx, nil)
+	bidTxIterator := l.Select(ctx, nil)
 	txsToRemove := make(map[sdk.Tx]struct{}, 0)
 
 	// Attempt to select the highest bid transaction that is valid and whose
@@ -82,7 +46,7 @@ selectBidTxLoop:
 				continue selectBidTxLoop
 			}
 
-			bidInfo, err := l.af.GetAuctionBidInfo(tmpBidTx)
+			bidInfo, err := l.GetAuctionBidInfo(tmpBidTx)
 			if bidInfo == nil || err != nil {
 				// Some transactions in the bundle may be malformed or invalid, so we
 				// remove the bid transaction and try the next top bid.
@@ -147,7 +111,7 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte) error {
 			return err
 		}
 
-		bidInfo, err := l.af.GetAuctionBidInfo(tx)
+		bidInfo, err := l.GetAuctionBidInfo(tx)
 		if err != nil {
 			return err
 		}
@@ -169,7 +133,7 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte) error {
 			for i, refTxRaw := range bundledTransactions {
 				// Wrap and then encode the bundled transaction to ensure that the underlying
 				// reference transaction can be processed as an sdk.Tx.
-				wrappedTx, err := l.af.WrapBundleTransaction(refTxRaw)
+				wrappedTx, err := l.WrapBundleTransaction(refTxRaw)
 				if err != nil {
 					return err
 				}
@@ -183,6 +147,42 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte) error {
 					return errors.New("block proposal does not match the bundled transactions in the auction bid")
 				}
 			}
+		}
+	}
+
+	return nil
+}
+
+// VerifyTx will verify that the bid transaction and all of its bundled
+// transactions are valid. It will return an error if any of the transactions
+// are invalid.
+func (l *TOBLane) VerifyTx(ctx sdk.Context, bidTx sdk.Tx) error {
+	bidInfo, err := l.GetAuctionBidInfo(bidTx)
+	if err != nil {
+		return fmt.Errorf("failed to get auction bid info: %w", err)
+	}
+
+	// verify the top-level bid transaction
+	ctx, err = l.verifyTx(ctx, bidTx)
+	if err != nil {
+		return fmt.Errorf("invalid bid tx; failed to execute ante handler: %w", err)
+	}
+
+	// verify all of the bundled transactions
+	for _, tx := range bidInfo.Transactions {
+		bundledTx, err := l.WrapBundleTransaction(tx)
+		if err != nil {
+			return fmt.Errorf("invalid bid tx; failed to decode bundled tx: %w", err)
+		}
+
+		// bid txs cannot be included in bundled txs
+		bidInfo, _ := l.GetAuctionBidInfo(bundledTx)
+		if bidInfo != nil {
+			return fmt.Errorf("invalid bid tx; bundled tx cannot be a bid tx")
+		}
+
+		if ctx, err = l.verifyTx(ctx, bundledTx); err != nil {
+			return fmt.Errorf("invalid bid tx; failed to execute bundled transaction: %w", err)
 		}
 	}
 
