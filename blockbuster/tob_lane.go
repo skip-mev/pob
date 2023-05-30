@@ -152,7 +152,7 @@ selectBidTxLoop:
 			continue selectBidTxLoop
 		}
 
-		bidTxBz, err := l.prepareProposalVerifyTx(cacheCtx, tmpBidTx)
+		bidTxBz, err := l.txEncoder(tmpBidTx)
 		if err != nil {
 			txsToRemove[tmpBidTx] = struct{}{}
 			continue selectBidTxLoop
@@ -160,6 +160,13 @@ selectBidTxLoop:
 
 		bidTxSize := int64(len(bidTxBz))
 		if bidTxSize <= maxTxBytes {
+			if err := l.VerifyTx(cacheCtx, tmpBidTx); err != nil {
+				// Some transactions in the bundle may be malformed or invalid, so we
+				// remove the bid transaction and try the next top bid.
+				txsToRemove[tmpBidTx] = struct{}{}
+				continue selectBidTxLoop
+			}
+
 			bidInfo, err := l.af.GetAuctionBidInfo(tmpBidTx)
 			if bidInfo == nil || err != nil {
 				// Some transactions in the bundle may be malformed or invalid, so we
@@ -169,28 +176,9 @@ selectBidTxLoop:
 			}
 
 			// store the bytes of each ref tx as sdk.Tx bytes in order to build a valid proposal
-			bundledTransactions := bidInfo.Transactions
-			sdkTxBytes := make([][]byte, len(bundledTransactions))
-
-			// Ensure that the bundled transactions are valid
-			for index, rawRefTx := range bundledTransactions {
-				refTx, err := l.af.WrapBundleTransaction(rawRefTx)
-				if err != nil {
-					// Malformed bundled transaction, so we remove the bid transaction
-					// and try the next top bid.
-					txsToRemove[tmpBidTx] = struct{}{}
-					continue selectBidTxLoop
-				}
-
-				txBz, err := l.prepareProposalVerifyTx(cacheCtx, refTx)
-				if err != nil {
-					// Invalid bundled transaction, so we remove the bid transaction
-					// and try the next top bid.
-					txsToRemove[tmpBidTx] = struct{}{}
-					continue selectBidTxLoop
-				}
-
-				sdkTxBytes[index] = txBz
+			bundledTxBz := make([][]byte, len(bidInfo.Transactions))
+			for index, rawRefTx := range bidInfo.Transactions {
+				bundledTxBz[index] = rawRefTx
 			}
 
 			// At this point, both the bid transaction itself and all the bundled
@@ -198,7 +186,7 @@ selectBidTxLoop:
 			// all the bundled transactions. We also mark these transactions as seen and
 			// update the total size selected thus far.
 			tmpSelectedTxs = append(tmpSelectedTxs, bidTxBz)
-			tmpSelectedTxs = append(tmpSelectedTxs, sdkTxBytes...)
+			tmpSelectedTxs = append(tmpSelectedTxs, bundledTxBz...)
 
 			// Write the cache context to the original context when we know we have a
 			// valid top of block bundle.
@@ -215,7 +203,7 @@ selectBidTxLoop:
 		)
 	}
 
-	// Remove all invalid transactions from the mempool.
+	// remove all invalid transactions from the mempool
 	for tx := range txsToRemove {
 		if err := l.Remove(tx); err != nil {
 			return nil, err
