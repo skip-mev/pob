@@ -19,12 +19,37 @@ const (
 	LaneNameTOB = "tob"
 )
 
+type (
+	// AuctionBidInfo defines the information about a bid to the auction house.
+	AuctionBidInfo struct {
+		Bidder       sdk.AccAddress
+		Bid          sdk.Coin
+		Transactions [][]byte
+		Timeout      uint64
+		Signers      []map[string]struct{}
+	}
+
+	// AuctionFactory defines the interface for processing auction transactions. It is
+	// a wrapper around all of the functionality that each application chain must implement
+	// in order for auction processing to work.
+	AuctionFactory interface {
+		// WrapBundleTransaction defines a function that wraps a bundle transaction into a sdk.Tx. Since
+		// this is a potentially expensive operation, we allow each application chain to define how
+		// they want to wrap the transaction such that it is only called when necessary (i.e. when the
+		// transaction is being considered in the proposal handlers).
+		WrapBundleTransaction(tx []byte) (sdk.Tx, error)
+
+		// GetAuctionBidInfo defines a function that returns the bid info from an auction transaction.
+		GetAuctionBidInfo(tx sdk.Tx) (*AuctionBidInfo, error)
+	}
+)
+
 var _ Lane = (*TOBLane)(nil)
 
 type TOBLane struct {
 	logger      log.Logger
 	index       sdkmempool.Mempool
-	af          mempool.AuctionFactory
+	af          AuctionFactory
 	txEncoder   sdk.TxEncoder
 	txDecoder   sdk.TxDecoder
 	anteHandler sdk.AnteHandler
@@ -34,7 +59,7 @@ type TOBLane struct {
 	txIndex map[string]struct{}
 }
 
-func NewTOBLane(logger log.Logger, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int, af mempool.AuctionFactory, anteHandler sdk.AnteHandler) *TOBLane {
+func NewTOBLane(logger log.Logger, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int, af AuctionFactory, anteHandler sdk.AnteHandler) *TOBLane {
 	return &TOBLane{
 		logger: logger,
 		index: mempool.NewPriorityMempool(
