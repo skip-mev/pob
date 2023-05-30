@@ -29,9 +29,6 @@ type (
 	// two-dimensional priority ordering, with the additional support of prioritizing
 	// and indexing auction bids.
 	AuctionMempool struct {
-		// Inherit the methods of the SDK's Mempool interface.
-		sdkmempool.Mempool
-
 		// auctionIndex defines an index of auction bids.
 		index sdkmempool.Mempool
 

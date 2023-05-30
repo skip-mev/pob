@@ -40,8 +40,6 @@ func NewBuilderDecorator(ak keeper.Keeper, txEncoder sdk.TxEncoder, mempool Memp
 // AnteHandle validates that the auction bid is valid if one exists. If valid it will deduct the entrance fee from the
 // bidder's account.
 func (bd BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (sdk.Context, error) {
-	ctx.GasMeter().Limit()
-
 	// If comet is re-checking a transaction, we only need to check if the transaction is in the application-side mempool.
 	if ctx.IsReCheckTx() {
 		contains, err := bd.mempool.Contains(tx)

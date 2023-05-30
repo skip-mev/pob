@@ -9,6 +9,9 @@ import (
 	"github.com/skip-mev/pob/blockbuster/lanes"
 )
 
+// PrepareLane will attempt to select the highest bid transaction that is valid
+// and whose bundled transactions are valid and include them in the proposal. It
+// will return an empty partial proposal if no valid bids are found.
 func (l *TOBLane) PrepareLane(ctx sdk.Context, maxTxBytes int64, selectedTxs map[string][]byte) ([][]byte, error) {
 	var tmpSelectedTxs [][]byte
 
@@ -22,7 +25,11 @@ selectBidTxLoop:
 		cacheCtx, write := ctx.CacheContext()
 		tmpBidTx := bidTxIterator.Tx()
 
-		// if the transaction is already in the (partial) block proposal, we skip it
+		// if the transaction is already in the (partial) block proposal, we skip it.
+		//
+		// NOTE: This should never happen as this lane is meant to be the first lane.
+		// TODO: we should probably revert this back to the original code since the bundled
+		// 	transactions need to be cross checked with the transactions in the block proposal.
 		txHash, err := lanes.GetTxHashStr(l.TxEncoder, tmpBidTx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get bid tx hash: %w", err)
@@ -39,13 +46,14 @@ selectBidTxLoop:
 
 		bidTxSize := int64(len(bidTxBz))
 		if bidTxSize <= maxTxBytes {
+			// Verify the bid transaction and all of its bundled transactions.
 			if err := l.VerifyTx(cacheCtx, tmpBidTx); err != nil {
-				// Some transactions in the bundle may be malformed or invalid, so we
-				// remove the bid transaction and try the next top bid.
 				txsToRemove[tmpBidTx] = struct{}{}
 				continue selectBidTxLoop
 			}
 
+			// Build the partial proposal by selecting the bid transaction and all of
+			// its bundled transactions.
 			bidInfo, err := l.GetAuctionBidInfo(tmpBidTx)
 			if bidInfo == nil || err != nil {
 				// Some transactions in the bundle may be malformed or invalid, so we
@@ -57,9 +65,21 @@ selectBidTxLoop:
 			// store the bytes of each ref tx as sdk.Tx bytes in order to build a valid proposal
 			bundledTxBz := make([][]byte, len(bidInfo.Transactions))
 			for index, rawRefTx := range bidInfo.Transactions {
-				bundleTxBz := make([]byte, len(rawRefTx))
-				copy(bundleTxBz, rawRefTx)
-				bundledTxBz[index] = rawRefTx
+				sdkTx, err := l.WrapBundleTransaction(rawRefTx)
+				if err != nil {
+					txsToRemove[tmpBidTx] = struct{}{}
+					continue selectBidTxLoop
+				}
+
+				sdkTxBz, err := l.TxEncoder(sdkTx)
+				if err != nil {
+					txsToRemove[tmpBidTx] = struct{}{}
+					continue selectBidTxLoop
+				}
+
+				bundleTxBz := make([]byte, len(sdkTxBz))
+				copy(bundleTxBz, sdkTxBz)
+				bundledTxBz[index] = sdkTxBz
 			}
 
 			// At this point, both the bid transaction itself and all the bundled
@@ -94,19 +114,14 @@ selectBidTxLoop:
 	return tmpSelectedTxs, nil
 }
 
+// ProcessLane will ensure that block proposals that include transactions from
+// the top-of-block auction lane are valid. It will return an error if the
+// block proposal is invalid. The block proposal is invalid if it does not
+// respect the ordering of transactions in the bid transaction or if the bid/bundled
+// transactions are invalid.
 func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte) error {
 	for index, txBz := range proposalTxs {
 		tx, err := l.TxDecoder(txBz)
-		if err != nil {
-			return err
-		}
-
-		// skip transaction if it does not match this lane
-		if !l.Match(tx) {
-			continue
-		}
-
-		_, err = l.processProposalVerifyTx(ctx, txBz)
 		if err != nil {
 			return err
 		}
@@ -146,6 +161,11 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte) error {
 				if !bytes.Equal(refTxBz, proposalTxs[i+1]) {
 					return errors.New("block proposal does not match the bundled transactions in the auction bid")
 				}
+			}
+
+			// Verify the bid transaction.
+			if err = l.VerifyTx(ctx, tx); err != nil {
+				return err
 			}
 		}
 	}
@@ -189,19 +209,8 @@ func (l *TOBLane) VerifyTx(ctx sdk.Context, bidTx sdk.Tx) error {
 	return nil
 }
 
-func (l *TOBLane) processProposalVerifyTx(ctx sdk.Context, txBz []byte) (sdk.Tx, error) {
-	tx, err := l.TxDecoder(txBz)
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := l.verifyTx(ctx, tx); err != nil {
-		return nil, err
-	}
-
-	return tx, nil
-}
-
+// verifyTx will execute the ante handler on the transaction and return the
+// resulting context and error.
 func (l *TOBLane) verifyTx(ctx sdk.Context, tx sdk.Tx) (sdk.Context, error) {
 	if l.AnteHandler != nil {
 		newCtx, err := l.AnteHandler(ctx, tx, false)
