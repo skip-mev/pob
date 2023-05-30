@@ -15,6 +15,31 @@ const (
 	LaneNameTOB = "tob"
 )
 
+type (
+	// AuctionBidInfo defines the information about a bid to the auction house.
+	AuctionBidInfo struct {
+		Bidder       sdk.AccAddress
+		Bid          sdk.Coin
+		Transactions [][]byte
+		Timeout      uint64
+		Signers      []map[string]struct{}
+	}
+
+	// AuctionFactory defines the interface for processing auction transactions. It is
+	// a wrapper around all of the functionality that each application chain must implement
+	// in order for auction processing to work.
+	AuctionFactory interface {
+		// WrapBundleTransaction defines a function that wraps a bundle transaction into a sdk.Tx. Since
+		// this is a potentially expensive operation, we allow each application chain to define how
+		// they want to wrap the transaction such that it is only called when necessary (i.e. when the
+		// transaction is being considered in the proposal handlers).
+		WrapBundleTransaction(tx []byte) (sdk.Tx, error)
+
+		// GetAuctionBidInfo defines a function that returns the bid info from an auction transaction.
+		GetAuctionBidInfo(tx sdk.Tx) (*AuctionBidInfo, error)
+	}
+)
+
 var _ Lane = (*TOBLane)(nil)
 
 // TOBLane defines a top-of-block auction lane, which extends a base lane.
@@ -102,7 +127,7 @@ selectBidTxLoop:
 			continue selectBidTxLoop
 		}
 
-		bidTxBz, err := l.prepareProposalVerifyTx(cacheCtx, tmpBidTx)
+		bidTxBz, err := l.txEncoder(tmpBidTx)
 		if err != nil {
 			txsToRemove[tmpBidTx] = struct{}{}
 			continue selectBidTxLoop
@@ -110,6 +135,13 @@ selectBidTxLoop:
 
 		bidTxSize := int64(len(bidTxBz))
 		if bidTxSize <= maxTxBytes {
+			if err := l.VerifyTx(cacheCtx, tmpBidTx); err != nil {
+				// Some transactions in the bundle may be malformed or invalid, so we
+				// remove the bid transaction and try the next top bid.
+				txsToRemove[tmpBidTx] = struct{}{}
+				continue selectBidTxLoop
+			}
+
 			bidInfo, err := l.af.GetAuctionBidInfo(tmpBidTx)
 			if bidInfo == nil || err != nil {
 				// Some transactions in the bundle may be malformed or invalid, so we
@@ -119,28 +151,11 @@ selectBidTxLoop:
 			}
 
 			// store the bytes of each ref tx as sdk.Tx bytes in order to build a valid proposal
-			bundledTransactions := bidInfo.Transactions
-			sdkTxBytes := make([][]byte, len(bundledTransactions))
-
-			// Ensure that the bundled transactions are valid
-			for index, rawRefTx := range bundledTransactions {
-				refTx, err := l.af.WrapBundleTransaction(rawRefTx)
-				if err != nil {
-					// Malformed bundled transaction, so we remove the bid transaction
-					// and try the next top bid.
-					txsToRemove[tmpBidTx] = struct{}{}
-					continue selectBidTxLoop
-				}
-
-				txBz, err := l.prepareProposalVerifyTx(cacheCtx, refTx)
-				if err != nil {
-					// Invalid bundled transaction, so we remove the bid transaction
-					// and try the next top bid.
-					txsToRemove[tmpBidTx] = struct{}{}
-					continue selectBidTxLoop
-				}
-
-				sdkTxBytes[index] = txBz
+			bundledTxBz := make([][]byte, len(bidInfo.Transactions))
+			for index, rawRefTx := range bidInfo.Transactions {
+				bundleTxBz := make([]byte, len(rawRefTx))
+				copy(bundleTxBz, rawRefTx)
+				bundledTxBz[index] = rawRefTx
 			}
 
 			// At this point, both the bid transaction itself and all the bundled
@@ -148,7 +163,7 @@ selectBidTxLoop:
 			// all the bundled transactions. We also mark these transactions as seen and
 			// update the total size selected thus far.
 			tmpSelectedTxs = append(tmpSelectedTxs, bidTxBz)
-			tmpSelectedTxs = append(tmpSelectedTxs, sdkTxBytes...)
+			tmpSelectedTxs = append(tmpSelectedTxs, bundledTxBz...)
 
 			// Write the cache context to the original context when we know we have a
 			// valid top of block bundle.
@@ -165,7 +180,7 @@ selectBidTxLoop:
 		)
 	}
 
-	// Remove all invalid transactions from the mempool.
+	// remove all invalid transactions from the mempool
 	for tx := range txsToRemove {
 		if err := l.Remove(tx); err != nil {
 			return nil, err
@@ -177,7 +192,7 @@ selectBidTxLoop:
 
 func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte) error {
 	for index, txBz := range proposalTxs {
-		tx, err := l.processProposalVerifyTx(ctx, txBz)
+		tx, err := l.txDecoder(txBz)
 		if err != nil {
 			return err
 		}
@@ -185,6 +200,11 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte) error {
 		// skip transaction if it does not match this lane
 		if !l.Match(tx) {
 			continue
+		}
+
+		_, err = l.processProposalVerifyTx(ctx, txBz)
+		if err != nil {
+			return err
 		}
 
 		bidInfo, err := l.af.GetAuctionBidInfo(tx)

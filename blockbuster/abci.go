@@ -32,8 +32,8 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 			if totalTxBytes < req.MaxTxBytes {
 				laneTxs, err := l.PrepareLane(ctx, req.MaxTxBytes, selectedTxs)
 				if err != nil {
-					h.logger.Error("failed to prepare lane", "lane", l.Name(), "err", err)
-					return abci.ResponsePrepareProposal{Txs: [][]byte{}}
+					h.logger.Error("failed to prepare lane; skipping", "lane", l.Name(), "err", err)
+					continue
 				}
 
 				for _, txBz := range laneTxs {
