@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	// LaneNameTOB defines the name of the top-of-block auction lane.
+	// LaneName defines the name of the top-of-block auction lane.
 	LaneName = "tob"
 )
 
@@ -40,12 +40,13 @@ func NewTOBLane(
 	maxTx int,
 	anteHandler sdk.AnteHandler,
 	af AuctionFactory,
+	maxBlockSpace sdk.Dec,
 ) *TOBLane {
 	logger = logger.With("lane", LaneName)
 
 	return &TOBLane{
 		Mempool:        NewAuctionMempool(txDecoder, txEncoder, maxTx, af),
-		LaneConfig:     blockbuster.NewLaneConfig(logger, txEncoder, txDecoder, anteHandler, LaneName),
+		LaneConfig:     blockbuster.NewLaneConfig(logger, txEncoder, txDecoder, anteHandler, LaneName, maxBlockSpace),
 		AuctionFactory: af,
 	}
 }

@@ -79,3 +79,21 @@ func (m *Mempool) Remove(tx sdk.Tx) error {
 
 	return errors.Join(errs...)
 }
+
+// Contains returns true if the transaction is contained in the mempool.
+func (m *Mempool) Contains(tx sdk.Tx) (bool, error) {
+	for _, lane := range m.registry {
+		if lane.Match(tx) {
+			contains, err := lane.Contains(tx)
+			if err != nil {
+				return false, err
+			}
+
+			if contains {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}

@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	// key defines the name of the base lane.
+	// LaneName defines the name of the base lane.
 	LaneName = "base"
 )
 
@@ -23,10 +23,10 @@ type BaseLane struct {
 	*blockbuster.LaneConfig
 }
 
-func NewBaseLane(logger log.Logger, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int, anteHandler sdk.AnteHandler) *BaseLane {
+func NewBaseLane(logger log.Logger, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int, anteHandler sdk.AnteHandler, maxBlockSpace sdk.Dec) *BaseLane {
 	return &BaseLane{
 		Mempool:    NewBaseMempool(txDecoder, txEncoder, maxTx),
-		LaneConfig: blockbuster.NewLaneConfig(logger, txEncoder, txDecoder, anteHandler, LaneName),
+		LaneConfig: blockbuster.NewLaneConfig(logger, txEncoder, txDecoder, anteHandler, LaneName, maxBlockSpace),
 	}
 }
 

@@ -9,10 +9,11 @@ import (
 type (
 	// LaneConfig defines the configuration for a lane.
 	LaneConfig struct {
-		Logger      log.Logger
-		TxEncoder   sdk.TxEncoder
-		TxDecoder   sdk.TxDecoder
-		AnteHandler sdk.AnteHandler
+		Logger        log.Logger
+		TxEncoder     sdk.TxEncoder
+		TxDecoder     sdk.TxDecoder
+		AnteHandler   sdk.AnteHandler
+		MaxBlockSpace sdk.Dec
 
 		// Key defines the name of the lane.
 		Key string
@@ -38,7 +39,7 @@ type (
 		// number of bytes that can be included in the block and the selected transactions
 		// thus from from previous lane(s) as mapping from their HEX-encoded hash to
 		// the raw transaction.
-		PrepareLane(ctx sdk.Context, maxTxBytes int64, selectedTxs map[string][]byte) ([][]byte, error)
+		PrepareLane(ctx sdk.Context, proposal Proposal, next PrepareLanesHandler) Proposal
 
 		// ProcessLane which verifies the lane's portion of a proposed block. Returns an error
 		// if the lane's portion of the block is invalid. Also returns the index of the next
@@ -47,13 +48,15 @@ type (
 	}
 )
 
-func NewLaneConfig(logger log.Logger, txEncoder sdk.TxEncoder, txDecoder sdk.TxDecoder, anteHandler sdk.AnteHandler, key string) *LaneConfig {
+func NewLaneConfig(logger log.Logger, txEncoder sdk.TxEncoder, txDecoder sdk.TxDecoder,
+	anteHandler sdk.AnteHandler, key string, maxBlockSpace sdk.Dec) *LaneConfig {
 	return &LaneConfig{
-		Logger:      logger,
-		TxEncoder:   txEncoder,
-		TxDecoder:   txDecoder,
-		AnteHandler: anteHandler,
-		Key:         key,
+		Logger:        logger,
+		TxEncoder:     txEncoder,
+		TxDecoder:     txDecoder,
+		AnteHandler:   anteHandler,
+		Key:           key,
+		MaxBlockSpace: maxBlockSpace,
 	}
 }
 

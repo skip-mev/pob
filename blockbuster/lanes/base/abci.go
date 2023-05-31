@@ -9,9 +9,15 @@ import (
 
 // PrepareLane will prepare a partial proposal for the base lane. It will return
 // an error if there are any unexpected errors.
-func (l *BaseLane) PrepareLane(ctx sdk.Context, maxTxBytes int64, selectedTxs map[string][]byte) ([][]byte, error) {
+func (l *BaseLane) PrepareLane(ctx sdk.Context, proposal blockbuster.Proposal, next blockbuster.PrepareLanesHandler) blockbuster.Proposal {
+	// Define all of the info we need to select transactions for the partial proposal.
 	txs := make([][]byte, 0)
 	txsToRemove := make(map[sdk.Tx]struct{}, 0)
+
+	// Calculate the max tx bytes for the lane and track the total size of the
+	// transactions we have selected so far.
+	maxTxBytes := blockbuster.GetMaxTxBytesForLane(proposal, l.MaxBlockSpace)
+	totalSize := int64(0)
 
 	// Select all transactions in the mempool that are valid and not already in the
 	// partial proposal.
@@ -30,8 +36,14 @@ func (l *BaseLane) PrepareLane(ctx sdk.Context, maxTxBytes int64, selectedTxs ma
 			txsToRemove[tx] = struct{}{}
 			continue
 		}
-		if _, ok := selectedTxs[hash]; ok {
+		if _, ok := proposal.SelectedTxs[hash]; ok {
 			continue
+		}
+
+		// if the transaction is too big, we break and do not attempt to include more txs.
+		size := int64(len(txBytes))
+		if updatedSize := totalSize + size; updatedSize > maxTxBytes {
+			break
 		}
 
 		// Verify the transaction.
@@ -40,15 +52,19 @@ func (l *BaseLane) PrepareLane(ctx sdk.Context, maxTxBytes int64, selectedTxs ma
 			continue
 		}
 
+		totalSize += size
 		txs = append(txs, txBytes)
 	}
 
 	// Remove all transactions that were invalid during the creation of the partial proposal.
-	if err := blockbuster.RemoveTxsFromMempool(txsToRemove, l.Mempool); err != nil {
-		return nil, fmt.Errorf("failed to remove txs from mempool for lane %s: %w", l.Name(), err)
+	if err := blockbuster.RemoveTxsFromLane(txsToRemove, l.Mempool); err != nil {
+		l.Logger.Error("failed to remove txs from mempool", "lane", l.Name(), "err", err)
+		return proposal
 	}
 
-	return txs, nil
+	proposal = blockbuster.UpdateProposal(proposal, txs, totalSize)
+
+	return next(ctx, proposal)
 }
 
 // ProcessLane will process the base lane. It will verify all transactions in the
@@ -58,12 +74,14 @@ func (l *BaseLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next block
 	seenOtherLaneTxs := false
 	endIndex := 0
 
+	// Verify all transactions in the lane.
 	for _, tx := range proposalTxs {
 		tx, err := l.TxDecoder(tx)
 		if err != nil {
 			return ctx, fmt.Errorf("failed to decode tx: %w", err)
 		}
 
+		// If this lane intersects with another lane, we return an error.
 		if l.Match(tx) {
 			if seenOtherLaneTxs {
 				return ctx, fmt.Errorf("lane %s contains txs from other lanes", l.Name())

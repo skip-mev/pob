@@ -21,7 +21,7 @@ func GetTxHashStr(txEncoder sdk.TxEncoder, tx sdk.Tx) (string, error) {
 	return txHashStr, nil
 }
 
-func RemoveTxsFromMempool(txs map[sdk.Tx]struct{}, mempool sdkmempool.Mempool) error {
+func RemoveTxsFromLane(txs map[sdk.Tx]struct{}, mempool sdkmempool.Mempool) error {
 	for tx := range txs {
 		if err := mempool.Remove(tx); err != nil {
 			return err
@@ -29,4 +29,28 @@ func RemoveTxsFromMempool(txs map[sdk.Tx]struct{}, mempool sdkmempool.Mempool) e
 	}
 
 	return nil
+}
+
+func GetMaxTxBytesForLane(proposal Proposal, ratio sdk.Dec) int64 {
+	// In the case where the ratio is zero, we return the max tx bytes. Note, the only
+	// lane that should have a ratio of zero is the base lane. This means the base lane
+	// will have no limit on the number of transactions it can include in a block and is only
+	// limited by the maxTxBytes included in the PrepareProposalRequest.
+	if ratio.IsZero() {
+		remainder := proposal.MaxTxBytes - proposal.TotalTxBytes
+		if remainder < 0 {
+			return 0
+		}
+
+		return remainder
+	}
+
+	return int64(ratio.MulInt64(proposal.MaxTxBytes).TruncateInt().Int64())
+}
+
+func UpdateProposal(proposal Proposal, txs [][]byte, txSize int64) Proposal {
+	proposal.Txs = append(proposal.Txs, txs...)
+	proposal.TotalTxBytes += txSize
+
+	return proposal
 }
