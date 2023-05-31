@@ -1,17 +1,21 @@
 package blockbuster
 
 import (
+	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
-	"github.com/skip-mev/pob/mempool"
 )
 
 type (
 	// LaneConfig defines the configuration for a lane.
-	LaneConfig[C comparable] struct {
-		// XXX: For now we use the PriorityNonceMempoolConfig as the base config,
-		// which should be removed once Cosmos SDK v0.48 is released.
-		mempool.PriorityNonceMempoolConfig[C]
+	LaneConfig struct {
+		Logger      log.Logger
+		TxEncoder   sdk.TxEncoder
+		TxDecoder   sdk.TxDecoder
+		AnteHandler sdk.AnteHandler
+
+		// Key defines the name of the lane.
+		Key string
 	}
 
 	// Lane defines an interface used for block construction
@@ -40,3 +44,17 @@ type (
 		ProcessLane(ctx sdk.Context, proposalTxs [][]byte) error
 	}
 )
+
+func NewLaneConfig(logger log.Logger, txEncoder sdk.TxEncoder, txDecoder sdk.TxDecoder, anteHandler sdk.AnteHandler, key string) *LaneConfig {
+	return &LaneConfig{
+		Logger:      logger,
+		TxEncoder:   txEncoder,
+		TxDecoder:   txDecoder,
+		AnteHandler: anteHandler,
+		Key:         key,
+	}
+}
+
+func (c LaneConfig) Name() string {
+	return c.Key
+}
