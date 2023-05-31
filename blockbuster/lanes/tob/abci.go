@@ -28,8 +28,6 @@ selectBidTxLoop:
 		// if the transaction is already in the (partial) block proposal, we skip it.
 		//
 		// NOTE: This should never happen as this lane is meant to be the first lane.
-		// TODO: we should probably revert this back to the original code since the bundled
-		// 	transactions need to be cross checked with the transactions in the block proposal.
 		txHash, err := blockbuster.GetTxHashStr(l.TxEncoder, tmpBidTx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get bid tx hash: %w", err)
@@ -77,6 +75,17 @@ selectBidTxLoop:
 					continue selectBidTxLoop
 				}
 
+				hash, err := blockbuster.GetTxHashStr(l.TxEncoder, sdkTx)
+				if err != nil {
+					txsToRemove[tmpBidTx] = struct{}{}
+					continue selectBidTxLoop
+				}
+
+				// if the transaction is already in the (partial) block proposal, we skip it.
+				if _, ok := selectedTxs[hash]; ok {
+					continue selectBidTxLoop
+				}
+
 				bundleTxBz := make([]byte, len(sdkTxBz))
 				copy(bundleTxBz, sdkTxBz)
 				bundledTxBz[index] = sdkTxBz
@@ -119,16 +128,19 @@ selectBidTxLoop:
 // block proposal is invalid. The block proposal is invalid if it does not
 // respect the ordering of transactions in the bid transaction or if the bid/bundled
 // transactions are invalid.
-func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte) error {
+func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next blockbuster.ProcessLanesHandler) (sdk.Context, error) {
+	// Track the index of the first transaction that does not belong to this lane.
+	endIndex := 0
+
 	for index, txBz := range proposalTxs {
 		tx, err := l.TxDecoder(txBz)
 		if err != nil {
-			return err
+			return ctx, fmt.Errorf("failed to decode tx %w", err)
 		}
 
 		bidInfo, err := l.GetAuctionBidInfo(tx)
 		if err != nil {
-			return err
+			return ctx, fmt.Errorf("failed to get auction bid info for tx at index %w", err)
 		}
 
 		// If the transaction is an auction bid, then we need to ensure that it is
@@ -137,12 +149,12 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte) error {
 		// the bid.
 		if bidInfo != nil {
 			if index != 0 {
-				return errors.New("auction bid must be the first transaction in the block proposal")
+				return ctx, fmt.Errorf("block proposal did not place auction bid transaction at the top of the lane: %d", index)
 			}
 
 			bundledTransactions := bidInfo.Transactions
 			if len(proposalTxs) < len(bundledTransactions)+1 {
-				return errors.New("block proposal does not contain enough transactions to match the bundled transactions in the auction bid")
+				return ctx, errors.New("block proposal does not contain enough transactions to match the bundled transactions in the auction bid")
 			}
 
 			for i, refTxRaw := range bundledTransactions {
@@ -150,27 +162,29 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte) error {
 				// reference transaction can be processed as an sdk.Tx.
 				wrappedTx, err := l.WrapBundleTransaction(refTxRaw)
 				if err != nil {
-					return err
+					return ctx, err
 				}
 
 				refTxBz, err := l.TxEncoder(wrappedTx)
 				if err != nil {
-					return err
+					return ctx, err
 				}
 
 				if !bytes.Equal(refTxBz, proposalTxs[i+1]) {
-					return errors.New("block proposal does not match the bundled transactions in the auction bid")
+					return ctx, errors.New("block proposal does not match the bundled transactions in the auction bid")
 				}
 			}
 
 			// Verify the bid transaction.
 			if err = l.VerifyTx(ctx, tx); err != nil {
-				return err
+				return ctx, err
 			}
+
+			endIndex += len(bundledTransactions) + 1
 		}
 	}
 
-	return nil
+	return next(ctx, proposalTxs[endIndex:])
 }
 
 // VerifyTx will verify that the bid transaction and all of its bundled

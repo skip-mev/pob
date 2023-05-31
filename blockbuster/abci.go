@@ -9,15 +9,38 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-type ProposalHandler struct {
-	logger  log.Logger
-	mempool Mempool
+type (
+	// ProposalHandler is a wrapper around baseapp's PrepareProposal and ProcessProposal.
+	ProposalHandler struct {
+		logger              log.Logger
+		mempool             Mempool
+		txEncoder           sdk.TxEncoder
+		processLanesHandler ProcessLanesHandler
+	}
+
+	// ProcessLanesHandler wraps all of the lanes Process function into a single function.
+	ProcessLanesHandler func(ctx sdk.Context, proposalTxs [][]byte) (sdk.Context, error)
+)
+
+func NewProposalHandler(logger log.Logger, mempool Mempool, txEncoder sdk.TxEncoder) *ProposalHandler {
+	return &ProposalHandler{
+		logger:              logger,
+		mempool:             mempool,
+		txEncoder:           txEncoder,
+		processLanesHandler: ChainProcessLanes(mempool.registry...),
+	}
 }
 
-func NewProposalHandler(logger log.Logger, mempool Mempool) *ProposalHandler {
-	return &ProposalHandler{
-		logger:  logger,
-		mempool: mempool,
+// ChainProcessLane chains together the proposal verification logic from each lane
+// into a single function. The first lane in the chain is the first lane to be verified and
+// the last lane in the chain is the last lane to be verified.
+func ChainProcessLanes(chain ...Lane) ProcessLanesHandler {
+	if len(chain) == 0 {
+		return nil
+	}
+
+	return func(ctx sdk.Context, proposalTxs [][]byte) (sdk.Context, error) {
+		return chain[0].ProcessLane(ctx, proposalTxs, ChainProcessLanes(chain[1:]...))
 	}
 }
 
@@ -56,13 +79,15 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 	}
 }
 
+// ProcessProposalHandler processes the proposal by verifying all transactions in the
+// according to each lane's verification logic. We verify proposals in a greedy fashion.
+// If a lane's portion of the proposal is invalid, we reject the proposal. After a lane's portion
+// of the proposal is verified, we pass the remaining transactions to the next lane in the chain.
 func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 	return func(ctx sdk.Context, req abci.RequestProcessProposal) abci.ResponseProcessProposal {
-		for _, l := range h.mempool.registry {
-			if err := l.ProcessLane(ctx, req.Txs); err != nil {
-				h.logger.Error("failed to process lane", "lane", l.Name(), "err", err)
-				return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
-			}
+		if _, err := h.processLanesHandler(ctx, req.Txs); err != nil {
+			h.logger.Error("failed to process lanes", "err", err)
+			return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 		}
 
 		return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_ACCEPT}
