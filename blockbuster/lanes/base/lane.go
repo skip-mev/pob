@@ -23,7 +23,7 @@ type DefaultLane struct {
 	cfg blockbuster.BaseLaneConfig
 }
 
-func NewDefaultLane(logger log.Logger, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int, anteHandler sdk.AnteHandler, maxBlockSpace sdk.Dec) *DefaultLane {
+func NewDefaultLane(logger log.Logger, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, anteHandler sdk.AnteHandler, maxBlockSpace sdk.Dec) *DefaultLane {
 	return &DefaultLane{
 		Mempool: NewDefaultMempool(txEncoder),
 		cfg:     blockbuster.NewBaseLaneConfig(logger, txEncoder, txDecoder, anteHandler, maxBlockSpace),
