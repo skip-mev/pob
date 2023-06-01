@@ -138,7 +138,7 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next blockb
 
 		bidInfo, err := l.GetAuctionBidInfo(tx)
 		if err != nil {
-			return ctx, fmt.Errorf("failed to get auction bid info for tx at index %w", err)
+			return ctx, fmt.Errorf("failed to get auction bid info for tx %w", err)
 		}
 
 		// If the transaction is an auction bid, then we need to ensure that it is

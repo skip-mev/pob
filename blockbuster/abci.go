@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/libs/log"
@@ -12,7 +13,7 @@ import (
 )
 
 type (
-	// ProposalHandler is a wrapper around ABCI++ PrepareProposal and ProcessProposal
+	// ProposalHandler is a wrapper around the ABCI++ PrepareProposal and ProcessProposal
 	// handlers.
 	ProposalHandler struct {
 		logger              log.Logger
@@ -104,18 +105,18 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 	}
 }
 
-// Terminator Lane will get added to the chain to simplify chaining code
-// Don't need to check if next == nil further up the chain
+// Terminator Lane will get added to the chain to simplify chaining code so that we
+// don't need to check if next == nil further up the chain
 type Terminator struct{}
 
 var _ Lane = (*Terminator)(nil)
 
-// AnteHandle returns the provided Context and nil error
+// PrepareLane is a no-op
 func (t Terminator) PrepareLane(_ sdk.Context, _ int64, _ map[string][]byte) ([][]byte, error) {
 	return nil, nil
 }
 
-// PostHandle returns the provided Context and nil error
+// ProcessLane is a no-op
 func (t Terminator) ProcessLane(ctx sdk.Context, _ [][]byte, _ ProcessLanesHandler) (sdk.Context, error) {
 	return ctx, nil
 }
@@ -125,22 +126,22 @@ func (t Terminator) Name() string {
 	return "Terminator"
 }
 
-// Match returns true if the transaction belongs to this lane
+// Match is a no-op
 func (t Terminator) Match(sdk.Tx) bool {
 	return false
 }
 
-// VerifyTx returns nil
+// VerifyTx is a no-op
 func (t Terminator) VerifyTx(sdk.Context, sdk.Tx) error {
-	return nil
+	return fmt.Errorf("Terminator lane should not be called")
 }
 
-// Contains returns false
+// Contains is a no-op
 func (t Terminator) Contains(sdk.Tx) (bool, error) {
 	return false, nil
 }
 
-// CountTx returns 0
+// CountTx is a no-op
 func (t Terminator) CountTx() int {
 	return 0
 }
