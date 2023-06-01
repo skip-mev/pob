@@ -7,15 +7,15 @@ import (
 )
 
 const (
-	// key defines the name of the base lane.
-	LaneName = "base"
+	// LaneName defines the name of the default lane.
+	LaneName = "default"
 )
 
-var _ blockbuster.Lane = (*BaseLane)(nil)
+var _ blockbuster.Lane = (*DefaultLane)(nil)
 
-// BaseLane defines a base lane implementation. It contains a priority-nonce
+// DefaultLane defines a default lane implementation. It contains a priority-nonce
 // index along with core lane functionality.
-type BaseLane struct {
+type DefaultLane struct {
 	// Mempool defines the mempool for the lane.
 	Mempool
 
@@ -23,13 +23,17 @@ type BaseLane struct {
 	*blockbuster.LaneConfig
 }
 
-func NewBaseLane(logger log.Logger, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int, anteHandler sdk.AnteHandler) *BaseLane {
-	return &BaseLane{
+// NewDefaultLane returns a new default lane.
+func NewDefaultLane(logger log.Logger, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int, anteHandler sdk.AnteHandler) *DefaultLane {
+	return &DefaultLane{
 		Mempool:    NewBaseMempool(txDecoder, txEncoder, maxTx),
 		LaneConfig: blockbuster.NewLaneConfig(logger, txEncoder, txDecoder, anteHandler, LaneName),
 	}
 }
 
-func (l *BaseLane) Match(sdk.Tx) bool {
+// Match returns true if the transaction belongs to this lane. Since
+// this is the default lane, it always returns true. This means that
+// any transaction can be included in this lane.
+func (l *DefaultLane) Match(sdk.Tx) bool {
 	return true
 }

@@ -2,14 +2,14 @@ package base
 
 import sdk "github.com/cosmos/cosmos-sdk/types"
 
-func (l *BaseLane) PrepareLane(sdk.Context, int64, map[string][]byte) ([][]byte, error) {
+func (l *DefaultLane) PrepareLane(sdk.Context, int64, map[string][]byte) ([][]byte, error) {
 	panic("implement me")
 }
 
-func (l *BaseLane) ProcessLane(sdk.Context, [][]byte) error {
+func (l *DefaultLane) ProcessLane(sdk.Context, [][]byte) error {
 	panic("implement me")
 }
 
-func (l *BaseLane) VerifyTx(sdk.Context, sdk.Tx) error {
+func (l *DefaultLane) VerifyTx(sdk.Context, sdk.Tx) error {
 	panic("implement me")
 }

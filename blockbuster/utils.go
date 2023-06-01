@@ -8,6 +8,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+// GetTxHashStr returns the hex-encoded hash of the transaction.
 func GetTxHashStr(txEncoder sdk.TxEncoder, tx sdk.Tx) (string, error) {
 	txBz, err := txEncoder(tx)
 	if err != nil {

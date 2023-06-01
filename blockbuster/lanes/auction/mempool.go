@@ -1,4 +1,4 @@
-package tob
+package auction
 
 import (
 	"context"
@@ -11,9 +11,10 @@ import (
 	"github.com/skip-mev/pob/mempool"
 )
 
-var _ sdkmempool.Mempool = (*AuctionMempool)(nil)
+var _ Mempool = (*AuctionMempool)(nil)
 
 type (
+	// Mempool defines the interface of the auction mempool.
 	Mempool interface {
 		sdkmempool.Mempool
 
@@ -29,12 +30,8 @@ type (
 	// two-dimensional priority ordering, with the additional support of prioritizing
 	// and indexing auction bids.
 	AuctionMempool struct {
-		// auctionIndex defines an index of auction bids.
+		// index defines an index of auction bids.
 		index sdkmempool.Mempool
-
-		// txDecoder defines the sdk.Tx decoder that allows us to decode transactions
-		// and construct sdk.Txs from the bundled transactions.
-		txDecoder sdk.TxDecoder
 
 		// txEncoder defines the sdk.Tx encoder that allows us to encode transactions
 		// to bytes.
@@ -92,7 +89,8 @@ func AuctionTxPriority(config AuctionFactory) mempool.TxPriority[string] {
 	}
 }
 
-func NewAuctionMempool(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int, config AuctionFactory) *AuctionMempool {
+// NewAuctionMempool returns a new auction mempool.
+func NewAuctionMempool(txEncoder sdk.TxEncoder, maxTx int, config AuctionFactory) *AuctionMempool {
 	return &AuctionMempool{
 		index: mempool.NewPriorityMempool(
 			mempool.PriorityNonceMempoolConfig[string]{
@@ -100,27 +98,26 @@ func NewAuctionMempool(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx i
 				MaxTx:      maxTx,
 			},
 		),
-		txDecoder:      txDecoder,
 		txEncoder:      txEncoder,
 		txIndex:        make(map[string]struct{}),
 		AuctionFactory: config,
 	}
 }
 
-// Insert inserts a transaction into the mempool based on the transaction type (normal or auction).
+// Insert inserts a transaction into the auction mempool.
 func (am *AuctionMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 	bidInfo, err := am.GetAuctionBidInfo(tx)
 	if err != nil {
 		return err
 	}
 
-	// Insert the transactions into the appropriate index.
-	if bidInfo != nil {
-		if err := am.index.Insert(ctx, tx); err != nil {
-			return fmt.Errorf("failed to insert tx into auction index: %w", err)
-		}
-	} else {
-		return errors.New("invalid transaction type")
+	// This mempool only supports auction bid transactions.
+	if bidInfo == nil {
+		return fmt.Errorf("invalid transaction type")
+	}
+
+	if err := am.index.Insert(ctx, tx); err != nil {
+		return fmt.Errorf("failed to insert tx into auction index: %w", err)
 	}
 
 	txHashStr, err := blockbuster.GetTxHashStr(am.txEncoder, tx)
@@ -133,19 +130,19 @@ func (am *AuctionMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 	return nil
 }
 
-// Remove removes a transaction from the mempool based on the transaction type (normal or auction).
+// Remove removes a transaction from the mempool based.
 func (am *AuctionMempool) Remove(tx sdk.Tx) error {
 	bidInfo, err := am.GetAuctionBidInfo(tx)
 	if err != nil {
 		return err
 	}
 
-	// Remove the transactions from the appropriate index.
-	if bidInfo != nil {
-		am.removeTx(am.index, tx)
-	} else {
-		return errors.New("invalid transaction type")
+	// This mempool only supports auction bid transactions.
+	if bidInfo == nil {
+		return fmt.Errorf("invalid transaction type")
 	}
+
+	am.removeTx(am.index, tx)
 
 	return nil
 }
@@ -180,8 +177,7 @@ func (am *AuctionMempool) Contains(tx sdk.Tx) (bool, error) {
 }
 
 func (am *AuctionMempool) removeTx(mp sdkmempool.Mempool, tx sdk.Tx) {
-	err := mp.Remove(tx)
-	if err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
+	if err := mp.Remove(tx); err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
 		panic(fmt.Errorf("failed to remove invalid transaction from the mempool: %w", err))
 	}
 

@@ -1,4 +1,4 @@
-package tob
+package auction
 
 import (
 	"fmt"

@@ -1,4 +1,4 @@
-package tob
+package auction
 
 import (
 	"github.com/cometbft/cometbft/libs/log"
@@ -44,7 +44,7 @@ func NewTOBLane(
 	logger = logger.With("lane", LaneName)
 
 	return &TOBLane{
-		Mempool:        NewAuctionMempool(txDecoder, txEncoder, maxTx, af),
+		Mempool:        NewAuctionMempool(txEncoder, maxTx, af),
 		LaneConfig:     blockbuster.NewLaneConfig(logger, txEncoder, txDecoder, anteHandler, LaneName),
 		AuctionFactory: af,
 	}

@@ -1,4 +1,4 @@
-package tob
+package auction
 
 import (
 	"bytes"
@@ -26,10 +26,6 @@ selectBidTxLoop:
 		tmpBidTx := bidTxIterator.Tx()
 
 		// if the transaction is already in the (partial) block proposal, we skip it.
-		//
-		// NOTE: This should never happen as this lane is meant to be the first lane.
-		// TODO: we should probably revert this back to the original code since the bundled
-		// 	transactions need to be cross checked with the transactions in the block proposal.
 		txHash, err := blockbuster.GetTxHashStr(l.TxEncoder, tmpBidTx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get bid tx hash: %w", err)
