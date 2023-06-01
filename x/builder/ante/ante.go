@@ -7,17 +7,18 @@ import (
 
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/skip-mev/pob/mempool"
+	"github.com/skip-mev/pob/blockbuster/lanes/tob"
 	"github.com/skip-mev/pob/x/builder/keeper"
 )
 
 var _ sdk.AnteDecorator = BuilderDecorator{}
 
 type (
-	// Mempool is an interface that defines the methods required to interact with the application-side mempool.
-	Mempool interface {
+	// TOBLane is an interface that defines the methods required to interact with the top of block
+	// lane.
+	TOBLane interface {
 		Contains(tx sdk.Tx) (bool, error)
-		GetAuctionBidInfo(tx sdk.Tx) (*mempool.AuctionBidInfo, error)
+		GetAuctionBidInfo(tx sdk.Tx) (*tob.AuctionBidInfo, error)
 		GetTopAuctionTx(ctx context.Context) sdk.Tx
 	}
 
@@ -25,15 +26,15 @@ type (
 	BuilderDecorator struct {
 		builderKeeper keeper.Keeper
 		txEncoder     sdk.TxEncoder
-		mempool       Mempool
+		lane          TOBLane
 	}
 )
 
-func NewBuilderDecorator(ak keeper.Keeper, txEncoder sdk.TxEncoder, mempool Mempool) BuilderDecorator {
+func NewBuilderDecorator(ak keeper.Keeper, txEncoder sdk.TxEncoder, lane TOBLane) BuilderDecorator {
 	return BuilderDecorator{
 		builderKeeper: ak,
 		txEncoder:     txEncoder,
-		mempool:       mempool,
+		lane:          lane,
 	}
 }
 
@@ -42,7 +43,7 @@ func NewBuilderDecorator(ak keeper.Keeper, txEncoder sdk.TxEncoder, mempool Memp
 func (bd BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (sdk.Context, error) {
 	// If comet is re-checking a transaction, we only need to check if the transaction is in the application-side mempool.
 	if ctx.IsReCheckTx() {
-		contains, err := bd.mempool.Contains(tx)
+		contains, err := bd.lane.Contains(tx)
 		if err != nil {
 			return ctx, err
 		}
@@ -52,7 +53,7 @@ func (bd BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 		}
 	}
 
-	bidInfo, err := bd.mempool.GetAuctionBidInfo(tx)
+	bidInfo, err := bd.lane.GetAuctionBidInfo(tx)
 	if err != nil {
 		return ctx, err
 	}
@@ -70,7 +71,7 @@ func (bd BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 		// poor liveness guarantees.
 		topBid := sdk.Coin{}
 		if ctx.IsCheckTx() || ctx.IsReCheckTx() {
-			if topBidTx := bd.mempool.GetTopAuctionTx(ctx); topBidTx != nil {
+			if topBidTx := bd.lane.GetTopAuctionTx(ctx); topBidTx != nil {
 				topBidBz, err := bd.txEncoder(topBidTx)
 				if err != nil {
 					return ctx, err
@@ -83,7 +84,7 @@ func (bd BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 
 				// Compare the bytes to see if the current transaction is the highest bidding transaction.
 				if !bytes.Equal(topBidBz, currentTxBz) {
-					topBidInfo, err := bd.mempool.GetAuctionBidInfo(topBidTx)
+					topBidInfo, err := bd.lane.GetAuctionBidInfo(topBidTx)
 					if err != nil {
 						return ctx, err
 					}

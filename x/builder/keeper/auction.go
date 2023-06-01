@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/skip-mev/pob/mempool"
+	"github.com/skip-mev/pob/blockbuster/lanes/tob"
 )
 
 // ValidateBidInfo validates that the bid can be included in the auction.
-func (k Keeper) ValidateBidInfo(ctx sdk.Context, highestBid sdk.Coin, bidInfo *mempool.AuctionBidInfo) error {
+func (k Keeper) ValidateBidInfo(ctx sdk.Context, highestBid sdk.Coin, bidInfo *tob.AuctionBidInfo) error {
 	// Validate the bundle size.
 	maxBundleSize, err := k.GetMaxBundleSize(ctx)
 	if err != nil {

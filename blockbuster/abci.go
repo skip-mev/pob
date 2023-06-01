@@ -1,16 +1,19 @@
 package blockbuster
 
 import (
+	"context"
+
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
 type (
 	// ProposalHandler is a wrapper around baseapp's PrepareProposal and ProcessProposal.
 	ProposalHandler struct {
 		logger              log.Logger
-		mempool             Mempool
+		mempool             *Mempool
 		txEncoder           sdk.TxEncoder
 		prepareLanesHandler PrepareLanesHandler
 		processLanesHandler ProcessLanesHandler
@@ -39,7 +42,7 @@ type (
 )
 
 // NewProposalHandler returns a new proposal handler.
-func NewProposalHandler(logger log.Logger, mempool Mempool, txEncoder sdk.TxEncoder) *ProposalHandler {
+func NewProposalHandler(logger log.Logger, mempool *Mempool, txEncoder sdk.TxEncoder) *ProposalHandler {
 	return &ProposalHandler{
 		logger:              logger,
 		mempool:             mempool,
@@ -89,6 +92,11 @@ func ChainPrepareLanes(chain ...Lane) PrepareLanesHandler {
 		return nil
 	}
 
+	// handle non-terminated decorators chain
+	if (chain[len(chain)-1] != Terminator{}) {
+		chain = append(chain, Terminator{})
+	}
+
 	return func(ctx sdk.Context, proposal Proposal) Proposal {
 		return chain[0].PrepareLane(ctx, proposal, ChainPrepareLanes(chain[1:]...))
 	}
@@ -102,7 +110,85 @@ func ChainProcessLanes(chain ...Lane) ProcessLanesHandler {
 		return nil
 	}
 
+	// handle non-terminated decorators chain
+	if (chain[len(chain)-1] != Terminator{}) {
+		chain = append(chain, Terminator{})
+	}
+
 	return func(ctx sdk.Context, proposalTxs [][]byte) (sdk.Context, error) {
 		return chain[0].ProcessLane(ctx, proposalTxs, ChainProcessLanes(chain[1:]...))
 	}
+}
+
+// lil easter egg
+// Terminator Lane will get added to the chain to simplify chaining code
+// Don't need to check if next == nil further up the chain
+//
+//	                      ______
+//	                   <((((((\\\
+//	                   /      . }\
+//	                   ;--..--._|}
+//	(\                 '--/\--'  )
+//	 \\                | '-'  :'|
+//	  \\               . -==- .-|
+//	   \\               \.__.'   \--._
+//	   [\\          __.--|       //  _/'--.
+//	   \ \\       .'-._ ('-----'/ __/      \
+//	    \ \\     /   __>|      | '--.       |
+//	     \ \\   |   \   |     /    /       /
+//	      \ '\ /     \  |     |  _/       /
+//	       \  \       \ |     | /        /
+//	 snd    \  \      \        /
+type Terminator struct{}
+
+var _ Lane = (*Terminator)(nil)
+
+// AnteHandle returns the provided Context and nil error
+func (t Terminator) PrepareLane(ctx sdk.Context, proposal Proposal, _ PrepareLanesHandler) Proposal {
+	return proposal
+}
+
+// PostHandle returns the provided Context and nil error
+func (t Terminator) ProcessLane(ctx sdk.Context, _ [][]byte, _ ProcessLanesHandler) (sdk.Context, error) {
+	return ctx, nil
+}
+
+// Name returns the name of the lane
+func (t Terminator) Name() string {
+	return "Terminator"
+}
+
+// Match returns true if the transaction belongs to this lane
+func (t Terminator) Match(sdk.Tx) bool {
+	return false
+}
+
+// VerifyTx returns nil
+func (t Terminator) VerifyTx(sdk.Context, sdk.Tx) error {
+	return nil
+}
+
+// Contains returns false
+func (t Terminator) Contains(sdk.Tx) (bool, error) {
+	return false, nil
+}
+
+// CountTx returns 0
+func (t Terminator) CountTx() int {
+	return 0
+}
+
+// Insert is a no-op
+func (t Terminator) Insert(context.Context, sdk.Tx) error {
+	return nil
+}
+
+// Remove is a no-op
+func (t Terminator) Remove(sdk.Tx) error {
+	return nil
+}
+
+// Select is a no-op
+func (t Terminator) Select(context.Context, [][]byte) sdkmempool.Iterator {
+	return nil
 }

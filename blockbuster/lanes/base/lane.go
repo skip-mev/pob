@@ -30,6 +30,10 @@ func NewBaseLane(logger log.Logger, txDecoder sdk.TxDecoder, txEncoder sdk.TxEnc
 	}
 }
 
+// Match returns true if the transaction matches the base lane.
+//
+// TODO: Figure out how to ignore transactions that are not valid that do not belong in
+// the base lane.
 func (l *BaseLane) Match(sdk.Tx) bool {
 	return true
 }

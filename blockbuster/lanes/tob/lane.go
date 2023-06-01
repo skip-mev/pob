@@ -11,7 +11,10 @@ const (
 	LaneName = "tob"
 )
 
-var _ blockbuster.Lane = (*TOBLane)(nil)
+var (
+	_ blockbuster.Lane = (*TOBLane)(nil)
+	_ AuctionFactory   = (*TOBLane)(nil)
+)
 
 // TOBLane defines a top-of-block auction lane. The top of block auction lane
 // hosts transactions that want to bid for inclusion at the top of the next block.
@@ -42,8 +45,6 @@ func NewTOBLane(
 	af AuctionFactory,
 	maxBlockSpace sdk.Dec,
 ) *TOBLane {
-	logger = logger.With("lane", LaneName)
-
 	return &TOBLane{
 		Mempool:        NewAuctionMempool(txDecoder, txEncoder, maxTx, af),
 		LaneConfig:     blockbuster.NewLaneConfig(logger, txEncoder, txDecoder, anteHandler, LaneName, maxBlockSpace),

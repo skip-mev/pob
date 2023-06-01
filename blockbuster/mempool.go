@@ -40,6 +40,17 @@ func (m *Mempool) CountTx() int {
 	return total
 }
 
+// GetTxDistribution returns the number of transactions in each lane.
+func (m *Mempool) GetTxDistribution() map[string]int {
+	counts := make(map[string]int, len(m.registry))
+
+	for _, lane := range m.registry {
+		counts[lane.Name()] = lane.CountTx()
+	}
+
+	return counts
+}
+
 // Insert inserts a transaction into every lane that it matches. Insertion will
 // be attempted on all lanes, even if an error is encountered.
 func (m *Mempool) Insert(ctx context.Context, tx sdk.Tx) error {
@@ -47,8 +58,7 @@ func (m *Mempool) Insert(ctx context.Context, tx sdk.Tx) error {
 
 	for _, lane := range m.registry {
 		if lane.Match(tx) {
-			err := lane.Insert(ctx, tx)
-			errs = append(errs, err)
+			return lane.Insert(ctx, tx)
 		}
 	}
 
@@ -72,8 +82,7 @@ func (m *Mempool) Remove(tx sdk.Tx) error {
 
 	for _, lane := range m.registry {
 		if lane.Match(tx) {
-			err := lane.Remove(tx)
-			errs = append(errs, err)
+			return lane.Remove(tx)
 		}
 	}
 
@@ -84,14 +93,7 @@ func (m *Mempool) Remove(tx sdk.Tx) error {
 func (m *Mempool) Contains(tx sdk.Tx) (bool, error) {
 	for _, lane := range m.registry {
 		if lane.Match(tx) {
-			contains, err := lane.Contains(tx)
-			if err != nil {
-				return false, err
-			}
-
-			if contains {
-				return true, nil
-			}
+			return lane.Contains(tx)
 		}
 	}
 
