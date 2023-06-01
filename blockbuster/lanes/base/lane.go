@@ -24,9 +24,9 @@ type DefaultLane struct {
 }
 
 // NewDefaultLane returns a new default lane.
-func NewDefaultLane(logger log.Logger, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int, anteHandler sdk.AnteHandler) *DefaultLane {
+func NewDefaultLane(logger log.Logger, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, anteHandler sdk.AnteHandler) *DefaultLane {
 	return &DefaultLane{
-		Mempool:    NewDefaultMempool(txEncoder, maxTx),
+		Mempool:    NewDefaultMempool(txEncoder),
 		LaneConfig: blockbuster.NewLaneConfig(logger, txEncoder, txDecoder, anteHandler, LaneName),
 	}
 }
