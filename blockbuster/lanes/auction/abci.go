@@ -73,7 +73,7 @@ selectBidTxLoop:
 					continue selectBidTxLoop
 				}
 
-				hash, err := blockbuster.GetTxHashStr(l.TxEncoder, sdkTx)
+				hash, err := blockbuster.GetTxHashStr(l.cfg.TxEncoder, sdkTx)
 				if err != nil {
 					txsToRemove[tmpBidTx] = struct{}{}
 					continue selectBidTxLoop

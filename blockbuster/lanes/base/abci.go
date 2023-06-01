@@ -17,14 +17,14 @@ func (l *DefaultLane) PrepareLane(ctx sdk.Context, maxTxBytes int64, selectedTxs
 	for iterator := l.Mempool.Select(ctx, nil); iterator != nil; iterator = iterator.Next() {
 		tx := iterator.Tx()
 
-		txBytes, err := l.TxEncoder(tx)
+		txBytes, err := l.cfg.TxEncoder(tx)
 		if err != nil {
 			txsToRemove[tx] = struct{}{}
 			continue
 		}
 
 		// if the transaction is already in the (partial) block proposal, we skip it.
-		hash, err := blockbuster.GetTxHashStr(l.TxEncoder, tx)
+		hash, err := blockbuster.GetTxHashStr(l.cfg.TxEncoder, tx)
 		if err != nil {
 			txsToRemove[tx] = struct{}{}
 			continue
@@ -53,7 +53,7 @@ func (l *DefaultLane) PrepareLane(ctx sdk.Context, maxTxBytes int64, selectedTxs
 // ProcessLane verifies the default lane's portion of a block proposal.
 func (l *DefaultLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next blockbuster.ProcessLanesHandler) (sdk.Context, error) {
 	for index, tx := range proposalTxs {
-		tx, err := l.TxDecoder(tx)
+		tx, err := l.cfg.TxDecoder(tx)
 		if err != nil {
 			return ctx, fmt.Errorf("failed to decode tx: %w", err)
 		}
@@ -72,8 +72,8 @@ func (l *DefaultLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next bl
 }
 
 func (l *DefaultLane) VerifyTx(ctx sdk.Context, tx sdk.Tx) error {
-	if l.AnteHandler != nil {
-		_, err := l.AnteHandler(ctx, tx, false)
+	if l.cfg.AnteHandler != nil {
+		_, err := l.cfg.AnteHandler(ctx, tx, false)
 		return err
 	}
 
