@@ -39,7 +39,6 @@ func (l *DefaultLane) PrepareLane(ctx sdk.Context, maxTxBytes int64, selectedTxs
 		if updatedSize := totalSize + txSize; updatedSize > maxTxBytes {
 			break
 		}
-		totalSize += txSize
 
 		// Verify the transaction.
 		if err := l.VerifyTx(ctx, tx); err != nil {
@@ -47,6 +46,7 @@ func (l *DefaultLane) PrepareLane(ctx sdk.Context, maxTxBytes int64, selectedTxs
 			continue
 		}
 
+		totalSize += txSize
 		txs = append(txs, txBytes)
 	}
 
