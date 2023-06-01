@@ -1,7 +1,5 @@
 package blockbuster_test
 
-import "fmt"
-
 func (suite *BlockBusterTestSuite) TestInsert() {
 	cases := []struct {
 		name       string
@@ -54,7 +52,6 @@ func (suite *BlockBusterTestSuite) TestInsert() {
 
 			// Validate the lane counts
 			laneCounts := suite.mempool.GetTxDistribution()
-			fmt.Println(laneCounts)
 
 			// Ensure that the lane counts are correct
 			suite.Require().Equal(laneCounts[suite.tobLane.Name()], tc.numTobTxs)

@@ -5,9 +5,9 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/skip-mev/pob/blockbuster/lanes/auction"
 	testutils "github.com/skip-mev/pob/testutils"
 	"github.com/skip-mev/pob/x/builder/keeper"
+	"github.com/skip-mev/pob/x/builder/types"
 	buildertypes "github.com/skip-mev/pob/x/builder/types"
 )
 
@@ -191,7 +191,7 @@ func (suite *KeeperTestSuite) TestValidateBidInfo() {
 				signers[index] = txSigners
 			}
 
-			bidInfo := &auction.BidInfo{
+			bidInfo := &types.BidInfo{
 				Bidder:       bidder.Address,
 				Bid:          bid,
 				Transactions: bundle,

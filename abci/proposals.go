@@ -1,4 +1,4 @@
-package v2
+package abci
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
-	pobabci "github.com/skip-mev/pob/abci"
 	mempool "github.com/skip-mev/pob/mempool"
 )
 
@@ -90,7 +89,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 			return abci.ResponsePrepareProposal{Txs: proposal}
 		}
 
-		auctionInfo := pobabci.AuctionInfo{
+		auctionInfo := &AuctionInfo{
 			ExtendedCommitInfo: lastCommitInfo,
 			MaxTxBytes:         req.MaxTxBytes,
 			NumTxs:             uint64(len(topOfBlock.Txs)),

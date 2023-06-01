@@ -3,6 +3,8 @@ package blockbuster_test
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/blockbuster"
+	"github.com/skip-mev/pob/blockbuster/lanes/auction"
+	"github.com/skip-mev/pob/blockbuster/lanes/base"
 	testutils "github.com/skip-mev/pob/testutils"
 	"github.com/skip-mev/pob/x/builder/ante"
 
@@ -55,8 +57,8 @@ func (suite *BlockBusterTestSuite) TestPrepareProposal() {
 			},
 			2,
 			map[string]int{
-				"base": 0,
-				"tob":  1,
+				base.LaneName:    0,
+				auction.LaneName: 1,
 			},
 		},
 		{
@@ -77,8 +79,8 @@ func (suite *BlockBusterTestSuite) TestPrepareProposal() {
 			},
 			0,
 			map[string]int{
-				"base": 0,
-				"tob":  0,
+				base.LaneName:    0,
+				auction.LaneName: 0,
 			},
 		},
 		{
@@ -98,8 +100,8 @@ func (suite *BlockBusterTestSuite) TestPrepareProposal() {
 			},
 			1,
 			map[string]int{
-				"base": 1,
-				"tob":  0,
+				base.LaneName:    1,
+				auction.LaneName: 0,
 			},
 		},
 		{
@@ -114,7 +116,7 @@ func (suite *BlockBusterTestSuite) TestPrepareProposal() {
 				bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
 				suite.Require().NoError(err)
 
-				// Create a valid base transaction
+				// Create a valid default transaction
 				account := suite.accounts[1]
 				nonce = suite.nonces[account.Address.String()] + 1
 				numberMsgs := uint64(3)
@@ -128,8 +130,8 @@ func (suite *BlockBusterTestSuite) TestPrepareProposal() {
 			},
 			3,
 			map[string]int{
-				"base": 1,
-				"tob":  1,
+				base.LaneName:    1,
+				auction.LaneName: 1,
 			},
 		},
 		{
@@ -160,8 +162,8 @@ func (suite *BlockBusterTestSuite) TestPrepareProposal() {
 			},
 			2,
 			map[string]int{
-				"base": 0,
-				"tob":  1,
+				base.LaneName:    0,
+				auction.LaneName: 1,
 			},
 		},
 		{
@@ -192,8 +194,8 @@ func (suite *BlockBusterTestSuite) TestPrepareProposal() {
 			},
 			3,
 			map[string]int{
-				"base": 0,
-				"tob":  2,
+				base.LaneName:    0,
+				auction.LaneName: 2,
 			},
 		},
 		{
@@ -217,8 +219,8 @@ func (suite *BlockBusterTestSuite) TestPrepareProposal() {
 			},
 			6,
 			map[string]int{
-				"base": 5,
-				"tob":  1,
+				base.LaneName:    5,
+				auction.LaneName: 1,
 			},
 		},
 	}
@@ -229,7 +231,7 @@ func (suite *BlockBusterTestSuite) TestPrepareProposal() {
 			suite.resetLanes()
 			tc.malleate()
 
-			// Insert all of the normal transactions into the base lane
+			// Insert all of the normal transactions into the default lane
 			for _, tx := range normalTxs {
 				suite.Require().NoError(suite.mempool.Insert(suite.ctx, tx))
 			}
@@ -341,7 +343,7 @@ func (suite *BlockBusterTestSuite) TestProcessProposal() {
 			abcitypes.ResponseProcessProposal_ACCEPT,
 		},
 		{
-			"single base tx",
+			"single default tx",
 			func() {
 				account := suite.accounts[0]
 				nonce := suite.nonces[account.Address.String()]

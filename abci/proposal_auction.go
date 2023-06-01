@@ -1,4 +1,4 @@
-package v2
+package abci
 
 import (
 	"crypto/sha256"
@@ -9,7 +9,6 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	pobabci "github.com/skip-mev/pob/abci"
 )
 
 // TopOfBlock contains information about how the top of block should be built.
@@ -88,14 +87,14 @@ func (h *ProposalHandler) BuildTOB(ctx sdk.Context, voteExtensionInfo abci.Exten
 
 // VerifyTOB verifies that the set of vote extensions used in prepare proposal deterministically
 // produce the same top of block proposal.
-func (h *ProposalHandler) VerifyTOB(ctx sdk.Context, proposalTxs [][]byte) (*pobabci.AuctionInfo, error) {
+func (h *ProposalHandler) VerifyTOB(ctx sdk.Context, proposalTxs [][]byte) (*AuctionInfo, error) {
 	// Proposal must include at least the auction info.
 	if len(proposalTxs) < NumInjectedTxs {
 		return nil, fmt.Errorf("proposal is too small; expected at least %d slots", NumInjectedTxs)
 	}
 
 	// Extract the auction info from the proposal.
-	auctionInfo := &pobabci.AuctionInfo{}
+	auctionInfo := &AuctionInfo{}
 	if err := auctionInfo.Unmarshal(proposalTxs[AuctionInfoIndex]); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal auction info: %w", err)
 	}

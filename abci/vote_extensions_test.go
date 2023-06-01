@@ -1,4 +1,4 @@
-package v2_test
+package abci_test
 
 // import (
 // 	sdk "github.com/cosmos/cosmos-sdk/types"
