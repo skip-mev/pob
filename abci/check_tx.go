@@ -9,7 +9,7 @@ import (
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	"github.com/skip-mev/pob/blockbuster/lanes/auction"
+	"github.com/skip-mev/pob/x/builder/types"
 )
 
 type (
@@ -46,7 +46,7 @@ type (
 	// are required to interact with the application-side mempool.
 	TOBLane interface {
 		// GetAuctionBidInfo is utilized to retrieve the bid info of a transaction.
-		GetAuctionBidInfo(tx sdk.Tx) (*auction.BidInfo, error)
+		GetAuctionBidInfo(tx sdk.Tx) (*types.BidInfo, error)
 
 		// Insert is utilized to insert a transaction into the application-side mempool.
 		Insert(ctx context.Context, tx sdk.Tx) error
@@ -143,7 +143,7 @@ func (handler *CheckTxHandler) CheckTx() CheckTx {
 }
 
 // ValidateBidTx is utilized to verify the bid transaction against the latest committed state.
-func (handler *CheckTxHandler) ValidateBidTx(ctx sdk.Context, bidTx sdk.Tx, bidInfo *auction.BidInfo) (sdk.GasInfo, error) {
+func (handler *CheckTxHandler) ValidateBidTx(ctx sdk.Context, bidTx sdk.Tx, bidInfo *types.BidInfo) (sdk.GasInfo, error) {
 	// Verify the bid transaction.
 	ctx, err := handler.anteHandler(ctx, bidTx, false)
 	if err != nil {

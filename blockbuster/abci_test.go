@@ -261,7 +261,7 @@ func (suite *BlockBusterTestSuite) TestPrepareProposal() {
 				FrontRunningProtection: frontRunningProtection,
 			}
 			suite.builderKeeper.SetParams(suite.ctx, params)
-			suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxEncoder(), suite.tobLane)
+			suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxEncoder(), suite.tobLane, suite.mempool)
 
 			suite.proposalHandler = blockbuster.NewProposalHandler(suite.logger, suite.mempool, suite.encodingConfig.TxConfig.TxEncoder())
 			handler := suite.proposalHandler.PrepareProposalHandler()
@@ -507,7 +507,7 @@ func (suite *BlockBusterTestSuite) TestProcessProposal() {
 				FrontRunningProtection: frontRunningProtection,
 			}
 			suite.builderKeeper.SetParams(suite.ctx, params)
-			suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxEncoder(), suite.tobLane)
+			suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxEncoder(), suite.tobLane, suite.mempool)
 
 			handler := suite.proposalHandler.ProcessProposalHandler()
 			res := handler(suite.ctx, abcitypes.RequestProcessProposal{

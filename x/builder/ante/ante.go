@@ -7,8 +7,8 @@ import (
 
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/skip-mev/pob/blockbuster/lanes/auction"
 	"github.com/skip-mev/pob/x/builder/keeper"
+	"github.com/skip-mev/pob/x/builder/types"
 )
 
 var _ sdk.AnteDecorator = BuilderDecorator{}
@@ -17,9 +17,12 @@ type (
 	// TOBLane is an interface that defines the methods required to interact with the top of block
 	// lane.
 	TOBLane interface {
-		Contains(tx sdk.Tx) (bool, error)
-		GetAuctionBidInfo(tx sdk.Tx) (*auction.BidInfo, error)
+		GetAuctionBidInfo(tx sdk.Tx) (*types.BidInfo, error)
 		GetTopAuctionTx(ctx context.Context) sdk.Tx
+	}
+
+	Mempool interface {
+		Contains(tx sdk.Tx) (bool, error)
 	}
 
 	// BuilderDecorator is an AnteDecorator that validates the auction bid and bundled transactions.
@@ -27,14 +30,16 @@ type (
 		builderKeeper keeper.Keeper
 		txEncoder     sdk.TxEncoder
 		lane          TOBLane
+		mempool       Mempool
 	}
 )
 
-func NewBuilderDecorator(ak keeper.Keeper, txEncoder sdk.TxEncoder, lane TOBLane) BuilderDecorator {
+func NewBuilderDecorator(ak keeper.Keeper, txEncoder sdk.TxEncoder, lane TOBLane, mempool Mempool) BuilderDecorator {
 	return BuilderDecorator{
 		builderKeeper: ak,
 		txEncoder:     txEncoder,
 		lane:          lane,
+		mempool:       mempool,
 	}
 }
 
@@ -43,7 +48,7 @@ func NewBuilderDecorator(ak keeper.Keeper, txEncoder sdk.TxEncoder, lane TOBLane
 func (bd BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (sdk.Context, error) {
 	// If comet is re-checking a transaction, we only need to check if the transaction is in the application-side mempool.
 	if ctx.IsReCheckTx() {
-		contains, err := bd.lane.Contains(tx)
+		contains, err := bd.mempool.Contains(tx)
 		if err != nil {
 			return ctx, err
 		}

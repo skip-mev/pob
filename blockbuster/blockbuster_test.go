@@ -133,7 +133,7 @@ func (suite *BlockBusterTestSuite) SetupTest() {
 	suite.Require().NoError(err)
 
 	// Set up the ante handler
-	suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxEncoder(), suite.tobLane)
+	suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxEncoder(), suite.tobLane, suite.mempool)
 
 	// Proposal handler set up
 	suite.proposalHandler = blockbuster.NewProposalHandler(log.NewNopLogger(), suite.mempool, suite.encodingConfig.TxConfig.TxEncoder())
