@@ -8,7 +8,6 @@ import (
 	testutils "github.com/skip-mev/pob/testutils"
 	"github.com/skip-mev/pob/x/builder/keeper"
 	"github.com/skip-mev/pob/x/builder/types"
-	buildertypes "github.com/skip-mev/pob/x/builder/types"
 )
 
 func (suite *KeeperTestSuite) TestValidateBidInfo() {
@@ -162,7 +161,7 @@ func (suite *KeeperTestSuite) TestValidateBidInfo() {
 				suite.stakingKeeper,
 				suite.authorityAccount.String(),
 			)
-			params := buildertypes.Params{
+			params := types.Params{
 				MaxBundleSize:          maxBundleSize,
 				ReserveFee:             reserveFee,
 				EscrowAccountAddress:   escrowAddress.String(),

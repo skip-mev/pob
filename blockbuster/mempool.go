@@ -11,9 +11,18 @@ var _ sdkmempool.Mempool = (*Mempool)(nil)
 
 // Mempool defines the Blockbuster mempool implement. It contains a registry
 // of lanes, which allows for customizable block proposal construction.
-type Mempool struct {
-	registry []Lane
-}
+type (
+	BlockBusterMempool interface {
+		sdkmempool.Mempool
+
+		GetTxDistribution() map[string]int
+		Contains(tx sdk.Tx) (bool, error)
+	}
+
+	Mempool struct {
+		registry []Lane
+	}
+)
 
 func NewMempool(lanes ...Lane) *Mempool {
 	return &Mempool{

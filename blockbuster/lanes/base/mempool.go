@@ -8,7 +8,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	"github.com/skip-mev/pob/blockbuster"
-	"github.com/skip-mev/pob/mempool"
 )
 
 var _ sdkmempool.Mempool = (*DefaultMempool)(nil)
@@ -42,8 +41,8 @@ type (
 
 func NewDefaultMempool(txEncoder sdk.TxEncoder) *DefaultMempool {
 	return &DefaultMempool{
-		index: mempool.NewPriorityMempool(
-			mempool.DefaultPriorityNonceMempoolConfig(),
+		index: blockbuster.NewPriorityMempool(
+			blockbuster.DefaultPriorityNonceMempoolConfig(),
 		),
 		txEncoder: txEncoder,
 		txIndex:   make(map[string]struct{}),

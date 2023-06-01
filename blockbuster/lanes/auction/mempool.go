@@ -8,7 +8,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	"github.com/skip-mev/pob/blockbuster"
-	"github.com/skip-mev/pob/mempool"
 )
 
 var _ Mempool = (*TOBMempool)(nil)
@@ -48,8 +47,8 @@ type (
 
 // TxPriority returns a TxPriority over auction bid transactions only. It
 // is to be used in the auction index only.
-func TxPriority(config Factory) mempool.TxPriority[string] {
-	return mempool.TxPriority[string]{
+func TxPriority(config Factory) blockbuster.TxPriority[string] {
+	return blockbuster.TxPriority[string]{
 		GetTxPriority: func(goCtx context.Context, tx sdk.Tx) string {
 			bidInfo, err := config.GetAuctionBidInfo(tx)
 			if err != nil {
@@ -92,8 +91,8 @@ func TxPriority(config Factory) mempool.TxPriority[string] {
 // NewMempool returns a new auction mempool.
 func NewMempool(txEncoder sdk.TxEncoder, maxTx int, config Factory) *TOBMempool {
 	return &TOBMempool{
-		index: mempool.NewPriorityMempool(
-			mempool.PriorityNonceMempoolConfig[string]{
+		index: blockbuster.NewPriorityMempool(
+			blockbuster.PriorityNonceMempoolConfig[string]{
 				TxPriority: TxPriority(config),
 				MaxTx:      maxTx,
 			},
