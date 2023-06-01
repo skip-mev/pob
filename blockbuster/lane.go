@@ -9,10 +9,15 @@ import (
 type (
 	// BaseLaneConfig defines the basic functionality needed for a lane.
 	BaseLaneConfig struct {
-		Logger        log.Logger
-		TxEncoder     sdk.TxEncoder
-		TxDecoder     sdk.TxDecoder
-		AnteHandler   sdk.AnteHandler
+		Logger      log.Logger
+		TxEncoder   sdk.TxEncoder
+		TxDecoder   sdk.TxDecoder
+		AnteHandler sdk.AnteHandler
+
+		// MaxBlockSpace defines the relative percentage of block space that can be
+		// used by this lane. NOTE: If this is set to zero, then there is no limit
+		// on the number of transactions that can be included in the block for this
+		// lane (up to maxTxBytes as provided by the request). This is useful for the default lane.
 		MaxBlockSpace sdk.Dec
 	}
 

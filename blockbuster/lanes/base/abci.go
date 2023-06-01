@@ -40,8 +40,8 @@ func (l *DefaultLane) PrepareLane(ctx sdk.Context, proposal blockbuster.Proposal
 		}
 
 		// if the transaction is too big, we break and do not attempt to include more txs.
-		size := int64(len(txBytes))
-		if updatedSize := totalSize + size; updatedSize > maxTxBytes {
+		txSize := int64(len(txBytes))
+		if updatedSize := totalSize + txSize; updatedSize > maxTxBytes {
 			break
 		}
 
@@ -51,7 +51,7 @@ func (l *DefaultLane) PrepareLane(ctx sdk.Context, proposal blockbuster.Proposal
 			continue
 		}
 
-		totalSize += size
+		totalSize += txSize
 		txs = append(txs, txBytes)
 	}
 
@@ -74,7 +74,6 @@ func (l *DefaultLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next bl
 			return ctx, fmt.Errorf("failed to decode tx: %w", err)
 		}
 
-		// If this lane intersects with another lane, we return an error.
 		if l.Match(tx) {
 			if err := l.VerifyTx(ctx, tx); err != nil {
 				return ctx, fmt.Errorf("failed to verify tx: %w", err)

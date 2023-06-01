@@ -26,10 +26,10 @@ type (
 		// Txs is the list of transactions in the proposal.
 		Txs [][]byte
 
-		// SelectedTxs is the hash of the selected transactions in the proposal.
+		// SelectedTxs is a cache of the selected transactions in the proposal.
 		SelectedTxs map[string]struct{}
 
-		// TotalTxBytes is the total number of bytes in the proposal.
+		// TotalTxBytes is the total number of bytes currently included in the proposal.
 		TotalTxBytes int64
 
 		// MaxTxBytes is the maximum number of bytes that can be included in the proposal.
@@ -57,7 +57,7 @@ func NewProposalHandler(logger log.Logger, mempool Mempool, txEncoder sdk.TxEnco
 // PrepareProposalHandler prepares the proposal by selecting transactions from each lane
 // according to each lane's selection logic. We select transactions in a greedy fashion. Note that
 // each lane has an boundary on the number of bytes that can be included in the proposal. By default,
-// the base lane will not have a boundary on the number of bytes that can be included in the proposal and
+// the default lane will not have a boundary on the number of bytes that can be included in the proposal and
 // will include all valid transactions in the proposal (up to MaxTxBytes).
 func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 	return func(ctx sdk.Context, req abci.RequestPrepareProposal) abci.ResponsePrepareProposal {
@@ -71,7 +71,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 	}
 }
 
-// ProcessProposalHandler processes the proposal by verifying all transactions in the
+// ProcessProposalHandler processes the proposal by verifying all transactions in the proposal
 // according to each lane's verification logic. We verify proposals in a greedy fashion.
 // If a lane's portion of the proposal is invalid, we reject the proposal. After a lane's portion
 // of the proposal is verified, we pass the remaining transactions to the next lane in the chain.
