@@ -1,4 +1,4 @@
-package tob
+package auction
 
 import (
 	"context"
@@ -11,9 +11,10 @@ import (
 	"github.com/skip-mev/pob/mempool"
 )
 
-var _ sdkmempool.Mempool = (*AuctionMempool)(nil)
+var _ Mempool = (*TOBMempool)(nil)
 
 type (
+	// Mempool defines the interface of the auction mempool.
 	Mempool interface {
 		sdkmempool.Mempool
 
@@ -24,17 +25,13 @@ type (
 		Contains(tx sdk.Tx) (bool, error)
 	}
 
-	// AuctionMempool defines an auction mempool. It can be seen as an extension of
+	// TOBMempool defines an auction mempool. It can be seen as an extension of
 	// an SDK PriorityNonceMempool, i.e. a mempool that supports <sender, nonce>
 	// two-dimensional priority ordering, with the additional support of prioritizing
 	// and indexing auction bids.
-	AuctionMempool struct {
-		// auctionIndex defines an index of auction bids.
+	TOBMempool struct {
+		// index defines an index of auction bids.
 		index sdkmempool.Mempool
-
-		// txDecoder defines the sdk.Tx decoder that allows us to decode transactions
-		// and construct sdk.Txs from the bundled transactions.
-		txDecoder sdk.TxDecoder
 
 		// txEncoder defines the sdk.Tx encoder that allows us to encode transactions
 		// to bytes.
@@ -44,14 +41,14 @@ type (
 		// to quickly check if a transaction is already in the mempool.
 		txIndex map[string]struct{}
 
-		// AuctionFactory implements the functionality required to process auction transactions.
-		AuctionFactory
+		// Factory implements the functionality required to process auction transactions.
+		Factory
 	}
 )
 
-// AuctionTxPriority returns a TxPriority over auction bid transactions only. It
+// TxPriority returns a TxPriority over auction bid transactions only. It
 // is to be used in the auction index only.
-func AuctionTxPriority(config AuctionFactory) mempool.TxPriority[string] {
+func TxPriority(config Factory) mempool.TxPriority[string] {
 	return mempool.TxPriority[string]{
 		GetTxPriority: func(goCtx context.Context, tx sdk.Tx) string {
 			bidInfo, err := config.GetAuctionBidInfo(tx)
@@ -92,35 +89,35 @@ func AuctionTxPriority(config AuctionFactory) mempool.TxPriority[string] {
 	}
 }
 
-func NewAuctionMempool(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int, config AuctionFactory) *AuctionMempool {
-	return &AuctionMempool{
+// NewMempool returns a new auction mempool.
+func NewMempool(txEncoder sdk.TxEncoder, maxTx int, config Factory) *TOBMempool {
+	return &TOBMempool{
 		index: mempool.NewPriorityMempool(
 			mempool.PriorityNonceMempoolConfig[string]{
-				TxPriority: AuctionTxPriority(config),
+				TxPriority: TxPriority(config),
 				MaxTx:      maxTx,
 			},
 		),
-		txDecoder:      txDecoder,
-		txEncoder:      txEncoder,
-		txIndex:        make(map[string]struct{}),
-		AuctionFactory: config,
+		txEncoder: txEncoder,
+		txIndex:   make(map[string]struct{}),
+		Factory:   config,
 	}
 }
 
-// Insert inserts a transaction into the mempool based on the transaction type (normal or auction).
-func (am *AuctionMempool) Insert(ctx context.Context, tx sdk.Tx) error {
+// Insert inserts a transaction into the auction mempool.
+func (am *TOBMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 	bidInfo, err := am.GetAuctionBidInfo(tx)
 	if err != nil {
 		return err
 	}
 
-	// Insert the transactions into the appropriate index.
-	if bidInfo != nil {
-		if err := am.index.Insert(ctx, tx); err != nil {
-			return fmt.Errorf("failed to insert tx into auction index: %w", err)
-		}
-	} else {
-		return errors.New("invalid transaction type")
+	// This mempool only supports auction bid transactions.
+	if bidInfo == nil {
+		return fmt.Errorf("invalid transaction type")
+	}
+
+	if err := am.index.Insert(ctx, tx); err != nil {
+		return fmt.Errorf("failed to insert tx into auction index: %w", err)
 	}
 
 	txHashStr, err := blockbuster.GetTxHashStr(am.txEncoder, tx)
@@ -133,25 +130,25 @@ func (am *AuctionMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 	return nil
 }
 
-// Remove removes a transaction from the mempool based on the transaction type (normal or auction).
-func (am *AuctionMempool) Remove(tx sdk.Tx) error {
+// Remove removes a transaction from the mempool based.
+func (am *TOBMempool) Remove(tx sdk.Tx) error {
 	bidInfo, err := am.GetAuctionBidInfo(tx)
 	if err != nil {
 		return err
 	}
 
-	// Remove the transactions from the appropriate index.
-	if bidInfo != nil {
-		am.removeTx(am.index, tx)
-	} else {
-		return errors.New("invalid transaction type")
+	// This mempool only supports auction bid transactions.
+	if bidInfo == nil {
+		return fmt.Errorf("invalid transaction type")
 	}
+
+	am.removeTx(am.index, tx)
 
 	return nil
 }
 
 // GetTopAuctionTx returns the highest bidding transaction in the auction mempool.
-func (am *AuctionMempool) GetTopAuctionTx(ctx context.Context) sdk.Tx {
+func (am *TOBMempool) GetTopAuctionTx(ctx context.Context) sdk.Tx {
 	iterator := am.index.Select(ctx, nil)
 	if iterator == nil {
 		return nil
@@ -160,16 +157,16 @@ func (am *AuctionMempool) GetTopAuctionTx(ctx context.Context) sdk.Tx {
 	return iterator.Tx()
 }
 
-func (am *AuctionMempool) Select(ctx context.Context, txs [][]byte) sdkmempool.Iterator {
+func (am *TOBMempool) Select(ctx context.Context, txs [][]byte) sdkmempool.Iterator {
 	return am.index.Select(ctx, txs)
 }
 
-func (am *AuctionMempool) CountTx() int {
+func (am *TOBMempool) CountTx() int {
 	return am.index.CountTx()
 }
 
 // Contains returns true if the transaction is contained in the mempool.
-func (am *AuctionMempool) Contains(tx sdk.Tx) (bool, error) {
+func (am *TOBMempool) Contains(tx sdk.Tx) (bool, error) {
 	txHashStr, err := blockbuster.GetTxHashStr(am.txEncoder, tx)
 	if err != nil {
 		return false, fmt.Errorf("failed to get tx hash string: %w", err)
@@ -179,9 +176,8 @@ func (am *AuctionMempool) Contains(tx sdk.Tx) (bool, error) {
 	return ok, nil
 }
 
-func (am *AuctionMempool) removeTx(mp sdkmempool.Mempool, tx sdk.Tx) {
-	err := mp.Remove(tx)
-	if err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
+func (am *TOBMempool) removeTx(mp sdkmempool.Mempool, tx sdk.Tx) {
+	if err := mp.Remove(tx); err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
 		panic(fmt.Errorf("failed to remove invalid transaction from the mempool: %w", err))
 	}
 

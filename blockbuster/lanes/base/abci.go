@@ -9,7 +9,7 @@ import (
 
 // PrepareLane will prepare a partial proposal for the base lane. It will return
 // an error if there are any unexpected errors.
-func (l *BaseLane) PrepareLane(ctx sdk.Context, maxTxBytes int64, selectedTxs map[string][]byte) ([][]byte, error) {
+func (l *DefaultLane) PrepareLane(ctx sdk.Context, maxTxBytes int64, selectedTxs map[string][]byte) ([][]byte, error) {
 	txs := make([][]byte, 0)
 	txsToRemove := make(map[sdk.Tx]struct{}, 0)
 
@@ -54,7 +54,7 @@ func (l *BaseLane) PrepareLane(ctx sdk.Context, maxTxBytes int64, selectedTxs ma
 // ProcessLane will process the base lane. It will verify all transactions in the
 // lane and return an error if any of the transactions are invalid. If there are
 // transactions from other lanes in the lane, it will return an error.
-func (l *BaseLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next blockbuster.ProcessLanesHandler) (sdk.Context, error) {
+func (l *DefaultLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next blockbuster.ProcessLanesHandler) (sdk.Context, error) {
 	seenOtherLaneTxs := false
 	endIndex := 0
 
@@ -82,7 +82,7 @@ func (l *BaseLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next block
 	return next(ctx, proposalTxs[endIndex:])
 }
 
-func (l *BaseLane) VerifyTx(ctx sdk.Context, tx sdk.Tx) error {
+func (l *DefaultLane) VerifyTx(ctx sdk.Context, tx sdk.Tx) error {
 	if l.AnteHandler != nil {
 		_, err := l.AnteHandler(ctx, tx, false)
 		return err

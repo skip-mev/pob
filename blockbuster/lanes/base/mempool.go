@@ -11,9 +11,10 @@ import (
 	"github.com/skip-mev/pob/mempool"
 )
 
-var _ sdkmempool.Mempool = (*BaseMempool)(nil)
+var _ sdkmempool.Mempool = (*DefaultMempool)(nil)
 
 type (
+	// Mempool defines the interface of the default mempool.
 	Mempool interface {
 		sdkmempool.Mempool
 
@@ -21,11 +22,11 @@ type (
 		Contains(tx sdk.Tx) (bool, error)
 	}
 
-	// BaseMempool defines the most basic mempool. It can be seen as an extension of
+	// DefaultMempool defines the most basic mempool. It can be seen as an extension of
 	// an SDK PriorityNonceMempool, i.e. a mempool that supports <sender, nonce>
 	// two-dimensional priority ordering, with the additional support of prioritizing
 	// and indexing auction bids.
-	BaseMempool struct {
+	DefaultMempool struct {
 		// index defines an index transactions.
 		index sdkmempool.Mempool
 
@@ -39,8 +40,8 @@ type (
 	}
 )
 
-func NewBaseMempool(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int) *BaseMempool {
-	return &BaseMempool{
+func NewDefaultMempool(txEncoder sdk.TxEncoder) *DefaultMempool {
+	return &DefaultMempool{
 		index: mempool.NewPriorityMempool(
 			mempool.DefaultPriorityNonceMempoolConfig(),
 		),
@@ -50,7 +51,7 @@ func NewBaseMempool(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int)
 }
 
 // Insert inserts a transaction into the mempool based on the transaction type (normal or auction).
-func (am *BaseMempool) Insert(ctx context.Context, tx sdk.Tx) error {
+func (am *DefaultMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 	if err := am.index.Insert(ctx, tx); err != nil {
 		return fmt.Errorf("failed to insert tx into auction index: %w", err)
 	}
@@ -66,21 +67,21 @@ func (am *BaseMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 }
 
 // Remove removes a transaction from the mempool based on the transaction type (normal or auction).
-func (am *BaseMempool) Remove(tx sdk.Tx) error {
+func (am *DefaultMempool) Remove(tx sdk.Tx) error {
 	am.removeTx(am.index, tx)
 	return nil
 }
 
-func (am *BaseMempool) Select(ctx context.Context, txs [][]byte) sdkmempool.Iterator {
+func (am *DefaultMempool) Select(ctx context.Context, txs [][]byte) sdkmempool.Iterator {
 	return am.index.Select(ctx, txs)
 }
 
-func (am *BaseMempool) CountTx() int {
+func (am *DefaultMempool) CountTx() int {
 	return am.index.CountTx()
 }
 
 // Contains returns true if the transaction is contained in the mempool.
-func (am *BaseMempool) Contains(tx sdk.Tx) (bool, error) {
+func (am *DefaultMempool) Contains(tx sdk.Tx) (bool, error) {
 	txHashStr, err := blockbuster.GetTxHashStr(am.txEncoder, tx)
 	if err != nil {
 		return false, fmt.Errorf("failed to get tx hash string: %w", err)
@@ -90,7 +91,7 @@ func (am *BaseMempool) Contains(tx sdk.Tx) (bool, error) {
 	return ok, nil
 }
 
-func (am *BaseMempool) removeTx(mp sdkmempool.Mempool, tx sdk.Tx) {
+func (am *DefaultMempool) removeTx(mp sdkmempool.Mempool, tx sdk.Tx) {
 	err := mp.Remove(tx)
 	if err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
 		panic(fmt.Errorf("failed to remove invalid transaction from the mempool: %w", err))

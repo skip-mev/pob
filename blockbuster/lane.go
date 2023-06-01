@@ -7,7 +7,7 @@ import (
 )
 
 type (
-	// LaneConfig defines the configuration for a lane.
+	// LaneConfig defines the basic functionality needed for a lane.
 	LaneConfig struct {
 		Logger      log.Logger
 		TxEncoder   sdk.TxEncoder
@@ -47,6 +47,7 @@ type (
 	}
 )
 
+// NewLaneConfig returns a new LaneConfig. This will be embedded in a lane.
 func NewLaneConfig(logger log.Logger, txEncoder sdk.TxEncoder, txDecoder sdk.TxDecoder, anteHandler sdk.AnteHandler, key string) *LaneConfig {
 	return &LaneConfig{
 		Logger:      logger,
@@ -57,6 +58,7 @@ func NewLaneConfig(logger log.Logger, txEncoder sdk.TxEncoder, txDecoder sdk.TxD
 	}
 }
 
-func (c LaneConfig) Name() string {
+// Name returns the name of the lane.
+func (c *LaneConfig) Name() string {
 	return c.Key
 }
