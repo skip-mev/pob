@@ -2,6 +2,7 @@ package blockbuster
 
 import (
 	"context"
+	"fmt"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/libs/log"
@@ -10,7 +11,8 @@ import (
 )
 
 type (
-	// ProposalHandler is a wrapper around baseapp's PrepareProposal and ProcessProposal.
+	// ProposalHandler is a wrapper around the ABCI++ PrepareProposal and ProcessProposal
+	// handlers.
 	ProposalHandler struct {
 		logger              log.Logger
 		mempool             *Mempool
@@ -24,10 +26,10 @@ type (
 		// Txs is the list of transactions in the proposal.
 		Txs [][]byte
 
-		// SelectedTxs is the hash of the selected transactions in the proposal.
+		// SelectedTxs is a cache of the selected transactions in the proposal.
 		SelectedTxs map[string]struct{}
 
-		// TotalTxBytes is the total number of bytes in the proposal.
+		// TotalTxBytes is the total number of bytes currently included in the proposal.
 		TotalTxBytes int64
 
 		// MaxTxBytes is the maximum number of bytes that can be included in the proposal.
@@ -55,7 +57,7 @@ func NewProposalHandler(logger log.Logger, mempool *Mempool, txEncoder sdk.TxEnc
 // PrepareProposalHandler prepares the proposal by selecting transactions from each lane
 // according to each lane's selection logic. We select transactions in a greedy fashion. Note that
 // each lane has an boundary on the number of bytes that can be included in the proposal. By default,
-// the base lane will not have a boundary on the number of bytes that can be included in the proposal and
+// the default lane will not have a boundary on the number of bytes that can be included in the proposal and
 // will include all valid transactions in the proposal (up to MaxTxBytes).
 func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 	return func(ctx sdk.Context, req abci.RequestPrepareProposal) abci.ResponsePrepareProposal {
@@ -71,7 +73,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 	}
 }
 
-// ProcessProposalHandler processes the proposal by verifying all transactions in the
+// ProcessProposalHandler processes the proposal by verifying all transactions in the proposal
 // according to each lane's verification logic. We verify proposals in a greedy fashion.
 // If a lane's portion of the proposal is invalid, we reject the proposal. After a lane's portion
 // of the proposal is verified, we pass the remaining transactions to the next lane in the chain.
@@ -99,7 +101,7 @@ func ChainPrepareLanes(chain ...Lane) PrepareLanesHandler {
 		return nil
 	}
 
-	// handle non-terminated decorators chain
+	// Handle non-terminated decorators chain
 	if (chain[len(chain)-1] != Terminator{}) {
 		chain = append(chain, Terminator{})
 	}
@@ -117,7 +119,7 @@ func ChainProcessLanes(chain ...Lane) ProcessLanesHandler {
 		return nil
 	}
 
-	// handle non-terminated decorators chain
+	// Handle non-terminated decorators chain
 	if (chain[len(chain)-1] != Terminator{}) {
 		chain = append(chain, Terminator{})
 	}
@@ -127,18 +129,18 @@ func ChainProcessLanes(chain ...Lane) ProcessLanesHandler {
 	}
 }
 
-// Terminator Lane will get added to the chain to simplify chaining code
-// Don't need to check if next == nil further up the chain
+// Terminator Lane will get added to the chain to simplify chaining code so that we
+// don't need to check if next == nil further up the chain
 type Terminator struct{}
 
 var _ Lane = (*Terminator)(nil)
 
-// AnteHandle returns the provided Context and nil error
-func (t Terminator) PrepareLane(ctx sdk.Context, proposal Proposal, _ PrepareLanesHandler) Proposal {
+// PrepareLane is a no-op
+func (t Terminator) PrepareLane(_ sdk.Context, proposal Proposal, _ PrepareLanesHandler) Proposal {
 	return proposal
 }
 
-// PostHandle returns the provided Context and nil error
+// ProcessLane is a no-op
 func (t Terminator) ProcessLane(ctx sdk.Context, _ [][]byte, _ ProcessLanesHandler) (sdk.Context, error) {
 	return ctx, nil
 }
@@ -148,22 +150,22 @@ func (t Terminator) Name() string {
 	return "Terminator"
 }
 
-// Match returns true if the transaction belongs to this lane
+// Match is a no-op
 func (t Terminator) Match(sdk.Tx) bool {
 	return false
 }
 
-// VerifyTx returns nil
+// VerifyTx is a no-op
 func (t Terminator) VerifyTx(sdk.Context, sdk.Tx) error {
-	return nil
+	return fmt.Errorf("Terminator lane should not be called")
 }
 
-// Contains returns false
+// Contains is a no-op
 func (t Terminator) Contains(sdk.Tx) (bool, error) {
 	return false, nil
 }
 
-// CountTx returns 0
+// CountTx is a no-op
 func (t Terminator) CountTx() int {
 	return 0
 }

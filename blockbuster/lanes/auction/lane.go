@@ -1,4 +1,4 @@
-package tob
+package auction
 
 import (
 	"github.com/cometbft/cometbft/libs/log"
@@ -27,12 +27,12 @@ type TOBLane struct {
 	Mempool
 
 	// LaneConfig defines the base lane configuration.
-	*blockbuster.LaneConfig
+	cfg blockbuster.BaseLaneConfig
 
-	// AuctionFactory defines the API/functionality which is responsible for determining
+	// Factory defines the API/functionality which is responsible for determining
 	// if a transaction is a bid transaction and how to extract relevant
 	// information from the transaction (bid, timeout, bidder, etc.).
-	AuctionFactory
+	Factory
 }
 
 // NewTOBLane returns a new TOB lane.
@@ -42,13 +42,13 @@ func NewTOBLane(
 	txEncoder sdk.TxEncoder,
 	maxTx int,
 	anteHandler sdk.AnteHandler,
-	af AuctionFactory,
+	af Factory,
 	maxBlockSpace sdk.Dec,
 ) *TOBLane {
 	return &TOBLane{
-		Mempool:        NewAuctionMempool(txDecoder, txEncoder, maxTx, af),
-		LaneConfig:     blockbuster.NewLaneConfig(logger, txEncoder, txDecoder, anteHandler, LaneName, maxBlockSpace),
-		AuctionFactory: af,
+		Mempool: NewMempool(txEncoder, maxTx, af),
+		cfg:     blockbuster.NewBaseLaneConfig(logger, txEncoder, txDecoder, anteHandler, maxBlockSpace),
+		Factory: af,
 	}
 }
 
@@ -57,4 +57,9 @@ func NewTOBLane(
 func (l *TOBLane) Match(tx sdk.Tx) bool {
 	bidInfo, err := l.GetAuctionBidInfo(tx)
 	return bidInfo != nil && err == nil
+}
+
+// Name returns the name of the lane.
+func (l *TOBLane) Name() string {
+	return LaneName
 }

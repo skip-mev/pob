@@ -7,16 +7,18 @@ import (
 )
 
 type (
-	// LaneConfig defines the configuration for a lane.
-	LaneConfig struct {
-		Logger        log.Logger
-		TxEncoder     sdk.TxEncoder
-		TxDecoder     sdk.TxDecoder
-		AnteHandler   sdk.AnteHandler
-		MaxBlockSpace sdk.Dec
+	// BaseLaneConfig defines the basic functionality needed for a lane.
+	BaseLaneConfig struct {
+		Logger      log.Logger
+		TxEncoder   sdk.TxEncoder
+		TxDecoder   sdk.TxDecoder
+		AnteHandler sdk.AnteHandler
 
-		// Key defines the name of the lane.
-		Key string
+		// MaxBlockSpace defines the relative percentage of block space that can be
+		// used by this lane. NOTE: If this is set to zero, then there is no limit
+		// on the number of transactions that can be included in the block for this
+		// lane (up to maxTxBytes as provided by the request). This is useful for the default lane.
+		MaxBlockSpace sdk.Dec
 	}
 
 	// Lane defines an interface used for block construction
@@ -41,25 +43,18 @@ type (
 		// the raw transaction.
 		PrepareLane(ctx sdk.Context, proposal Proposal, next PrepareLanesHandler) Proposal
 
-		// ProcessLane which verifies the lane's portion of a proposed block. Returns an error
-		// if the lane's portion of the block is invalid. Also returns the index of the next
-		// transcation that does not belong to this. Lanes are verified in a greedy fashion.
+		// ProcessLane verifies this lane's portion of a proposed block.
 		ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next ProcessLanesHandler) (sdk.Context, error)
 	}
 )
 
-func NewLaneConfig(logger log.Logger, txEncoder sdk.TxEncoder, txDecoder sdk.TxDecoder,
-	anteHandler sdk.AnteHandler, key string, maxBlockSpace sdk.Dec) *LaneConfig {
-	return &LaneConfig{
+// NewLaneConfig returns a new LaneConfig. This will be embedded in a lane.
+func NewBaseLaneConfig(logger log.Logger, txEncoder sdk.TxEncoder, txDecoder sdk.TxDecoder, anteHandler sdk.AnteHandler, maxBlockSpace sdk.Dec) BaseLaneConfig {
+	return BaseLaneConfig{
 		Logger:        logger,
 		TxEncoder:     txEncoder,
 		TxDecoder:     txDecoder,
 		AnteHandler:   anteHandler,
-		Key:           key,
 		MaxBlockSpace: maxBlockSpace,
 	}
-}
-
-func (c LaneConfig) Name() string {
-	return c.Key
 }

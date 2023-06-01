@@ -1,4 +1,4 @@
-package tob
+package auction
 
 import (
 	"bytes"
@@ -12,8 +12,6 @@ import (
 // PrepareLane will attempt to select the highest bid transaction that is valid
 // and whose bundled transactions are valid and include them in the proposal. It
 // will return an empty partial proposal if no valid bids are found.
-//
-// TODO: revert this back to the original implementation.
 func (l *TOBLane) PrepareLane(ctx sdk.Context, proposal blockbuster.Proposal, next blockbuster.PrepareLanesHandler) blockbuster.Proposal {
 	// Define all of the info we need to select transactions for the partial proposal.
 	txs := make([][]byte, 0)
@@ -21,7 +19,7 @@ func (l *TOBLane) PrepareLane(ctx sdk.Context, proposal blockbuster.Proposal, ne
 
 	// Calculate the max tx bytes for the lane and track the total size of the
 	// transactions we have selected so far.
-	maxTxBytes := blockbuster.GetMaxTxBytesForLane(proposal, l.MaxBlockSpace)
+	maxTxBytes := blockbuster.GetMaxTxBytesForLane(proposal, l.cfg.MaxBlockSpace)
 	totalSize := int64(0)
 
 	// Attempt to select the highest bid transaction that is valid and whose
@@ -33,7 +31,7 @@ selectBidTxLoop:
 		tmpBidTx := bidTxIterator.Tx()
 
 		// if the transaction is already in the (partial) block proposal, we skip it.
-		txHash, err := blockbuster.GetTxHashStr(l.TxEncoder, tmpBidTx)
+		txHash, err := blockbuster.GetTxHashStr(l.cfg.TxEncoder, tmpBidTx)
 		if err != nil {
 			txsToRemove[tmpBidTx] = struct{}{}
 			continue
@@ -42,7 +40,7 @@ selectBidTxLoop:
 			continue selectBidTxLoop
 		}
 
-		bidTxBz, err := l.TxEncoder(tmpBidTx)
+		bidTxBz, err := l.cfg.TxEncoder(tmpBidTx)
 		if err != nil {
 			txsToRemove[tmpBidTx] = struct{}{}
 			continue selectBidTxLoop
@@ -75,14 +73,14 @@ selectBidTxLoop:
 					continue selectBidTxLoop
 				}
 
-				sdkTxBz, err := l.TxEncoder(sdkTx)
+				sdkTxBz, err := l.cfg.TxEncoder(sdkTx)
 				if err != nil {
 					txsToRemove[tmpBidTx] = struct{}{}
 					continue selectBidTxLoop
 				}
 
 				// if the transaction is already in the (partial) block proposal, we skip it.
-				hash, err := blockbuster.GetTxHashStr(l.TxEncoder, sdkTx)
+				hash, err := blockbuster.GetTxHashStr(l.cfg.TxEncoder, sdkTx)
 				if err != nil {
 					txsToRemove[tmpBidTx] = struct{}{}
 					continue selectBidTxLoop
@@ -112,18 +110,21 @@ selectBidTxLoop:
 		}
 
 		txsToRemove[tmpBidTx] = struct{}{}
-		l.Logger.Info(
+		l.cfg.Logger.Info(
 			"failed to select auction bid tx; tx size is too large",
 			"tx_size", bidTxSize,
 			"max_size", proposal.MaxTxBytes,
 		)
 	}
 
+	// Remove all transactions that were invalid during the creation of the partial proposal.
+	if err := blockbuster.RemoveTxsFromLane(txsToRemove, l.Mempool); err != nil {
+		l.cfg.Logger.Error("failed to remove txs from mempool", "lane", l.Name(), "err", err)
+		return proposal
+	}
+
 	// Update the proposal with the selected transactions.
 	proposal = blockbuster.UpdateProposal(proposal, txs, totalSize)
-
-	// remove all invalid transactions from the mempool
-	blockbuster.RemoveTxsFromLane(txsToRemove, l.Mempool)
 
 	return next(ctx, proposal)
 }
@@ -138,9 +139,9 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next blockb
 	endIndex := 0
 
 	for index, txBz := range proposalTxs {
-		tx, err := l.TxDecoder(txBz)
+		tx, err := l.cfg.TxDecoder(txBz)
 		if err != nil {
-			return ctx, fmt.Errorf("failed to decode tx %w", err)
+			return ctx, err
 		}
 
 		if l.Match(tx) {
@@ -170,7 +171,7 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next blockb
 						return ctx, err
 					}
 
-					refTxBz, err := l.TxEncoder(wrappedTx)
+					refTxBz, err := l.cfg.TxEncoder(wrappedTx)
 					if err != nil {
 						return ctx, err
 					}
@@ -188,7 +189,6 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next blockb
 				endIndex += len(bidInfo.Transactions) + 1
 			}
 		}
-
 	}
 
 	return next(ctx, proposalTxs[endIndex:])
@@ -233,8 +233,8 @@ func (l *TOBLane) VerifyTx(ctx sdk.Context, bidTx sdk.Tx) error {
 // verifyTx will execute the ante handler on the transaction and return the
 // resulting context and error.
 func (l *TOBLane) verifyTx(ctx sdk.Context, tx sdk.Tx) (sdk.Context, error) {
-	if l.AnteHandler != nil {
-		newCtx, err := l.AnteHandler(ctx, tx, false)
+	if l.cfg.AnteHandler != nil {
+		newCtx, err := l.cfg.AnteHandler(ctx, tx, false)
 		return newCtx, err
 	}
 

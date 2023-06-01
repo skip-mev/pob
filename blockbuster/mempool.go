@@ -2,7 +2,6 @@ package blockbuster
 
 import (
 	"context"
-	"errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
@@ -54,15 +53,13 @@ func (m *Mempool) GetTxDistribution() map[string]int {
 // Insert inserts a transaction into every lane that it matches. Insertion will
 // be attempted on all lanes, even if an error is encountered.
 func (m *Mempool) Insert(ctx context.Context, tx sdk.Tx) error {
-	errs := make([]error, 0, len(m.registry))
-
 	for _, lane := range m.registry {
 		if lane.Match(tx) {
 			return lane.Insert(ctx, tx)
 		}
 	}
 
-	return errors.Join(errs...)
+	return nil
 }
 
 // Insert returns a nil iterator.
@@ -78,15 +75,13 @@ func (m *Mempool) Select(_ context.Context, _ [][]byte) sdkmempool.Iterator {
 // Remove removes a transaction from every lane that it matches. Removal will be
 // attempted on all lanes, even if an error is encountered.
 func (m *Mempool) Remove(tx sdk.Tx) error {
-	errs := make([]error, 0, len(m.registry))
-
 	for _, lane := range m.registry {
 		if lane.Match(tx) {
 			return lane.Remove(tx)
 		}
 	}
 
-	return errors.Join(errs...)
+	return nil
 }
 
 // Contains returns true if the transaction is contained in the mempool.
