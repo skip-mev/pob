@@ -59,6 +59,8 @@ func NewProposalHandler(logger log.Logger, mempool *Mempool, txEncoder sdk.TxEnc
 // will include all valid transactions in the proposal (up to MaxTxBytes).
 func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 	return func(ctx sdk.Context, req abci.RequestPrepareProposal) abci.ResponsePrepareProposal {
+		// TODO: Add a defer here
+
 		proposal := h.prepareLanesHandler(ctx, Proposal{
 			SelectedTxs: make(map[string]struct{}),
 			Txs:         make([][]byte, 0),
@@ -75,6 +77,8 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 // of the proposal is verified, we pass the remaining transactions to the next lane in the chain.
 func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 	return func(ctx sdk.Context, req abci.RequestProcessProposal) abci.ResponseProcessProposal {
+		// TODO: Add a validate basic here
+
 		if _, err := h.processLanesHandler(ctx, req.Txs); err != nil {
 			h.logger.Error("failed to validate the proposal", "err", err)
 			return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
@@ -83,6 +87,9 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 		return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_ACCEPT}
 	}
 }
+
+// ValidateBasic will ensure that the block is built correctly respecting the ordering of transactions
+// relative to the lane they belong to. It ensures that the block structure matches the lane structure.
 
 // ChainPrepareLanes chains together the proposal preparation logic from each lane
 // into a single function. The first lane in the chain is the first lane to be prepared and
@@ -120,25 +127,8 @@ func ChainProcessLanes(chain ...Lane) ProcessLanesHandler {
 	}
 }
 
-// lil easter egg
 // Terminator Lane will get added to the chain to simplify chaining code
 // Don't need to check if next == nil further up the chain
-//
-//	                      ______
-//	                   <((((((\\\
-//	                   /      . }\
-//	                   ;--..--._|}
-//	(\                 '--/\--'  )
-//	 \\                | '-'  :'|
-//	  \\               . -==- .-|
-//	   \\               \.__.'   \--._
-//	   [\\          __.--|       //  _/'--.
-//	   \ \\       .'-._ ('-----'/ __/      \
-//	    \ \\     /   __>|      | '--.       |
-//	     \ \\   |   \   |     /    /       /
-//	      \ '\ /     \  |     |  _/       /
-//	       \  \       \ |     | /        /
-//	 snd    \  \      \        /
 type Terminator struct{}
 
 var _ Lane = (*Terminator)(nil)

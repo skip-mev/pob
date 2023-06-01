@@ -68,7 +68,9 @@ import (
 	upgradeclient "github.com/cosmos/cosmos-sdk/x/upgrade/client"
 	upgradekeeper "github.com/cosmos/cosmos-sdk/x/upgrade/keeper"
 	"github.com/skip-mev/pob/abci"
-	"github.com/skip-mev/pob/mempool"
+	"github.com/skip-mev/pob/blockbuster"
+	"github.com/skip-mev/pob/blockbuster/lanes/base"
+	"github.com/skip-mev/pob/blockbuster/lanes/tob"
 	buildermodule "github.com/skip-mev/pob/x/builder"
 	builderkeeper "github.com/skip-mev/pob/x/builder/keeper"
 )
@@ -262,7 +264,27 @@ func New(
 	app.App = appBuilder.Build(logger, db, traceStore, baseAppOptions...)
 
 	// Set POB's mempool into the app.
-	mempool := mempool.NewAuctionMempool(app.txConfig.TxDecoder(), app.txConfig.TxEncoder(), 0, mempool.NewDefaultAuctionFactory(app.txConfig.TxDecoder()))
+	tobLane := tob.NewTOBLane(
+		app.Logger(),
+		app.txConfig.TxDecoder(),
+		app.txConfig.TxEncoder(),
+		0,
+		nil,
+		tob.NewDefaultAuctionFactory(app.txConfig.TxDecoder()),
+		sdk.NewDecFromIntWithPrec(sdk.NewInt(1), 2),
+	)
+	baseLane := base.NewBaseLane(
+		app.Logger(),
+		app.txConfig.TxDecoder(),
+		app.txConfig.TxEncoder(),
+		0,
+		nil,
+		sdk.NewDec(1),
+	)
+	mempool := blockbuster.NewMempool(
+		tobLane,
+		baseLane,
+	)
 	app.App.SetMempool(mempool)
 
 	// Create a global ante handler that will be called on each transaction when
@@ -277,19 +299,19 @@ func New(
 	options := POBHandlerOptions{
 		BaseOptions:   handlerOptions,
 		BuilderKeeper: app.BuilderKeeper,
-		Mempool:       mempool,
+		TOBLane:       tobLane,
 		TxDecoder:     app.txConfig.TxDecoder(),
 		TxEncoder:     app.txConfig.TxEncoder(),
 	}
 	anteHandler := NewPOBAnteHandler(options)
+	tobLane.AnteHandler = anteHandler
+	baseLane.AnteHandler = anteHandler
 
 	// Set the proposal handlers on the BaseApp along with the custom antehandler.
-	proposalHandlers := abci.NewProposalHandler(
+	proposalHandlers := blockbuster.NewProposalHandler(
+		app.Logger(),
 		mempool,
-		app.App.Logger(),
-		anteHandler,
-		options.TxEncoder,
-		options.TxDecoder,
+		app.txConfig.TxEncoder(),
 	)
 	app.App.SetPrepareProposal(proposalHandlers.PrepareProposalHandler())
 	app.App.SetProcessProposal(proposalHandlers.ProcessProposalHandler())
@@ -299,7 +321,7 @@ func New(
 	checkTxHandler := abci.NewCheckTxHandler(
 		app.App,
 		app.txConfig.TxDecoder(),
-		mempool,
+		tobLane,
 		anteHandler,
 		ChainID,
 	)

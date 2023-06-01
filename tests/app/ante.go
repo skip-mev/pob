@@ -3,14 +3,13 @@ package app
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth/ante"
-	"github.com/skip-mev/pob/mempool"
 	builderante "github.com/skip-mev/pob/x/builder/ante"
 	builderkeeper "github.com/skip-mev/pob/x/builder/keeper"
 )
 
 type POBHandlerOptions struct {
 	BaseOptions   ante.HandlerOptions
-	Mempool       mempool.Mempool
+	TOBLane       builderante.TOBLane
 	TxDecoder     sdk.TxDecoder
 	TxEncoder     sdk.TxEncoder
 	BuilderKeeper builderkeeper.Keeper
@@ -48,7 +47,7 @@ func NewPOBAnteHandler(options POBHandlerOptions) sdk.AnteHandler {
 		ante.NewSigGasConsumeDecorator(options.BaseOptions.AccountKeeper, options.BaseOptions.SigGasConsumer),
 		ante.NewSigVerificationDecorator(options.BaseOptions.AccountKeeper, options.BaseOptions.SignModeHandler),
 		ante.NewIncrementSequenceDecorator(options.BaseOptions.AccountKeeper),
-		builderante.NewBuilderDecorator(options.BuilderKeeper, options.TxEncoder, options.Mempool),
+		builderante.NewBuilderDecorator(options.BuilderKeeper, options.TxEncoder, options.TOBLane),
 	}
 
 	return sdk.ChainAnteDecorators(anteDecorators...)

@@ -52,5 +52,11 @@ func UpdateProposal(proposal Proposal, txs [][]byte, txSize int64) Proposal {
 	proposal.Txs = append(proposal.Txs, txs...)
 	proposal.TotalTxBytes += txSize
 
+	for _, tx := range txs {
+		txHash := sha256.Sum256(tx)
+		txHashStr := hex.EncodeToString(txHash[:])
+		proposal.SelectedTxs[txHashStr] = struct{}{}
+	}
+
 	return proposal
 }
