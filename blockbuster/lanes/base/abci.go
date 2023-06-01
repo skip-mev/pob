@@ -11,6 +11,7 @@ import (
 func (l *DefaultLane) PrepareLane(ctx sdk.Context, maxTxBytes int64, selectedTxs map[string][]byte) ([][]byte, error) {
 	txs := make([][]byte, 0)
 	txsToRemove := make(map[sdk.Tx]struct{}, 0)
+	totalSize := int64(0)
 
 	// Select all transactions in the mempool that are valid and not already in the
 	// partial proposal.
@@ -32,6 +33,13 @@ func (l *DefaultLane) PrepareLane(ctx sdk.Context, maxTxBytes int64, selectedTxs
 		if _, ok := selectedTxs[hash]; ok {
 			continue
 		}
+
+		// If the transaction is too large, we skip it.
+		txSize := int64(len(txBytes))
+		if updatedSize := totalSize + txSize; updatedSize > maxTxBytes {
+			break
+		}
+		totalSize += txSize
 
 		// Verify the transaction.
 		if err := l.VerifyTx(ctx, tx); err != nil {
