@@ -133,7 +133,7 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next blockb
 	for index, txBz := range proposalTxs {
 		tx, err := l.cfg.TxDecoder(txBz)
 		if err != nil {
-			return ctx, fmt.Errorf("failed to decode tx %w", err)
+			return ctx, err
 		}
 
 		bidInfo, err := l.GetAuctionBidInfo(tx)
