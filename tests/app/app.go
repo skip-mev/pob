@@ -69,8 +69,8 @@ import (
 	upgradekeeper "github.com/cosmos/cosmos-sdk/x/upgrade/keeper"
 	"github.com/skip-mev/pob/abci"
 	"github.com/skip-mev/pob/blockbuster"
+	"github.com/skip-mev/pob/blockbuster/lanes/auction"
 	"github.com/skip-mev/pob/blockbuster/lanes/base"
-	"github.com/skip-mev/pob/blockbuster/lanes/tob"
 	buildermodule "github.com/skip-mev/pob/x/builder"
 	builderkeeper "github.com/skip-mev/pob/x/builder/keeper"
 )
@@ -264,20 +264,19 @@ func New(
 	app.App = appBuilder.Build(logger, db, traceStore, baseAppOptions...)
 
 	// Set POB's mempool into the app.
-	tobLane := tob.NewTOBLane(
+	tobLane := auction.NewTOBLane(
 		app.Logger(),
 		app.txConfig.TxDecoder(),
 		app.txConfig.TxEncoder(),
 		0,
 		nil,
-		tob.NewDefaultAuctionFactory(app.txConfig.TxDecoder()),
+		auction.NewDefaultAuctionFactory(app.txConfig.TxDecoder()),
 		sdk.NewDecFromIntWithPrec(sdk.NewInt(1), 2),
 	)
-	baseLane := base.NewBaseLane(
+	baseLane := base.NewDefaultLane(
 		app.Logger(),
 		app.txConfig.TxDecoder(),
 		app.txConfig.TxEncoder(),
-		0,
 		nil,
 		sdk.NewDec(1),
 	)
@@ -304,8 +303,8 @@ func New(
 		TxEncoder:     app.txConfig.TxEncoder(),
 	}
 	anteHandler := NewPOBAnteHandler(options)
-	tobLane.AnteHandler = anteHandler
-	baseLane.AnteHandler = anteHandler
+	// tobLane.AnteHandler = anteHandler
+	// baseLane.AnteHandler = anteHandler
 
 	// Set the proposal handlers on the BaseApp along with the custom antehandler.
 	proposalHandlers := blockbuster.NewProposalHandler(

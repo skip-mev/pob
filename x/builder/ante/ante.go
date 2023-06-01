@@ -7,7 +7,7 @@ import (
 
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/skip-mev/pob/blockbuster/lanes/tob"
+	"github.com/skip-mev/pob/blockbuster/lanes/auction"
 	"github.com/skip-mev/pob/x/builder/keeper"
 )
 
@@ -18,7 +18,7 @@ type (
 	// lane.
 	TOBLane interface {
 		Contains(tx sdk.Tx) (bool, error)
-		GetAuctionBidInfo(tx sdk.Tx) (*tob.AuctionBidInfo, error)
+		GetAuctionBidInfo(tx sdk.Tx) (*auction.BidInfo, error)
 		GetTopAuctionTx(ctx context.Context) sdk.Tx
 	}
 

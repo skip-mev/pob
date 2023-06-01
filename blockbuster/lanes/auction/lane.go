@@ -13,7 +13,7 @@ const (
 
 var (
 	_ blockbuster.Lane = (*TOBLane)(nil)
-	_ AuctionFactory   = (*TOBLane)(nil)
+	_ Factory          = (*TOBLane)(nil)
 )
 
 // TOBLane defines a top-of-block auction lane. The top of block auction lane

@@ -13,8 +13,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/golang/mock/gomock"
 	"github.com/skip-mev/pob/blockbuster"
+	"github.com/skip-mev/pob/blockbuster/lanes/auction"
 	"github.com/skip-mev/pob/blockbuster/lanes/base"
-	"github.com/skip-mev/pob/blockbuster/lanes/tob"
 	testutils "github.com/skip-mev/pob/testutils"
 	"github.com/skip-mev/pob/x/builder/ante"
 	"github.com/skip-mev/pob/x/builder/keeper"
@@ -29,14 +29,14 @@ type BlockBusterTestSuite struct {
 
 	// Define basic tx configuration
 	encodingConfig testutils.EncodingConfig
-	auctionFactory tob.AuctionFactory
+	auctionFactory auction.Factory
 
 	// Define all of the lanes utilized in the test suite
 	tobBlockSpace sdk.Dec
-	tobLane       *tob.TOBLane
+	tobLane       *auction.TOBLane
 
 	baseBlockSpace sdk.Dec
-	baseLane       *base.BaseLane
+	baseLane       *base.DefaultLane
 
 	lanes   []blockbuster.Lane
 	mempool *blockbuster.Mempool
@@ -74,9 +74,9 @@ func (suite *BlockBusterTestSuite) SetupTest() {
 	// Lanes configuration
 	//
 	// TOB lane set up
-	suite.auctionFactory = tob.NewDefaultAuctionFactory(suite.encodingConfig.TxConfig.TxDecoder())
+	suite.auctionFactory = auction.NewDefaultAuctionFactory(suite.encodingConfig.TxConfig.TxDecoder())
 	suite.tobBlockSpace = sdk.NewDecFromBigIntWithPrec(big.NewInt(1), 1) // 10% of the block space
-	suite.tobLane = tob.NewTOBLane(
+	suite.tobLane = auction.NewTOBLane(
 		suite.logger,
 		suite.encodingConfig.TxConfig.TxDecoder(),
 		suite.encodingConfig.TxConfig.TxEncoder(),
@@ -88,11 +88,10 @@ func (suite *BlockBusterTestSuite) SetupTest() {
 
 	// Base lane set up
 	suite.baseBlockSpace = sdk.ZeroDec()
-	suite.baseLane = base.NewBaseLane(
+	suite.baseLane = base.NewDefaultLane(
 		suite.logger,
 		suite.encodingConfig.TxConfig.TxDecoder(),
 		suite.encodingConfig.TxConfig.TxEncoder(),
-		0, // No bound on the number of transactions in the lane
 		suite.anteHandler,
 		sdk.ZeroDec(),
 	)
@@ -203,7 +202,7 @@ func (suite *BlockBusterTestSuite) anteHandler(ctx sdk.Context, tx sdk.Tx, simul
 }
 
 func (suite *BlockBusterTestSuite) resetLanes() {
-	suite.tobLane = tob.NewTOBLane(
+	suite.tobLane = auction.NewTOBLane(
 		suite.logger,
 		suite.encodingConfig.TxConfig.TxDecoder(),
 		suite.encodingConfig.TxConfig.TxEncoder(),
@@ -213,11 +212,10 @@ func (suite *BlockBusterTestSuite) resetLanes() {
 		suite.tobBlockSpace,
 	)
 
-	suite.baseLane = base.NewBaseLane(
+	suite.baseLane = base.NewDefaultLane(
 		suite.logger,
 		suite.encodingConfig.TxConfig.TxDecoder(),
 		suite.encodingConfig.TxConfig.TxEncoder(),
-		0, // No bound on the number of transactions in the lane
 		suite.anteHandler,
 		suite.baseBlockSpace,
 	)
