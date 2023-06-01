@@ -26,10 +26,10 @@ type TOBLane struct {
 	// LaneConfig defines the base lane configuration.
 	*blockbuster.LaneConfig
 
-	// AuctionFactory defines the API/functionality which is responsible for determining
+	// Factory defines the API/functionality which is responsible for determining
 	// if a transaction is a bid transaction and how to extract relevant
 	// information from the transaction (bid, timeout, bidder, etc.).
-	AuctionFactory
+	Factory
 }
 
 // NewTOBLane returns a new TOB lane.
@@ -39,14 +39,14 @@ func NewTOBLane(
 	txEncoder sdk.TxEncoder,
 	maxTx int,
 	anteHandler sdk.AnteHandler,
-	af AuctionFactory,
+	af Factory,
 ) *TOBLane {
 	logger = logger.With("lane", LaneName)
 
 	return &TOBLane{
-		Mempool:        NewAuctionMempool(txEncoder, maxTx, af),
-		LaneConfig:     blockbuster.NewLaneConfig(logger, txEncoder, txDecoder, anteHandler, LaneName),
-		AuctionFactory: af,
+		Mempool:    NewMempool(txEncoder, maxTx, af),
+		LaneConfig: blockbuster.NewLaneConfig(logger, txEncoder, txDecoder, anteHandler, LaneName),
+		Factory:    af,
 	}
 }
 

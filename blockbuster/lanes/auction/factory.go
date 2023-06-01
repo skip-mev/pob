@@ -17,10 +17,10 @@ type (
 		Signers      []map[string]struct{}
 	}
 
-	// AuctionFactory defines the interface for processing auction transactions. It is
+	// Factory defines the interface for processing auction transactions. It is
 	// a wrapper around all of the functionality that each application chain must implement
 	// in order for auction processing to work.
-	AuctionFactory interface {
+	Factory interface {
 		// WrapBundleTransaction defines a function that wraps a bundle transaction into a sdk.Tx. Since
 		// this is a potentially expensive operation, we allow each application chain to define how
 		// they want to wrap the transaction such that it is only called when necessary (i.e. when the
@@ -45,10 +45,10 @@ type (
 	}
 )
 
-var _ AuctionFactory = (*DefaultAuctionFactory)(nil)
+var _ Factory = (*DefaultAuctionFactory)(nil)
 
 // NewDefaultAuctionFactory returns a default auction factory interface implementation.
-func NewDefaultAuctionFactory(txDecoder sdk.TxDecoder) AuctionFactory {
+func NewDefaultAuctionFactory(txDecoder sdk.TxDecoder) Factory {
 	return &DefaultAuctionFactory{
 		txDecoder: txDecoder,
 	}

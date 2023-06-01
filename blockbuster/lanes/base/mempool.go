@@ -39,7 +39,7 @@ type (
 	}
 )
 
-func NewBaseMempool(txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, maxTx int) *BaseMempool {
+func NewDefaultMempool(txEncoder sdk.TxEncoder, maxTx int) *BaseMempool {
 	return &BaseMempool{
 		index: mempool.NewPriorityMempool(
 			mempool.DefaultPriorityNonceMempoolConfig(),
