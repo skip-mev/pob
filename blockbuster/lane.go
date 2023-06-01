@@ -37,8 +37,7 @@ type (
 		// the raw transaction.
 		PrepareLane(ctx sdk.Context, maxTxBytes int64, selectedTxs map[string][]byte) ([][]byte, error)
 
-		// ProcessLane verifies this lane's portion of a proposed block. Returns an error
-		// if the lane's portion of the block is invalid.
+		// ProcessLane verifies this lane's portion of a proposed block.
 		ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next ProcessLanesHandler) (sdk.Context, error)
 	}
 )

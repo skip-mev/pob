@@ -23,7 +23,8 @@ type (
 	}
 
 	// ProcessLanesHandler wraps all of the lanes Process functions into a single chained
-	// function. You can think of it like an AnteHandler, but for lanes.
+	// function. You can think of it like an AnteHandler, but for processing proposals in the
+	// context of lanes instead of modules.
 	ProcessLanesHandler func(ctx sdk.Context, proposalTxs [][]byte) (sdk.Context, error)
 )
 

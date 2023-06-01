@@ -71,6 +71,7 @@ func (l *DefaultLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next bl
 	return ctx, nil
 }
 
+// VerifyTx does basic verification of the transaction using the ante handler.
 func (l *DefaultLane) VerifyTx(ctx sdk.Context, tx sdk.Tx) error {
 	if l.cfg.AnteHandler != nil {
 		_, err := l.cfg.AnteHandler(ctx, tx, false)
