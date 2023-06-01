@@ -43,9 +43,9 @@ func NewTOBLane(
 	maxBlockSpace sdk.Dec,
 ) *TOBLane {
 	return &TOBLane{
-		Mempool:    NewMempool(txEncoder, maxTx, af),
-		LaneConfig: blockbuster.NewLaneConfig(logger, txEncoder, txDecoder, anteHandler, LaneName, maxBlockSpace),
-		Factory:    af,
+		Mempool: NewMempool(txEncoder, maxTx, af),
+		cfg:     blockbuster.NewBaseLaneConfig(logger, txEncoder, txDecoder, anteHandler, maxBlockSpace),
+		Factory: af,
 	}
 }
 

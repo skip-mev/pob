@@ -21,7 +21,7 @@ func (l *TOBLane) PrepareLane(ctx sdk.Context, proposal blockbuster.Proposal, ne
 
 	// Calculate the max tx bytes for the lane and track the total size of the
 	// transactions we have selected so far.
-	maxTxBytes := blockbuster.GetMaxTxBytesForLane(proposal, l.MaxBlockSpace)
+	maxTxBytes := blockbuster.GetMaxTxBytesForLane(proposal, l.cfg.MaxBlockSpace)
 	totalSize := int64(0)
 
 	// Attempt to select the highest bid transaction that is valid and whose
@@ -170,7 +170,7 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next blockb
 						return ctx, err
 					}
 
-					refTxBz, err := l.TxEncoder(wrappedTx)
+					refTxBz, err := l.cfg.TxEncoder(wrappedTx)
 					if err != nil {
 						return ctx, err
 					}

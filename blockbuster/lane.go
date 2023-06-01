@@ -9,10 +9,11 @@ import (
 type (
 	// BaseLaneConfig defines the basic functionality needed for a lane.
 	BaseLaneConfig struct {
-		Logger      log.Logger
-		TxEncoder   sdk.TxEncoder
-		TxDecoder   sdk.TxDecoder
-		AnteHandler sdk.AnteHandler
+		Logger        log.Logger
+		TxEncoder     sdk.TxEncoder
+		TxDecoder     sdk.TxDecoder
+		AnteHandler   sdk.AnteHandler
+		MaxBlockSpace sdk.Dec
 	}
 
 	// Lane defines an interface used for block construction
@@ -43,11 +44,12 @@ type (
 )
 
 // NewLaneConfig returns a new LaneConfig. This will be embedded in a lane.
-func NewBaseLaneConfig(logger log.Logger, txEncoder sdk.TxEncoder, txDecoder sdk.TxDecoder, anteHandler sdk.AnteHandler) BaseLaneConfig {
+func NewBaseLaneConfig(logger log.Logger, txEncoder sdk.TxEncoder, txDecoder sdk.TxDecoder, anteHandler sdk.AnteHandler, maxBlockSpace sdk.Dec) BaseLaneConfig {
 	return BaseLaneConfig{
-		Logger:      logger,
-		TxEncoder:   txEncoder,
-		TxDecoder:   txDecoder,
-		AnteHandler: anteHandler,
+		Logger:        logger,
+		TxEncoder:     txEncoder,
+		TxDecoder:     txDecoder,
+		AnteHandler:   anteHandler,
+		MaxBlockSpace: maxBlockSpace,
 	}
 }

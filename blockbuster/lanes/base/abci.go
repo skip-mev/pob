@@ -16,8 +16,7 @@ func (l *DefaultLane) PrepareLane(ctx sdk.Context, proposal blockbuster.Proposal
 
 	// Calculate the max tx bytes for the lane and track the total size of the
 	// transactions we have selected so far.
-	maxTxBytes := blockbuster.GetMaxTxBytesForLane(proposal, l.MaxBlockSpace)
-	totalSize := int64(0)
+	maxTxBytes := blockbuster.GetMaxTxBytesForLane(proposal, l.cfg.MaxBlockSpace)
 
 	// Select all transactions in the mempool that are valid and not already in the
 	// partial proposal.
@@ -58,7 +57,7 @@ func (l *DefaultLane) PrepareLane(ctx sdk.Context, proposal blockbuster.Proposal
 
 	// Remove all transactions that were invalid during the creation of the partial proposal.
 	if err := blockbuster.RemoveTxsFromLane(txsToRemove, l.Mempool); err != nil {
-		l.Logger.Error("failed to remove txs from mempool", "lane", l.Name(), "err", err)
+		l.cfg.Logger.Error("failed to remove txs from mempool", "lane", l.Name(), "err", err)
 		return proposal
 	}
 
