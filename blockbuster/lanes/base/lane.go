@@ -20,14 +20,14 @@ type DefaultLane struct {
 	Mempool
 
 	// LaneConfig defines the base lane configuration.
-	*blockbuster.LaneConfig
+	cfg blockbuster.BaseLaneConfig
 }
 
 // NewDefaultLane returns a new default lane.
 func NewDefaultLane(logger log.Logger, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, anteHandler sdk.AnteHandler) *DefaultLane {
 	return &DefaultLane{
-		Mempool:    NewDefaultMempool(txEncoder),
-		LaneConfig: blockbuster.NewLaneConfig(logger, txEncoder, txDecoder, anteHandler, LaneName),
+		Mempool: NewDefaultMempool(txEncoder),
+		cfg:     blockbuster.NewBaseLaneConfig(logger, txEncoder, txDecoder, anteHandler),
 	}
 }
 
@@ -36,4 +36,9 @@ func NewDefaultLane(logger log.Logger, txDecoder sdk.TxDecoder, txEncoder sdk.Tx
 // any transaction can be included in this lane.
 func (l *DefaultLane) Match(sdk.Tx) bool {
 	return true
+}
+
+// Name returns the name of the lane.
+func (l *DefaultLane) Name() string {
+	return LaneName
 }
