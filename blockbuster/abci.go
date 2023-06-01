@@ -1,16 +1,19 @@
 package blockbuster
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
 type (
-	// ProposalHandler is a wrapper around baseapp's PrepareProposal and ProcessProposal.
+	// ProposalHandler is a wrapper around ABCI++ PrepareProposal and ProcessProposal
+	// handlers.
 	ProposalHandler struct {
 		logger              log.Logger
 		mempool             Mempool
@@ -18,10 +21,12 @@ type (
 		processLanesHandler ProcessLanesHandler
 	}
 
-	// ProcessLanesHandler wraps all of the lanes Process function into a single function.
+	// ProcessLanesHandler wraps all of the lanes Process functions into a single chained
+	// function. You can think of it like an AnteHandler, but for lanes.
 	ProcessLanesHandler func(ctx sdk.Context, proposalTxs [][]byte) (sdk.Context, error)
 )
 
+// NewProposalHandler returns a new ProposalHandler.
 func NewProposalHandler(logger log.Logger, mempool Mempool, txEncoder sdk.TxEncoder) *ProposalHandler {
 	return &ProposalHandler{
 		logger:              logger,
@@ -37,6 +42,11 @@ func NewProposalHandler(logger log.Logger, mempool Mempool, txEncoder sdk.TxEnco
 func ChainProcessLanes(chain ...Lane) ProcessLanesHandler {
 	if len(chain) == 0 {
 		return nil
+	}
+
+	// Handle non-terminated decorators chain
+	if (chain[len(chain)-1] != Terminator{}) {
+		chain = append(chain, Terminator{})
 	}
 
 	return func(ctx sdk.Context, proposalTxs [][]byte) (sdk.Context, error) {
@@ -79,7 +89,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 	}
 }
 
-// ProcessProposalHandler processes the proposal by verifying all transactions in the
+// ProcessProposalHandler processes the proposal by verifying all transactions in the proposal
 // according to each lane's verification logic. We verify proposals in a greedy fashion.
 // If a lane's portion of the proposal is invalid, we reject the proposal. After a lane's portion
 // of the proposal is verified, we pass the remaining transactions to the next lane in the chain.
@@ -92,4 +102,60 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 
 		return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_ACCEPT}
 	}
+}
+
+// Terminator Lane will get added to the chain to simplify chaining code
+// Don't need to check if next == nil further up the chain
+type Terminator struct{}
+
+var _ Lane = (*Terminator)(nil)
+
+// AnteHandle returns the provided Context and nil error
+func (t Terminator) PrepareLane(_ sdk.Context, _ int64, _ map[string][]byte) ([][]byte, error) {
+	return nil, nil
+}
+
+// PostHandle returns the provided Context and nil error
+func (t Terminator) ProcessLane(ctx sdk.Context, _ [][]byte, _ ProcessLanesHandler) (sdk.Context, error) {
+	return ctx, nil
+}
+
+// Name returns the name of the lane
+func (t Terminator) Name() string {
+	return "Terminator"
+}
+
+// Match returns true if the transaction belongs to this lane
+func (t Terminator) Match(sdk.Tx) bool {
+	return false
+}
+
+// VerifyTx returns nil
+func (t Terminator) VerifyTx(sdk.Context, sdk.Tx) error {
+	return nil
+}
+
+// Contains returns false
+func (t Terminator) Contains(sdk.Tx) (bool, error) {
+	return false, nil
+}
+
+// CountTx returns 0
+func (t Terminator) CountTx() int {
+	return 0
+}
+
+// Insert is a no-op
+func (t Terminator) Insert(context.Context, sdk.Tx) error {
+	return nil
+}
+
+// Remove is a no-op
+func (t Terminator) Remove(sdk.Tx) error {
+	return nil
+}
+
+// Select is a no-op
+func (t Terminator) Select(context.Context, [][]byte) sdkmempool.Iterator {
+	return nil
 }

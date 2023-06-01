@@ -22,7 +22,8 @@ func GetTxHashStr(txEncoder sdk.TxEncoder, tx sdk.Tx) (string, error) {
 	return txHashStr, nil
 }
 
-func RemoveTxsFromMempool(txs map[sdk.Tx]struct{}, mempool sdkmempool.Mempool) error {
+// RemoveTxsFromLane removes the transactions from the given lane's mempool.
+func RemoveTxsFromLane(txs map[sdk.Tx]struct{}, mempool sdkmempool.Mempool) error {
 	for tx := range txs {
 		if err := mempool.Remove(tx); err != nil {
 			return err

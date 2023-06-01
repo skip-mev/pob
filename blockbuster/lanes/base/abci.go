@@ -7,8 +7,7 @@ import (
 	"github.com/skip-mev/pob/blockbuster"
 )
 
-// PrepareLane will prepare a partial proposal for the base lane. It will return
-// an error if there are any unexpected errors.
+// PrepareLane will prepare a partial proposal for the base lane.
 func (l *DefaultLane) PrepareLane(ctx sdk.Context, maxTxBytes int64, selectedTxs map[string][]byte) ([][]byte, error) {
 	txs := make([][]byte, 0)
 	txsToRemove := make(map[sdk.Tx]struct{}, 0)
@@ -44,42 +43,32 @@ func (l *DefaultLane) PrepareLane(ctx sdk.Context, maxTxBytes int64, selectedTxs
 	}
 
 	// Remove all transactions that were invalid during the creation of the partial proposal.
-	if err := blockbuster.RemoveTxsFromMempool(txsToRemove, l.Mempool); err != nil {
+	if err := blockbuster.RemoveTxsFromLane(txsToRemove, l.Mempool); err != nil {
 		return nil, fmt.Errorf("failed to remove txs from mempool for lane %s: %w", l.Name(), err)
 	}
 
 	return txs, nil
 }
 
-// ProcessLane will process the base lane. It will verify all transactions in the
-// lane and return an error if any of the transactions are invalid. If there are
-// transactions from other lanes in the lane, it will return an error.
+// ProcessLane verifies the default lane's portion of a block proposal.
 func (l *DefaultLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next blockbuster.ProcessLanesHandler) (sdk.Context, error) {
-	seenOtherLaneTxs := false
-	endIndex := 0
-
-	for _, tx := range proposalTxs {
+	for index, tx := range proposalTxs {
 		tx, err := l.TxDecoder(tx)
 		if err != nil {
 			return ctx, fmt.Errorf("failed to decode tx: %w", err)
 		}
 
 		if l.Match(tx) {
-			if seenOtherLaneTxs {
-				return ctx, fmt.Errorf("lane %s contains txs from other lanes", l.Name())
-			}
-
 			if err := l.VerifyTx(ctx, tx); err != nil {
 				return ctx, fmt.Errorf("failed to verify tx: %w", err)
 			}
-
-			endIndex++
 		} else {
-			seenOtherLaneTxs = true
+			return next(ctx, proposalTxs[index:])
 		}
 	}
 
-	return next(ctx, proposalTxs[endIndex:])
+	// This means we have processed all transactions in the proposal.
+	return ctx, nil
 }
 
 func (l *DefaultLane) VerifyTx(ctx sdk.Context, tx sdk.Tx) error {
