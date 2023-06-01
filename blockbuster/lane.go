@@ -7,15 +7,12 @@ import (
 )
 
 type (
-	// LaneConfig defines the basic functionality needed for a lane.
-	LaneConfig struct {
+	// BaseLaneConfig defines the basic functionality needed for a lane.
+	BaseLaneConfig struct {
 		Logger      log.Logger
 		TxEncoder   sdk.TxEncoder
 		TxDecoder   sdk.TxDecoder
 		AnteHandler sdk.AnteHandler
-
-		// Key defines the name of the lane.
-		Key string
 	}
 
 	// Lane defines an interface used for block construction
@@ -46,17 +43,11 @@ type (
 )
 
 // NewLaneConfig returns a new LaneConfig. This will be embedded in a lane.
-func NewLaneConfig(logger log.Logger, txEncoder sdk.TxEncoder, txDecoder sdk.TxDecoder, anteHandler sdk.AnteHandler, key string) *LaneConfig {
-	return &LaneConfig{
+func NewBaseLaneConfig(logger log.Logger, txEncoder sdk.TxEncoder, txDecoder sdk.TxDecoder, anteHandler sdk.AnteHandler) BaseLaneConfig {
+	return BaseLaneConfig{
 		Logger:      logger,
 		TxEncoder:   txEncoder,
 		TxDecoder:   txDecoder,
 		AnteHandler: anteHandler,
-		Key:         key,
 	}
-}
-
-// Name returns the name of the lane.
-func (c *LaneConfig) Name() string {
-	return c.Key
 }

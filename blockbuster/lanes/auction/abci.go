@@ -26,7 +26,7 @@ selectBidTxLoop:
 		tmpBidTx := bidTxIterator.Tx()
 
 		// if the transaction is already in the (partial) block proposal, we skip it.
-		txHash, err := blockbuster.GetTxHashStr(l.TxEncoder, tmpBidTx)
+		txHash, err := blockbuster.GetTxHashStr(l.cfg.TxEncoder, tmpBidTx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get bid tx hash: %w", err)
 		}
@@ -34,7 +34,7 @@ selectBidTxLoop:
 			continue selectBidTxLoop
 		}
 
-		bidTxBz, err := l.TxEncoder(tmpBidTx)
+		bidTxBz, err := l.cfg.TxEncoder(tmpBidTx)
 		if err != nil {
 			txsToRemove[tmpBidTx] = struct{}{}
 			continue selectBidTxLoop
@@ -67,7 +67,7 @@ selectBidTxLoop:
 					continue selectBidTxLoop
 				}
 
-				sdkTxBz, err := l.TxEncoder(sdkTx)
+				sdkTxBz, err := l.cfg.TxEncoder(sdkTx)
 				if err != nil {
 					txsToRemove[tmpBidTx] = struct{}{}
 					continue selectBidTxLoop
@@ -93,7 +93,7 @@ selectBidTxLoop:
 		}
 
 		txsToRemove[tmpBidTx] = struct{}{}
-		l.Logger.Info(
+		l.cfg.Logger.Info(
 			"failed to select auction bid tx; tx size is too large",
 			"tx_size", bidTxSize,
 			"max_size", maxTxBytes,
@@ -117,7 +117,7 @@ selectBidTxLoop:
 // transactions are invalid.
 func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte) error {
 	for index, txBz := range proposalTxs {
-		tx, err := l.TxDecoder(txBz)
+		tx, err := l.cfg.TxDecoder(txBz)
 		if err != nil {
 			return err
 		}
@@ -149,7 +149,7 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte) error {
 					return err
 				}
 
-				refTxBz, err := l.TxEncoder(wrappedTx)
+				refTxBz, err := l.cfg.TxEncoder(wrappedTx)
 				if err != nil {
 					return err
 				}
@@ -208,8 +208,8 @@ func (l *TOBLane) VerifyTx(ctx sdk.Context, bidTx sdk.Tx) error {
 // verifyTx will execute the ante handler on the transaction and return the
 // resulting context and error.
 func (l *TOBLane) verifyTx(ctx sdk.Context, tx sdk.Tx) (sdk.Context, error) {
-	if l.AnteHandler != nil {
-		newCtx, err := l.AnteHandler(ctx, tx, false)
+	if l.cfg.AnteHandler != nil {
+		newCtx, err := l.cfg.AnteHandler(ctx, tx, false)
 		return newCtx, err
 	}
 

@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	// LaneNameTOB defines the name of the top-of-block auction lane.
+	// LaneName defines the name of the top-of-block auction lane.
 	LaneName = "tob"
 )
 
@@ -24,7 +24,7 @@ type TOBLane struct {
 	Mempool
 
 	// LaneConfig defines the base lane configuration.
-	*blockbuster.LaneConfig
+	cfg blockbuster.BaseLaneConfig
 
 	// Factory defines the API/functionality which is responsible for determining
 	// if a transaction is a bid transaction and how to extract relevant
@@ -44,9 +44,9 @@ func NewTOBLane(
 	logger = logger.With("lane", LaneName)
 
 	return &TOBLane{
-		Mempool:    NewMempool(txEncoder, maxTx, af),
-		LaneConfig: blockbuster.NewLaneConfig(logger, txEncoder, txDecoder, anteHandler, LaneName),
-		Factory:    af,
+		Mempool: NewMempool(txEncoder, maxTx, af),
+		cfg:     blockbuster.NewBaseLaneConfig(logger, txEncoder, txDecoder, anteHandler),
+		Factory: af,
 	}
 }
 
@@ -55,4 +55,9 @@ func NewTOBLane(
 func (l *TOBLane) Match(tx sdk.Tx) bool {
 	bidInfo, err := l.GetAuctionBidInfo(tx)
 	return bidInfo != nil && err == nil
+}
+
+// Name returns the name of the lane.
+func (l *TOBLane) Name() string {
+	return LaneName
 }
