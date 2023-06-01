@@ -1,4 +1,4 @@
-package tob
+package auction
 
 import (
 	"bytes"
@@ -33,7 +33,7 @@ selectBidTxLoop:
 		tmpBidTx := bidTxIterator.Tx()
 
 		// if the transaction is already in the (partial) block proposal, we skip it.
-		txHash, err := blockbuster.GetTxHashStr(l.TxEncoder, tmpBidTx)
+		txHash, err := blockbuster.GetTxHashStr(l.cfg.TxEncoder, tmpBidTx)
 		if err != nil {
 			txsToRemove[tmpBidTx] = struct{}{}
 			continue
@@ -42,7 +42,7 @@ selectBidTxLoop:
 			continue selectBidTxLoop
 		}
 
-		bidTxBz, err := l.TxEncoder(tmpBidTx)
+		bidTxBz, err := l.cfg.TxEncoder(tmpBidTx)
 		if err != nil {
 			txsToRemove[tmpBidTx] = struct{}{}
 			continue selectBidTxLoop
@@ -75,14 +75,14 @@ selectBidTxLoop:
 					continue selectBidTxLoop
 				}
 
-				sdkTxBz, err := l.TxEncoder(sdkTx)
+				sdkTxBz, err := l.cfg.TxEncoder(sdkTx)
 				if err != nil {
 					txsToRemove[tmpBidTx] = struct{}{}
 					continue selectBidTxLoop
 				}
 
 				// if the transaction is already in the (partial) block proposal, we skip it.
-				hash, err := blockbuster.GetTxHashStr(l.TxEncoder, sdkTx)
+				hash, err := blockbuster.GetTxHashStr(l.cfg.TxEncoder, sdkTx)
 				if err != nil {
 					txsToRemove[tmpBidTx] = struct{}{}
 					continue selectBidTxLoop
@@ -112,7 +112,7 @@ selectBidTxLoop:
 		}
 
 		txsToRemove[tmpBidTx] = struct{}{}
-		l.Logger.Info(
+		l.cfg.Logger.Info(
 			"failed to select auction bid tx; tx size is too large",
 			"tx_size", bidTxSize,
 			"max_size", proposal.MaxTxBytes,
@@ -138,9 +138,9 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next blockb
 	endIndex := 0
 
 	for index, txBz := range proposalTxs {
-		tx, err := l.TxDecoder(txBz)
+		tx, err := l.cfg.TxDecoder(txBz)
 		if err != nil {
-			return ctx, fmt.Errorf("failed to decode tx %w", err)
+			return ctx, err
 		}
 
 		if l.Match(tx) {
@@ -233,8 +233,8 @@ func (l *TOBLane) VerifyTx(ctx sdk.Context, bidTx sdk.Tx) error {
 // verifyTx will execute the ante handler on the transaction and return the
 // resulting context and error.
 func (l *TOBLane) verifyTx(ctx sdk.Context, tx sdk.Tx) (sdk.Context, error) {
-	if l.AnteHandler != nil {
-		newCtx, err := l.AnteHandler(ctx, tx, false)
+	if l.cfg.AnteHandler != nil {
+		newCtx, err := l.cfg.AnteHandler(ctx, tx, false)
 		return newCtx, err
 	}
 
