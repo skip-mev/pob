@@ -1,6 +1,7 @@
 package auction
 
 import (
+	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/blockbuster"
 )
@@ -57,6 +58,11 @@ func (l *TOBLane) Match(tx sdk.Tx) bool {
 // Name returns the name of the lane.
 func (l *TOBLane) Name() string {
 	return LaneName
+}
+
+// Logger returns the lane's logger.
+func (l *TOBLane) Logger() log.Logger {
+	return l.cfg.Logger
 }
 
 // SetAnteHandler sets the lane's configuration.

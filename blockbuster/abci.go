@@ -60,8 +60,8 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		// In the case where there is a panic, we recover here and return an empty proposal.
 		defer func() {
 			if err := recover(); err != nil {
-				resp = abci.ResponsePrepareProposal{Txs: make([][]byte, 0)}
 				h.logger.Error("failed to prepare proposal", "err", err)
+				resp = abci.ResponsePrepareProposal{Txs: make([][]byte, 0)}
 			}
 		}()
 
@@ -122,11 +122,15 @@ func ChainPrepareLanes(chain ...Lane) PrepareLanesHandler {
 	}
 
 	return func(ctx sdk.Context, partialProposal Proposal) (finalProposal Proposal) {
+		chain[0].Logger().Info("preparing lane", "lane", chain[0].Name())
+
 		// Cache the context in the case where any of the lanes fail to prepare the proposal.
 		cacheCtx, write := ctx.CacheContext()
 
 		defer func() {
 			if err := recover(); err != nil {
+				chain[0].Logger().Error("failed to prepare lane", "lane", chain[0].Name(), "err", err)
+
 				lanesRemaining := len(chain)
 				switch {
 				case lanesRemaining <= 2:
@@ -167,6 +171,8 @@ func ChainProcessLanes(chain ...Lane) ProcessLanesHandler {
 	}
 
 	return func(ctx sdk.Context, proposalTxs [][]byte) (sdk.Context, error) {
+		chain[0].Logger().Info("processing lane", "lane", chain[0].Name())
+
 		if len(proposalTxs) == 0 {
 			return ctx, nil
 		}
@@ -260,3 +266,8 @@ func (t Terminator) ProcessLaneBasic([][]byte) error {
 
 // SetLaneConfig is a no-op
 func (t Terminator) SetAnteHandler(sdk.AnteHandler) {}
+
+// Logger is a no-op
+func (t Terminator) Logger() log.Logger {
+	return log.NewNopLogger()
+}

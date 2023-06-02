@@ -55,6 +55,9 @@ type (
 
 		// SetAnteHandler sets the lane's antehandler.
 		SetAnteHandler(antehander sdk.AnteHandler)
+
+		// Logger returns the lane's logger.
+		Logger() log.Logger
 	}
 )
 

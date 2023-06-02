@@ -35,8 +35,7 @@ type BlockBusterTestSuite struct {
 	tobBlockSpace sdk.Dec
 	tobLane       *auction.TOBLane
 
-	baseBlockSpace sdk.Dec
-	baseLane       *base.DefaultLane
+	baseLane *base.DefaultLane
 
 	lanes   []blockbuster.Lane
 	mempool *blockbuster.Mempool

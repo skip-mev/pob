@@ -1,6 +1,7 @@
 package base
 
 import (
+	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/blockbuster"
 )
@@ -39,6 +40,11 @@ func (l *DefaultLane) Match(sdk.Tx) bool {
 // Name returns the name of the lane.
 func (l *DefaultLane) Name() string {
 	return LaneName
+}
+
+// Logger returns the lane's logger.
+func (l *DefaultLane) Logger() log.Logger {
+	return l.cfg.Logger
 }
 
 // SetAnteHandler sets the lane's configuration.
