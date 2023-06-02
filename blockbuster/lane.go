@@ -25,6 +25,9 @@ type (
 	Lane interface {
 		sdkmempool.Mempool
 
+		// ValidateBasic validates the lane's configuration.
+		// ValidateBasic() error
+
 		// Name returns the name of the lane.
 		Name() string
 
@@ -45,6 +48,10 @@ type (
 
 		// ProcessLane verifies this lane's portion of a proposed block.
 		ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next ProcessLanesHandler) (sdk.Context, error)
+
+		// ProcessLaneBasic validates that transactions belonging to this lane are not misplaced
+		// in the block proposal.
+		ProcessLaneBasic(txs [][]byte) error
 	}
 )
 

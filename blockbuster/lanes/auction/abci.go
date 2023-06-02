@@ -1,8 +1,6 @@
 package auction
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -125,63 +123,25 @@ selectBidTxLoop:
 // respect the ordering of transactions in the bid transaction or if the bid/bundled
 // transactions are invalid.
 func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next blockbuster.ProcessLanesHandler) (sdk.Context, error) {
-	// Track the index of the first transaction that does not belong to this lane.
-	endIndex := 0
-
-	for index, txBz := range proposalTxs {
-		tx, err := l.cfg.TxDecoder(txBz)
-		if err != nil {
-			return ctx, err
-		}
-
-		if l.Match(tx) {
-			// If the transaction is an auction bid, then we need to ensure that it is
-			// the first transaction in the block proposal and that the order of
-			// transactions in the block proposal follows the order of transactions in
-			// the bid.
-			if index != 0 {
-				return ctx, fmt.Errorf("block proposal did not place auction bid transaction at the top of the lane: %d", index)
-			}
-
-			bidInfo, err := l.GetAuctionBidInfo(tx)
-			if err != nil {
-				return ctx, fmt.Errorf("failed to get auction bid info for tx at index %w", err)
-			}
-
-			if bidInfo != nil {
-				if len(proposalTxs) < len(bidInfo.Transactions)+1 {
-					return ctx, errors.New("block proposal does not contain enough transactions to match the bundled transactions in the auction bid")
-				}
-
-				for i, refTxRaw := range bidInfo.Transactions {
-					// Wrap and then encode the bundled transaction to ensure that the underlying
-					// reference transaction can be processed as an sdk.Tx.
-					wrappedTx, err := l.WrapBundleTransaction(refTxRaw)
-					if err != nil {
-						return ctx, err
-					}
-
-					refTxBz, err := l.cfg.TxEncoder(wrappedTx)
-					if err != nil {
-						return ctx, err
-					}
-
-					if !bytes.Equal(refTxBz, proposalTxs[i+1]) {
-						return ctx, errors.New("block proposal does not match the bundled transactions in the auction bid")
-					}
-				}
-
-				// Verify the bid transaction.
-				if err = l.VerifyTx(ctx, tx); err != nil {
-					return ctx, err
-				}
-
-				endIndex += len(bidInfo.Transactions) + 1
-			}
-		}
+	tx, err := l.cfg.TxDecoder(proposalTxs[0])
+	if err != nil {
+		return ctx, fmt.Errorf("failed to decode tx in lane %s: %w", l.Name(), err)
 	}
 
-	return next(ctx, proposalTxs[endIndex:])
+	if !l.Match(tx) {
+		return next(ctx, proposalTxs)
+	}
+
+	bidInfo, err := l.GetAuctionBidInfo(tx)
+	if err != nil {
+		return ctx, fmt.Errorf("failed to get bid info for lane %s: %w", l.Name(), err)
+	}
+
+	if err := l.VerifyTx(ctx, tx); err != nil {
+		return ctx, fmt.Errorf("invalid bid tx; failed to execute ante handler: %w", err)
+	}
+
+	return next(ctx, proposalTxs[len(bidInfo.Transactions)+1:])
 }
 
 // VerifyTx will verify that the bid transaction and all of its bundled

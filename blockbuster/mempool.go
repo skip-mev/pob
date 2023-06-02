@@ -30,18 +30,10 @@ func NewMempool(lanes ...Lane) *Mempool {
 	}
 }
 
-// TODO: Consider using a tx cache in Mempool and returning the length of that
-// cache instead of relying on lane count tracking.
+// CountTx returns the total number of transactions in the mempool.
 func (m *Mempool) CountTx() int {
 	var total int
 	for _, lane := range m.registry {
-		// TODO: If a global lane exists, we assume that lane has all transactions
-		// and we return the total.
-		//
-		// if lane.Name() == LaneNameGlobal {
-		// 	return lane.CountTx()
-		// }
-
 		total += lane.CountTx()
 	}
 
@@ -81,8 +73,8 @@ func (m *Mempool) Select(_ context.Context, _ [][]byte) sdkmempool.Iterator {
 	return nil
 }
 
-// Remove removes a transaction from every lane that it matches. Removal will be
-// attempted on all lanes, even if an error is encountered.
+// Remove removes a transaction from the mempool. It removes the transaction
+// from the first lane that it matches.
 func (m *Mempool) Remove(tx sdk.Tx) error {
 	for _, lane := range m.registry {
 		if lane.Match(tx) {

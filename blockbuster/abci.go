@@ -15,8 +15,6 @@ type (
 	// handlers.
 	ProposalHandler struct {
 		logger              log.Logger
-		mempool             *Mempool
-		txEncoder           sdk.TxEncoder
 		prepareLanesHandler PrepareLanesHandler
 		processLanesHandler ProcessLanesHandler
 	}
@@ -47,8 +45,6 @@ type (
 func NewProposalHandler(logger log.Logger, mempool *Mempool, txEncoder sdk.TxEncoder) *ProposalHandler {
 	return &ProposalHandler{
 		logger:              logger,
-		mempool:             mempool,
-		txEncoder:           txEncoder,
 		prepareLanesHandler: ChainPrepareLanes(mempool.registry...),
 		processLanesHandler: ChainProcessLanes(mempool.registry...),
 	}
@@ -60,8 +56,14 @@ func NewProposalHandler(logger log.Logger, mempool *Mempool, txEncoder sdk.TxEnc
 // the default lane will not have a boundary on the number of bytes that can be included in the proposal and
 // will include all valid transactions in the proposal (up to MaxTxBytes).
 func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
-	return func(ctx sdk.Context, req abci.RequestPrepareProposal) abci.ResponsePrepareProposal {
-		// TODO: Add a defer here
+	return func(ctx sdk.Context, req abci.RequestPrepareProposal) (resp abci.ResponsePrepareProposal) {
+		// In the case where there is a panic, we recover here and return an empty proposal.
+		defer func() {
+			if err := recover(); err != nil {
+				resp = abci.ResponsePrepareProposal{Txs: make([][]byte, 0)}
+				h.logger.Error("failed to prepare proposal", "err", err)
+			}
+		}()
 
 		proposal := h.prepareLanesHandler(ctx, Proposal{
 			Cache:      make(map[string]struct{}),
@@ -69,7 +71,11 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 			MaxTxBytes: req.MaxTxBytes,
 		})
 
-		return abci.ResponsePrepareProposal{Txs: proposal.Txs}
+		resp = abci.ResponsePrepareProposal{
+			Txs: proposal.Txs,
+		}
+
+		return
 	}
 }
 
@@ -78,9 +84,16 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 // If a lane's portion of the proposal is invalid, we reject the proposal. After a lane's portion
 // of the proposal is verified, we pass the remaining transactions to the next lane in the chain.
 func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
-	return func(ctx sdk.Context, req abci.RequestProcessProposal) abci.ResponseProcessProposal {
-		// TODO: Add a validate basic here
+	return func(ctx sdk.Context, req abci.RequestProcessProposal) (resp abci.ResponseProcessProposal) {
+		// In the case where any of the lanes panic, we recover here and return a reject status.
+		defer func() {
+			if err := recover(); err != nil {
+				h.logger.Error("failed to process proposal", "err", err)
+				resp = abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
+			}
+		}()
 
+		// Verify the proposal using the verification logic from each lane.
 		if _, err := h.processLanesHandler(ctx, req.Txs); err != nil {
 			h.logger.Error("failed to validate the proposal", "err", err)
 			return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
@@ -90,12 +103,14 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 	}
 }
 
-// ValidateBasic will ensure that the block is built correctly respecting the ordering of transactions
-// relative to the lane they belong to. It ensures that the block structure matches the lane structure.
-
 // ChainPrepareLanes chains together the proposal preparation logic from each lane
 // into a single function. The first lane in the chain is the first lane to be prepared and
 // the last lane in the chain is the last lane to be prepared.
+//
+// In the case where any of the lanes fail to prepare the proposal, the lane that failed
+// will be skipped and the next lane in the chain will be called to prepare the proposal.
+//
+// TODO: Determine how expensive the caches are.
 func ChainPrepareLanes(chain ...Lane) PrepareLanesHandler {
 	if len(chain) == 0 {
 		return nil
@@ -106,8 +121,35 @@ func ChainPrepareLanes(chain ...Lane) PrepareLanesHandler {
 		chain = append(chain, Terminator{})
 	}
 
-	return func(ctx sdk.Context, proposal Proposal) Proposal {
-		return chain[0].PrepareLane(ctx, proposal, ChainPrepareLanes(chain[1:]...))
+	return func(ctx sdk.Context, partialProposal Proposal) (finalProposal Proposal) {
+		// Cache the context in the case where any of the lanes fail to prepare the proposal.
+		cacheCtx, write := ctx.CacheContext()
+
+		defer func() {
+			if err := recover(); err != nil {
+				lanesRemaining := len(chain)
+				switch {
+				case lanesRemaining <= 2:
+					// If there are only two lanes remaining, then the first lane in the chain
+					// is the lane that failed to prepare the proposal and the second lane in the
+					// chain is the terminator lane. We return the proposal as is.
+					finalProposal = partialProposal
+				default:
+					// If there are more than two lanes remaining, then the first lane in the chain
+					// is the lane that failed to prepare the proposal but the second lane in the
+					// chain is not the terminator lane so there could potentially be more transactions
+					// added to the proposal
+					finalProposal = chain[1].PrepareLane(ctx, partialProposal, ChainPrepareLanes(chain[2:]...))
+				}
+
+				return
+			}
+
+			// Write the cache to the context
+			write()
+		}()
+
+		return chain[0].PrepareLane(cacheCtx, partialProposal, ChainPrepareLanes(chain[1:]...))
 	}
 }
 
@@ -125,12 +167,38 @@ func ChainProcessLanes(chain ...Lane) ProcessLanesHandler {
 	}
 
 	return func(ctx sdk.Context, proposalTxs [][]byte) (sdk.Context, error) {
+		if len(proposalTxs) == 0 {
+			return ctx, nil
+		}
+
+		if err := chain[0].ProcessLaneBasic(proposalTxs); err != nil {
+			return ctx, err
+		}
+
 		return chain[0].ProcessLane(ctx, proposalTxs, ChainProcessLanes(chain[1:]...))
 	}
 }
 
 // Terminator Lane will get added to the chain to simplify chaining code so that we
-// don't need to check if next == nil further up the chain
+// don't need to check if next == nil further up the chain.
+//
+// sniped from the sdk
+//
+//	                      ______
+//	                   <((((((\\\
+//	                   /      . }\
+//	                   ;--..--._|}
+//	(\                 '--/\--'  )
+//	 \\                | '-'  :'|
+//	  \\               . -==- .-|
+//	   \\               \.__.'   \--._
+//	   [\\          __.--|       //  _/'--.
+//	   \ \\       .'-._ ('-----'/ __/      \
+//	    \ \\     /   __>|      | '--.       |
+//	     \ \\   |   \   |     /    /       /
+//	      \ '\ /     \  |     |  _/       /
+//	       \  \       \ |     | /        /
+//	 snd    \  \      \        /
 type Terminator struct{}
 
 var _ Lane = (*Terminator)(nil)
@@ -182,5 +250,10 @@ func (t Terminator) Remove(sdk.Tx) error {
 
 // Select is a no-op
 func (t Terminator) Select(context.Context, [][]byte) sdkmempool.Iterator {
+	return nil
+}
+
+// ValidateLaneBasic is a no-op
+func (t Terminator) ProcessLaneBasic([][]byte) error {
 	return nil
 }

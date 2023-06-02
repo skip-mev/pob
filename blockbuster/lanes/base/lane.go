@@ -1,6 +1,8 @@
 package base
 
 import (
+	"fmt"
+
 	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/blockbuster"
@@ -40,4 +42,31 @@ func (l *DefaultLane) Match(sdk.Tx) bool {
 // Name returns the name of the lane.
 func (l *DefaultLane) Name() string {
 	return LaneName
+}
+
+// ValidateLaneBasic does basic validation on the block proposal to ensure that
+// transactions that belong to this lane are not misplaced in the block proposal.
+func (l *DefaultLane) ProcessLaneBasic(txs [][]byte) error {
+	seenOtherLaneTx := false
+	lastSeenIndex := 0
+
+	for _, txBz := range txs {
+		tx, err := l.cfg.TxDecoder(txBz)
+		if err != nil {
+			return fmt.Errorf("failed to decode tx in lane %s: %w", l.Name(), err)
+		}
+
+		if l.Match(tx) {
+			if seenOtherLaneTx {
+				return fmt.Errorf("the %s lane contains a transaction that belongs to another lane", l.Name())
+			}
+
+			lastSeenIndex++
+			continue
+		}
+
+		seenOtherLaneTx = true
+	}
+
+	return nil
 }
