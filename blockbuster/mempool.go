@@ -95,3 +95,8 @@ func (m *Mempool) Contains(tx sdk.Tx) (bool, error) {
 
 	return false, nil
 }
+
+// Lanes returns the lanes in the mempool.
+func (m *Mempool) Lanes() []Lane {
+	return m.registry
+}

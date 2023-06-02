@@ -257,3 +257,6 @@ func (t Terminator) Select(context.Context, [][]byte) sdkmempool.Iterator {
 func (t Terminator) ProcessLaneBasic([][]byte) error {
 	return nil
 }
+
+// SetLaneConfig is a no-op
+func (t Terminator) SetAnteHandler(sdk.AnteHandler) {}

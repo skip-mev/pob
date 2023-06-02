@@ -31,6 +31,7 @@ type BlockBusterTestSuite struct {
 	auctionFactory auction.Factory
 
 	// Define all of the lanes utilized in the test suite
+	config        blockbuster.BaseLaneConfig
 	tobBlockSpace sdk.Dec
 	tobLane       *auction.TOBLane
 
@@ -72,26 +73,25 @@ func (suite *BlockBusterTestSuite) SetupTest() {
 	// Lanes configuration
 	//
 	// TOB lane set up
+	suite.config = blockbuster.BaseLaneConfig{
+		Logger:        suite.logger,
+		TxEncoder:     suite.encodingConfig.TxConfig.TxEncoder(),
+		TxDecoder:     suite.encodingConfig.TxConfig.TxDecoder(),
+		AnteHandler:   suite.anteHandler,
+		MaxBlockSpace: sdk.ZeroDec(),
+	}
+
 	suite.auctionFactory = auction.NewDefaultAuctionFactory(suite.encodingConfig.TxConfig.TxDecoder())
 	suite.tobBlockSpace = sdk.NewDecFromBigIntWithPrec(big.NewInt(1), 1) // 10% of the block space
 	suite.tobLane = auction.NewTOBLane(
-		suite.logger,
-		suite.encodingConfig.TxConfig.TxDecoder(),
-		suite.encodingConfig.TxConfig.TxEncoder(),
+		suite.config,
 		0, // No bound on the number of transactions in the lane
-		suite.anteHandler,
 		suite.auctionFactory,
-		sdk.NewDecFromBigIntWithPrec(big.NewInt(1), 1), // 10% of the block space
 	)
 
 	// Base lane set up
-	suite.baseBlockSpace = sdk.ZeroDec()
 	suite.baseLane = base.NewDefaultLane(
-		suite.logger,
-		suite.encodingConfig.TxConfig.TxDecoder(),
-		suite.encodingConfig.TxConfig.TxEncoder(),
-		suite.anteHandler,
-		sdk.ZeroDec(),
+		suite.config,
 	)
 
 	// Mempool set up
@@ -194,21 +194,14 @@ func (suite *BlockBusterTestSuite) anteHandler(ctx sdk.Context, tx sdk.Tx, simul
 
 func (suite *BlockBusterTestSuite) resetLanes() {
 	suite.tobLane = auction.NewTOBLane(
-		suite.logger,
-		suite.encodingConfig.TxConfig.TxDecoder(),
-		suite.encodingConfig.TxConfig.TxEncoder(),
+		suite.config,
 		0, // No bound on the number of transactions in the lane
-		suite.anteHandler,
 		suite.auctionFactory,
-		suite.tobBlockSpace,
 	)
 
+	// Base lane set up
 	suite.baseLane = base.NewDefaultLane(
-		suite.logger,
-		suite.encodingConfig.TxConfig.TxDecoder(),
-		suite.encodingConfig.TxConfig.TxEncoder(),
-		suite.anteHandler,
-		suite.baseBlockSpace,
+		suite.config,
 	)
 
 	suite.lanes = []blockbuster.Lane{suite.tobLane, suite.baseLane}

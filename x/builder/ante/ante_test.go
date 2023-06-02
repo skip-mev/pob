@@ -1,7 +1,6 @@
 package ante_test
 
 import (
-	"math/big"
 	"math/rand"
 	"testing"
 	"time"
@@ -82,24 +81,21 @@ func (suite *AnteTestSuite) SetupTest() {
 	// Lanes configuration
 	//
 	// TOB lane set up
+	config := blockbuster.BaseLaneConfig{
+		Logger:        suite.ctx.Logger(),
+		TxEncoder:     suite.encodingConfig.TxConfig.TxEncoder(),
+		TxDecoder:     suite.encodingConfig.TxConfig.TxDecoder(),
+		AnteHandler:   suite.anteHandler,
+		MaxBlockSpace: sdk.ZeroDec(),
+	}
 	suite.tobLane = auction.NewTOBLane(
-		suite.ctx.Logger(),
-		suite.encodingConfig.TxConfig.TxDecoder(),
-		suite.encodingConfig.TxConfig.TxEncoder(),
+		config,
 		0, // No bound on the number of transactions in the lane
-		suite.anteHandler,
 		auction.NewDefaultAuctionFactory(suite.encodingConfig.TxConfig.TxDecoder()),
-		sdk.NewDecFromBigIntWithPrec(big.NewInt(1), 1), // 10% of the block space
 	)
 
 	// Base lane set up
-	suite.baseLane = base.NewDefaultLane(
-		suite.ctx.Logger(),
-		suite.encodingConfig.TxConfig.TxDecoder(),
-		suite.encodingConfig.TxConfig.TxEncoder(),
-		suite.anteHandler,
-		sdk.ZeroDec(),
-	)
+	suite.baseLane = base.NewDefaultLane(config)
 
 	// Mempool set up
 	suite.lanes = []blockbuster.Lane{suite.tobLane, suite.baseLane}

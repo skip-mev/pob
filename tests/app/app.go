@@ -263,27 +263,29 @@ func New(
 
 	app.App = appBuilder.Build(logger, db, traceStore, baseAppOptions...)
 
+	// ---------------------------------------------------------------------------- //
+	// ------------------------- Begin Custom Code -------------------------------- //
+	// ---------------------------------------------------------------------------- //
+
 	// Set POB's mempool into the app.
+	config := blockbuster.BaseLaneConfig{
+		Logger:        app.Logger(),
+		TxEncoder:     app.txConfig.TxEncoder(),
+		TxDecoder:     app.txConfig.TxDecoder(),
+		MaxBlockSpace: sdk.ZeroDec(),
+	}
 	tobLane := auction.NewTOBLane(
-		app.Logger(),
-		app.txConfig.TxDecoder(),
-		app.txConfig.TxEncoder(),
+		config,
 		0,
-		nil,
 		auction.NewDefaultAuctionFactory(app.txConfig.TxDecoder()),
-		sdk.NewDecFromIntWithPrec(sdk.NewInt(1), 2),
 	)
-	baseLane := base.NewDefaultLane(
-		app.Logger(),
-		app.txConfig.TxDecoder(),
-		app.txConfig.TxEncoder(),
-		nil,
-		sdk.NewDec(1),
-	)
-	mempool := blockbuster.NewMempool(
+	baseLane := base.NewDefaultLane(config)
+
+	lanes := []blockbuster.Lane{
 		tobLane,
 		baseLane,
-	)
+	}
+	mempool := blockbuster.NewMempool(lanes...)
 	app.App.SetMempool(mempool)
 
 	// Create a global ante handler that will be called on each transaction when
@@ -304,8 +306,11 @@ func New(
 		TxEncoder:     app.txConfig.TxEncoder(),
 	}
 	anteHandler := NewPOBAnteHandler(options)
-	// tobLane.AnteHandler = anteHandler
-	// baseLane.AnteHandler = anteHandler
+
+	// Set the lane config on the lanes.
+	for _, lane := range lanes {
+		lane.SetAnteHandler(anteHandler)
+	}
 
 	// Set the proposal handlers on the BaseApp along with the custom antehandler.
 	proposalHandlers := blockbuster.NewProposalHandler(
@@ -326,6 +331,10 @@ func New(
 		ChainID,
 	)
 	app.SetCheckTx(checkTxHandler.CheckTx())
+
+	// ---------------------------------------------------------------------------- //
+	// ------------------------- End Custom Code ---------------------------------- //
+	// ---------------------------------------------------------------------------- //
 
 	// load state streaming if enabled
 	if _, _, err := streaming.LoadStreamingServices(app.App.BaseApp, appOpts, app.appCodec, logger, app.kvStoreKeys()); err != nil {

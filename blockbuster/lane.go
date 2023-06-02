@@ -52,6 +52,9 @@ type (
 		// ProcessLaneBasic validates that transactions belonging to this lane are not misplaced
 		// in the block proposal.
 		ProcessLaneBasic(txs [][]byte) error
+
+		// SetAnteHandler sets the lane's antehandler.
+		SetAnteHandler(antehander sdk.AnteHandler)
 	}
 )
 

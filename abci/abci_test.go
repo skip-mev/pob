@@ -70,23 +70,22 @@ func (suite *ABCITestSuite) SetupTest() {
 	// Lanes configuration
 	//
 	// TOB lane set up
+	config := blockbuster.BaseLaneConfig{
+		Logger:        suite.logger,
+		TxEncoder:     suite.encodingConfig.TxConfig.TxEncoder(),
+		TxDecoder:     suite.encodingConfig.TxConfig.TxDecoder(),
+		AnteHandler:   suite.anteHandler,
+		MaxBlockSpace: sdk.ZeroDec(),
+	}
 	suite.tobLane = auction.NewTOBLane(
-		suite.logger,
-		suite.encodingConfig.TxConfig.TxDecoder(),
-		suite.encodingConfig.TxConfig.TxEncoder(),
+		config,
 		0, // No bound on the number of transactions in the lane
-		suite.anteHandler,
 		auction.NewDefaultAuctionFactory(suite.encodingConfig.TxConfig.TxDecoder()),
-		sdk.ZeroDec(),
 	)
 
 	// Base lane set up
 	suite.baseLane = base.NewDefaultLane(
-		suite.logger,
-		suite.encodingConfig.TxConfig.TxDecoder(),
-		suite.encodingConfig.TxConfig.TxEncoder(),
-		suite.anteHandler,
-		sdk.ZeroDec(),
+		config,
 	)
 
 	// Mempool set up

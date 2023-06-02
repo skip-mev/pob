@@ -1,6 +1,7 @@
 package auction
 
 import (
+	"bytes"
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -142,6 +143,79 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next blockb
 	}
 
 	return next(ctx, proposalTxs[len(bidInfo.Transactions)+1:])
+}
+
+// ProcessLaneBasic does basic validation on the block proposal to ensure that
+// transactions that belong to this lane are not misplaced in the block proposal.
+// In this case, we ensure that the bid transaction is the first transaction in the
+// block proposal, if present, and that all of the bundled transactions are included
+// after the bid transaction. We enforce that at most one auction bid transaction
+// is included in the block proposal.
+func (l *TOBLane) ProcessLaneBasic(txs [][]byte) error {
+	tx, err := l.cfg.TxDecoder(txs[0])
+	if err != nil {
+		return fmt.Errorf("failed to decode tx in lane %s: %w", l.Name(), err)
+	}
+
+	// If there is a bid transaction, it must be the first transaction in the block proposal.
+	if !l.Match(tx) {
+		for _, txBz := range txs[1:] {
+			tx, err := l.cfg.TxDecoder(txBz)
+			if err != nil {
+				return fmt.Errorf("failed to decode tx in lane %s: %w", l.Name(), err)
+			}
+
+			if l.Match(tx) {
+				return fmt.Errorf("multiple bid transactions in lane %s", l.Name())
+			}
+		}
+
+		return nil
+	}
+
+	bidInfo, err := l.GetAuctionBidInfo(tx)
+	if err != nil {
+		return fmt.Errorf("failed to get bid info for lane %s: %w", l.Name(), err)
+	}
+
+	if len(txs) < len(bidInfo.Transactions)+1 {
+		return fmt.Errorf("invalid number of transactions in lane %s; expected at least %d, got %d", l.Name(), len(bidInfo.Transactions)+1, len(txs))
+	}
+
+	// Ensure that the order of transactions in the bundle is preserved.
+	for i, bundleTxBz := range txs[1 : len(bidInfo.Transactions)+1] {
+		tx, err := l.WrapBundleTransaction(bundleTxBz)
+		if err != nil {
+			return fmt.Errorf("failed to decode bundled tx in lane %s: %w", l.Name(), err)
+		}
+
+		if l.Match(tx) {
+			return fmt.Errorf("multiple bid transactions in lane %s", l.Name())
+		}
+
+		txBz, err := l.cfg.TxEncoder(tx)
+		if err != nil {
+			return fmt.Errorf("failed to encode bundled tx in lane %s: %w", l.Name(), err)
+		}
+
+		if !bytes.Equal(txBz, bidInfo.Transactions[i]) {
+			return fmt.Errorf("invalid order of transactions in lane %s", l.Name())
+		}
+	}
+
+	// Ensure that there are no more bid transactions in the block proposal.
+	for _, txBz := range txs[len(bidInfo.Transactions)+1:] {
+		tx, err := l.cfg.TxDecoder(txBz)
+		if err != nil {
+			return fmt.Errorf("failed to decode tx in lane %s: %w", l.Name(), err)
+		}
+
+		if l.Match(tx) {
+			return fmt.Errorf("multiple bid transactions in lane %s", l.Name())
+		}
+	}
+
+	return nil
 }
 
 // VerifyTx will verify that the bid transaction and all of its bundled
