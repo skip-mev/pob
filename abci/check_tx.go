@@ -28,7 +28,7 @@ type (
 
 		// mempool is utilized to retrieve the bid info of a transaction and to
 		// insert a transaction into the application-side mempool.
-		tobLane TOBLane
+		tobLane TOBLaneCheckTx
 
 		// anteHandler is utilized to verify the bid transaction against the latest
 		// committed state.
@@ -44,7 +44,7 @@ type (
 
 	// TOBLane is the interface that defines all of the dependencies that
 	// are required to interact with the application-side mempool.
-	TOBLane interface {
+	TOBLaneCheckTx interface {
 		// GetAuctionBidInfo is utilized to retrieve the bid info of a transaction.
 		GetAuctionBidInfo(tx sdk.Tx) (*types.BidInfo, error)
 
@@ -78,7 +78,7 @@ type (
 )
 
 // NewCheckTxHandler is a constructor for CheckTxHandler.
-func NewCheckTxHandler(baseApp BaseApp, txDecoder sdk.TxDecoder, tobLane TOBLane, anteHandler sdk.AnteHandler, chainID string) *CheckTxHandler {
+func NewCheckTxHandler(baseApp BaseApp, txDecoder sdk.TxDecoder, tobLane TOBLaneCheckTx, anteHandler sdk.AnteHandler, chainID string) *CheckTxHandler {
 	return &CheckTxHandler{
 		baseApp:     baseApp,
 		txDecoder:   txDecoder,

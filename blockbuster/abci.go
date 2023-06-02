@@ -27,7 +27,7 @@ type (
 		Txs [][]byte
 
 		// SelectedTxs is a cache of the selected transactions in the proposal.
-		SelectedTxs map[string]struct{}
+		Cache map[string]struct{}
 
 		// TotalTxBytes is the total number of bytes currently included in the proposal.
 		TotalTxBytes int64
@@ -64,9 +64,9 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		// TODO: Add a defer here
 
 		proposal := h.prepareLanesHandler(ctx, Proposal{
-			SelectedTxs: make(map[string]struct{}),
-			Txs:         make([][]byte, 0),
-			MaxTxBytes:  req.MaxTxBytes,
+			Cache:      make(map[string]struct{}),
+			Txs:        make([][]byte, 0),
+			MaxTxBytes: req.MaxTxBytes,
 		})
 
 		return abci.ResponsePrepareProposal{Txs: proposal.Txs}

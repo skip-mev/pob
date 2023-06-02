@@ -1,7 +1,6 @@
 package blockbuster_test
 
 import (
-	"fmt"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -40,7 +39,6 @@ type BlockBusterTestSuite struct {
 
 	lanes   []blockbuster.Lane
 	mempool *blockbuster.Mempool
-	txCache map[sdk.Tx]struct{}
 
 	// Proposal handler set up
 	proposalHandler *blockbuster.ProposalHandler
@@ -99,7 +97,6 @@ func (suite *BlockBusterTestSuite) SetupTest() {
 	// Mempool set up
 	suite.lanes = []blockbuster.Lane{suite.tobLane, suite.baseLane}
 	suite.mempool = blockbuster.NewMempool(suite.lanes...)
-	suite.txCache = make(map[sdk.Tx]struct{})
 
 	// Accounts set up
 	suite.accounts = testutils.RandomAccounts(suite.random, 10)
@@ -181,12 +178,6 @@ func (suite *BlockBusterTestSuite) fillTOBLane(numTxs int) {
 }
 
 func (suite *BlockBusterTestSuite) anteHandler(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
-	if _, ok := suite.txCache[tx]; ok {
-		return ctx, fmt.Errorf("tx already seen")
-	}
-
-	suite.txCache[tx] = struct{}{}
-
 	signer := tx.GetMsgs()[0].GetSigners()[0]
 	suite.bankKeeper.EXPECT().GetAllBalances(ctx, signer).AnyTimes().Return(
 		sdk.NewCoins(

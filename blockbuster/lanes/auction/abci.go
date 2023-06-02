@@ -30,19 +30,14 @@ selectBidTxLoop:
 		cacheCtx, write := ctx.CacheContext()
 		tmpBidTx := bidTxIterator.Tx()
 
-		// if the transaction is already in the (partial) block proposal, we skip it.
-		txHash, err := blockbuster.GetTxHashStr(l.cfg.TxEncoder, tmpBidTx)
+		bidTxBz, txHash, err := blockbuster.GetTxHashStr(l.cfg.TxEncoder, tmpBidTx)
 		if err != nil {
 			txsToRemove[tmpBidTx] = struct{}{}
 			continue
 		}
-		if _, ok := proposal.SelectedTxs[txHash]; ok {
-			continue selectBidTxLoop
-		}
 
-		bidTxBz, err := l.cfg.TxEncoder(tmpBidTx)
-		if err != nil {
-			txsToRemove[tmpBidTx] = struct{}{}
+		// if the transaction is already in the (partial) block proposal, we skip it.
+		if _, ok := proposal.Cache[txHash]; ok {
 			continue selectBidTxLoop
 		}
 
@@ -73,19 +68,14 @@ selectBidTxLoop:
 					continue selectBidTxLoop
 				}
 
-				sdkTxBz, err := l.cfg.TxEncoder(sdkTx)
+				sdkTxBz, hash, err := blockbuster.GetTxHashStr(l.cfg.TxEncoder, sdkTx)
 				if err != nil {
 					txsToRemove[tmpBidTx] = struct{}{}
 					continue selectBidTxLoop
 				}
 
 				// if the transaction is already in the (partial) block proposal, we skip it.
-				hash, err := blockbuster.GetTxHashStr(l.cfg.TxEncoder, sdkTx)
-				if err != nil {
-					txsToRemove[tmpBidTx] = struct{}{}
-					continue selectBidTxLoop
-				}
-				if _, ok := proposal.SelectedTxs[hash]; ok {
+				if _, ok := proposal.Cache[hash]; ok {
 					continue selectBidTxLoop
 				}
 

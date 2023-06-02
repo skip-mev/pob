@@ -23,19 +23,14 @@ func (l *DefaultLane) PrepareLane(ctx sdk.Context, proposal blockbuster.Proposal
 	for iterator := l.Mempool.Select(ctx, nil); iterator != nil; iterator = iterator.Next() {
 		tx := iterator.Tx()
 
-		txBytes, err := l.cfg.TxEncoder(tx)
+		txBytes, hash, err := blockbuster.GetTxHashStr(l.cfg.TxEncoder, tx)
 		if err != nil {
 			txsToRemove[tx] = struct{}{}
 			continue
 		}
 
 		// if the transaction is already in the (partial) block proposal, we skip it.
-		hash, err := blockbuster.GetTxHashStr(l.cfg.TxEncoder, tx)
-		if err != nil {
-			txsToRemove[tx] = struct{}{}
-			continue
-		}
-		if _, ok := proposal.SelectedTxs[hash]; ok {
+		if _, ok := proposal.Cache[hash]; ok {
 			continue
 		}
 

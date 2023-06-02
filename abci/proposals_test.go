@@ -1,354 +1,328 @@
 package abci_test
 
-// import (
-// 	comettypes "github.com/cometbft/cometbft/abci/types"
-// 	sdk "github.com/cosmos/cosmos-sdk/types"
-// 	"github.com/skip-mev/pob/abci"
-// 	v2 "github.com/skip-mev/pob/abci/v2"
-// 	testutils "github.com/skip-mev/pob/testutils"
-// 	"github.com/skip-mev/pob/x/builder/ante"
-// 	buildertypes "github.com/skip-mev/pob/x/builder/types"
-// )
+import (
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/skip-mev/pob/abci"
+	"github.com/skip-mev/pob/blockbuster"
+	"github.com/skip-mev/pob/blockbuster/lanes/auction"
+	"github.com/skip-mev/pob/blockbuster/lanes/base"
+	testutils "github.com/skip-mev/pob/testutils"
+	"github.com/skip-mev/pob/x/builder/ante"
+	buildertypes "github.com/skip-mev/pob/x/builder/types"
+)
 
-// func (suite *ABCITestSuite) TestPrepareProposal() {
-// 	var (
-// 		// the modified transactions cannot exceed this size
-// 		maxTxBytes int64 = 1000000000000000000
+func (suite *ABCITestSuite) TestPrepareProposal() {
+	var (
+		// the modified transactions cannot exceed this size
+		maxTxBytes int64 = 1000000000000000000
 
-// 		// mempool configuration
-// 		numNormalTxs         = 100
-// 		numAuctionTxs        = 100
-// 		numBundledTxs        = 3
-// 		insertRefTxs         = false
-// 		expectedTopAuctionTx sdk.Tx
+		// mempool configuration
+		normalTxs        []sdk.Tx
+		auctionTxs       []sdk.Tx
+		winningBidTx     sdk.Tx
+		insertBundledTxs = false
 
-// 		// auction configuration
-// 		maxBundleSize          uint32 = 10
-// 		reserveFee                    = sdk.NewCoin("foo", sdk.NewInt(1000))
-// 		frontRunningProtection        = true
-// 	)
+		// auction configuration
+		maxBundleSize          uint32 = 10
+		reserveFee                    = sdk.NewCoin("foo", sdk.NewInt(1000))
+		frontRunningProtection        = true
+	)
 
-// 	cases := []struct {
-// 		name                              string
-// 		malleate                          func()
-// 		expectedNumberProposalTxs         int
-// 		expectedNumberTxsInMempool        int
-// 		expectedNumberTxsInAuctionMempool int
-// 	}{
-// 		{
-// 			"single bundle in the mempool",
-// 			func() {
-// 				numNormalTxs = 0
-// 				numAuctionTxs = 1
-// 				numBundledTxs = 3
-// 				insertRefTxs = true
+	cases := []struct {
+		name                        string
+		malleate                    func()
+		expectedNumberProposalTxs   int
+		expectedMempoolDistribution map[string]int
+	}{
+		{
+			"single valid tob transaction in the mempool",
+			func() {
+				bidder := suite.accounts[0]
+				bid := sdk.NewCoin("foo", sdk.NewInt(1000))
+				nonce := suite.nonces[bidder.Address.String()]
+				timeout := uint64(100)
+				signers := []testutils.Account{bidder}
+				bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
+				suite.Require().NoError(err)
 
-// 				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+				normalTxs = []sdk.Tx{}
+				auctionTxs = []sdk.Tx{bidTx}
+				winningBidTx = bidTx
+				insertBundledTxs = false
+			},
+			2,
+			map[string]int{
+				base.LaneName:    0,
+				auction.LaneName: 1,
+			},
+		},
+		{
+			"single invalid tob transaction in the mempool",
+			func() {
+				bidder := suite.accounts[0]
+				bid := reserveFee.Sub(sdk.NewCoin("foo", sdk.NewInt(1))) // bid is less than the reserve fee
+				nonce := suite.nonces[bidder.Address.String()]
+				timeout := uint64(100)
+				signers := []testutils.Account{bidder}
+				bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
+				suite.Require().NoError(err)
 
-// 				expectedTopAuctionTx = suite.mempool.GetTopAuctionTx(suite.ctx)
-// 			},
-// 			5,
-// 			3,
-// 			1,
-// 		},
-// 		{
-// 			"single bundle in the mempool, no ref txs in mempool",
-// 			func() {
-// 				numNormalTxs = 0
-// 				numAuctionTxs = 1
-// 				numBundledTxs = 3
-// 				insertRefTxs = false
+				normalTxs = []sdk.Tx{}
+				auctionTxs = []sdk.Tx{bidTx}
+				winningBidTx = nil
+				insertBundledTxs = false
+			},
+			0,
+			map[string]int{
+				base.LaneName:    0,
+				auction.LaneName: 0,
+			},
+		},
+		{
+			"normal transactions in the mempool",
+			func() {
+				account := suite.accounts[0]
+				nonce := suite.nonces[account.Address.String()]
+				timeout := uint64(100)
+				numberMsgs := uint64(3)
+				normalTx, err := testutils.CreateRandomTx(suite.encodingConfig.TxConfig, account, nonce, numberMsgs, timeout)
+				suite.Require().NoError(err)
 
-// 				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+				normalTxs = []sdk.Tx{normalTx}
+				auctionTxs = []sdk.Tx{}
+				winningBidTx = nil
+				insertBundledTxs = false
+			},
+			1,
+			map[string]int{
+				base.LaneName:    1,
+				auction.LaneName: 0,
+			},
+		},
+		{
+			"normal transactions and tob transactions in the mempool",
+			func() {
+				// Create a valid tob transaction
+				bidder := suite.accounts[0]
+				bid := sdk.NewCoin("foo", sdk.NewInt(1000))
+				nonce := suite.nonces[bidder.Address.String()]
+				timeout := uint64(100)
+				signers := []testutils.Account{bidder}
+				bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
+				suite.Require().NoError(err)
 
-// 				expectedTopAuctionTx = suite.mempool.GetTopAuctionTx(suite.ctx)
-// 			},
-// 			5,
-// 			0,
-// 			1,
-// 		},
-// 		{
-// 			"single bundle in the mempool, not valid",
-// 			func() {
-// 				reserveFee = sdk.NewCoin("foo", sdk.NewInt(100000))
-// 				suite.auctionBidAmount = sdk.NewCoin("foo", sdk.NewInt(10000)) // this will fail the ante handler
-// 				numNormalTxs = 0
-// 				numAuctionTxs = 1
-// 				numBundledTxs = 3
+				// Create a valid default transaction
+				account := suite.accounts[1]
+				nonce = suite.nonces[account.Address.String()] + 1
+				numberMsgs := uint64(3)
+				normalTx, err := testutils.CreateRandomTx(suite.encodingConfig.TxConfig, account, nonce, numberMsgs, timeout)
+				suite.Require().NoError(err)
 
-// 				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+				normalTxs = []sdk.Tx{normalTx}
+				auctionTxs = []sdk.Tx{bidTx}
+				winningBidTx = bidTx
+				insertBundledTxs = false
+			},
+			3,
+			map[string]int{
+				base.LaneName:    1,
+				auction.LaneName: 1,
+			},
+		},
+		{
+			"multiple tob transactions where the first is invalid",
+			func() {
+				// Create an invalid tob transaction (frontrunning)
+				bidder := suite.accounts[0]
+				bid := sdk.NewCoin("foo", sdk.NewInt(1000000000))
+				nonce := suite.nonces[bidder.Address.String()]
+				timeout := uint64(100)
+				signers := []testutils.Account{bidder, bidder, suite.accounts[1]}
+				bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
+				suite.Require().NoError(err)
 
-// 				expectedTopAuctionTx = nil
-// 			},
-// 			1,
-// 			0,
-// 			0,
-// 		},
-// 		{
-// 			"single bundle in the mempool, not valid with ref txs in mempool",
-// 			func() {
-// 				reserveFee = sdk.NewCoin("foo", sdk.NewInt(100000))
-// 				suite.auctionBidAmount = sdk.NewCoin("foo", sdk.NewInt(10000)) // this will fail the ante handler
-// 				numNormalTxs = 0
-// 				numAuctionTxs = 1
-// 				numBundledTxs = 3
-// 				insertRefTxs = true
+				// Create a valid tob transaction
+				bidder = suite.accounts[1]
+				bid = sdk.NewCoin("foo", sdk.NewInt(1000))
+				nonce = suite.nonces[bidder.Address.String()]
+				timeout = uint64(100)
+				signers = []testutils.Account{bidder}
+				bidTx2, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
+				suite.Require().NoError(err)
 
-// 				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+				normalTxs = []sdk.Tx{}
+				auctionTxs = []sdk.Tx{bidTx, bidTx2}
+				winningBidTx = bidTx2
+				insertBundledTxs = false
+			},
+			2,
+			map[string]int{
+				base.LaneName:    0,
+				auction.LaneName: 1,
+			},
+		},
+		{
+			"multiple tob transactions where the first is valid",
+			func() {
+				// Create an valid tob transaction
+				bidder := suite.accounts[0]
+				bid := sdk.NewCoin("foo", sdk.NewInt(10000000))
+				nonce := suite.nonces[bidder.Address.String()]
+				timeout := uint64(100)
+				signers := []testutils.Account{suite.accounts[2], bidder}
+				bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
+				suite.Require().NoError(err)
 
-// 				expectedTopAuctionTx = nil
-// 			},
-// 			4,
-// 			3,
-// 			0,
-// 		},
-// 		{
-// 			"multiple bundles in the mempool, no normal txs + no ref txs in mempool",
-// 			func() {
-// 				reserveFee = sdk.NewCoin("foo", sdk.NewInt(1000))
-// 				suite.auctionBidAmount = sdk.NewCoin("foo", sdk.NewInt(10000000))
-// 				numNormalTxs = 0
-// 				numAuctionTxs = 10
-// 				numBundledTxs = 3
-// 				insertRefTxs = false
+				// Create a valid tob transaction
+				bidder = suite.accounts[1]
+				bid = sdk.NewCoin("foo", sdk.NewInt(1000))
+				nonce = suite.nonces[bidder.Address.String()]
+				timeout = uint64(100)
+				signers = []testutils.Account{bidder}
+				bidTx2, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
+				suite.Require().NoError(err)
 
-// 				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+				normalTxs = []sdk.Tx{}
+				auctionTxs = []sdk.Tx{bidTx, bidTx2}
+				winningBidTx = bidTx
+				insertBundledTxs = false
+			},
+			3,
+			map[string]int{
+				base.LaneName:    0,
+				auction.LaneName: 2,
+			},
+		},
+		{
+			"multiple tob transactions where the first is valid and bundle is inserted into mempool",
+			func() {
+				frontRunningProtection = false
 
-// 				expectedTopAuctionTx = suite.mempool.GetTopAuctionTx(suite.ctx)
-// 			},
-// 			5,
-// 			0,
-// 			10,
-// 		},
-// 		{
-// 			"multiple bundles in the mempool, normal txs + ref txs in mempool",
-// 			func() {
-// 				numNormalTxs = 0
-// 				numAuctionTxs = 10
-// 				numBundledTxs = 3
-// 				insertRefTxs = true
+				// Create an valid tob transaction
+				bidder := suite.accounts[0]
+				bid := sdk.NewCoin("foo", sdk.NewInt(10000000))
+				nonce := suite.nonces[bidder.Address.String()]
+				timeout := uint64(100)
+				signers := []testutils.Account{suite.accounts[2], suite.accounts[1], bidder, suite.accounts[3], suite.accounts[4]}
+				bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
+				suite.Require().NoError(err)
 
-// 				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+				normalTxs = []sdk.Tx{}
+				auctionTxs = []sdk.Tx{bidTx}
+				winningBidTx = bidTx
+				insertBundledTxs = true
+			},
+			6,
+			map[string]int{
+				base.LaneName:    5,
+				auction.LaneName: 1,
+			},
+		},
+	}
 
-// 				expectedTopAuctionTx = suite.mempool.GetTopAuctionTx(suite.ctx)
-// 			},
-// 			32,
-// 			30,
-// 			10,
-// 		},
-// 		{
-// 			"normal txs only",
-// 			func() {
-// 				numNormalTxs = 1
-// 				numAuctionTxs = 0
-// 				numBundledTxs = 0
+	for _, tc := range cases {
+		suite.Run(tc.name, func() {
+			suite.SetupTest() // reset
+			tc.malleate()
 
-// 				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+			// Insert all of the normal transactions into the default lane
+			for _, tx := range normalTxs {
+				suite.Require().NoError(suite.mempool.Insert(suite.ctx, tx))
+			}
 
-// 				expectedTopAuctionTx = suite.mempool.GetTopAuctionTx(suite.ctx)
-// 			},
-// 			2,
-// 			1,
-// 			0,
-// 		},
-// 		{
-// 			"many normal txs only",
-// 			func() {
-// 				numNormalTxs = 100
-// 				numAuctionTxs = 0
-// 				numBundledTxs = 0
+			// Insert all of the auction transactions into the TOB lane
+			for _, tx := range auctionTxs {
+				suite.Require().NoError(suite.mempool.Insert(suite.ctx, tx))
+			}
 
-// 				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+			// Insert all of the bundled transactions into the TOB lane if desired
+			if insertBundledTxs {
+				for _, tx := range auctionTxs {
+					bidInfo, err := suite.tobLane.GetAuctionBidInfo(tx)
+					suite.Require().NoError(err)
 
-// 				expectedTopAuctionTx = suite.mempool.GetTopAuctionTx(suite.ctx)
-// 			},
-// 			101,
-// 			100,
-// 			0,
-// 		},
-// 		{
-// 			"single normal tx, single auction tx",
-// 			func() {
-// 				numNormalTxs = 1
-// 				numAuctionTxs = 1
-// 				numBundledTxs = 0
+					for _, txBz := range bidInfo.Transactions {
+						tx, err := suite.encodingConfig.TxConfig.TxDecoder()(txBz)
+						suite.Require().NoError(err)
 
-// 				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+						suite.Require().NoError(suite.mempool.Insert(suite.ctx, tx))
+					}
+				}
+			}
 
-// 				expectedTopAuctionTx = suite.mempool.GetTopAuctionTx(suite.ctx)
-// 			},
-// 			3,
-// 			1,
-// 			1,
-// 		},
-// 		{
-// 			"single normal tx, single auction tx with ref txs",
-// 			func() {
-// 				numNormalTxs = 1
-// 				numAuctionTxs = 1
-// 				numBundledTxs = 3
-// 				insertRefTxs = true
+			// create a new auction
+			params := buildertypes.Params{
+				MaxBundleSize:          maxBundleSize,
+				ReserveFee:             reserveFee,
+				FrontRunningProtection: frontRunningProtection,
+			}
+			suite.builderKeeper.SetParams(suite.ctx, params)
+			suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxEncoder(), suite.tobLane, suite.mempool)
 
-// 				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+			suite.proposalHandler = abci.NewProposalHandler(
+				[]blockbuster.Lane{suite.baseLane},
+				suite.tobLane,
+				suite.logger,
+				suite.encodingConfig.TxConfig.TxEncoder(),
+				suite.encodingConfig.TxConfig.TxDecoder(),
+			)
+			handler := suite.proposalHandler.PrepareProposalHandler()
+			req := suite.createPrepareProposalRequest(maxTxBytes)
+			res := handler(suite.ctx, req)
 
-// 				expectedTopAuctionTx = suite.mempool.GetTopAuctionTx(suite.ctx)
-// 			},
-// 			6,
-// 			4,
-// 			1,
-// 		},
-// 		{
-// 			"single normal tx, single failing auction tx with ref txs",
-// 			func() {
-// 				numNormalTxs = 1
-// 				numAuctionTxs = 1
-// 				numBundledTxs = 3
-// 				insertRefTxs = true
-// 				suite.auctionBidAmount = sdk.NewCoin("foo", sdk.NewInt(2000)) // this will fail the ante handler
-// 				reserveFee = sdk.NewCoin("foo", sdk.NewInt(1000000000))
+			// -------------------- Check Invariants -------------------- //
+			// The first slot in the proposal must be the auction info
+			auctionInfo := abci.AuctionInfo{}
+			err := auctionInfo.Unmarshal(res.Txs[abci.AuctionInfoIndex])
+			suite.Require().NoError(err)
 
-// 				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+			// Total bytes must be less than or equal to maxTxBytes
+			totalBytes := int64(0)
+			for _, tx := range res.Txs[abci.NumInjectedTxs:] {
+				totalBytes += int64(len(tx))
+			}
+			suite.Require().LessOrEqual(totalBytes, maxTxBytes)
 
-// 				expectedTopAuctionTx = nil
-// 			},
-// 			5,
-// 			4,
-// 			0,
-// 		},
-// 		{
-// 			"many normal tx, single auction tx with no ref txs",
-// 			func() {
-// 				reserveFee = sdk.NewCoin("foo", sdk.NewInt(1000))
-// 				suite.auctionBidAmount = sdk.NewCoin("foo", sdk.NewInt(2000000))
-// 				numNormalTxs = 100
-// 				numAuctionTxs = 1
-// 				numBundledTxs = 0
+			// 2. the number of transactions in the response must be equal to the number of expected transactions
+			// NOTE: We add 1 to the expected number of transactions because the first transaction in the response
+			// is the auction transaction
+			suite.Require().Equal(tc.expectedNumberProposalTxs+1, len(res.Txs))
 
-// 				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+			// 3. if there are auction transactions, the first transaction must be the top bid
+			// and the rest of the bundle must be in the response
+			if winningBidTx != nil {
+				auctionTx, err := suite.encodingConfig.TxConfig.TxDecoder()(res.Txs[1])
+				suite.Require().NoError(err)
 
-// 				expectedTopAuctionTx = nil
-// 			},
-// 			102,
-// 			100,
-// 			1,
-// 		},
-// 		{
-// 			"many normal tx, single auction tx with ref txs",
-// 			func() {
-// 				numNormalTxs = 100
-// 				numAuctionTxs = 100
-// 				numBundledTxs = 3
-// 				insertRefTxs = true
+				bidInfo, err := suite.tobLane.GetAuctionBidInfo(auctionTx)
+				suite.Require().NoError(err)
 
-// 				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+				for index, tx := range bidInfo.Transactions {
+					suite.Require().Equal(tx, res.Txs[index+1+abci.NumInjectedTxs])
+				}
+			} else {
+				if len(res.Txs) > 1 {
+					tx, err := suite.encodingConfig.TxConfig.TxDecoder()(res.Txs[1])
+					suite.Require().NoError(err)
 
-// 				expectedTopAuctionTx = suite.mempool.GetTopAuctionTx(suite.ctx)
-// 			},
-// 			402,
-// 			400,
-// 			100,
-// 		},
-// 		{
-// 			"many normal tx, many auction tx with ref txs but top bid is invalid",
-// 			func() {
-// 				numNormalTxs = 100
-// 				numAuctionTxs = 100
-// 				numBundledTxs = 1
-// 				insertRefTxs = true
+					bidInfo, err := suite.tobLane.GetAuctionBidInfo(tx)
+					suite.Require().NoError(err)
+					suite.Require().Nil(bidInfo)
+				}
+			}
 
-// 				suite.createFilledMempool(numNormalTxs, numAuctionTxs, numBundledTxs, insertRefTxs)
+			// 4. All of the transactions must be unique
+			uniqueTxs := make(map[string]bool)
+			for _, tx := range res.Txs {
+				suite.Require().False(uniqueTxs[string(tx)])
+				uniqueTxs[string(tx)] = true
+			}
 
-// 				expectedTopAuctionTx = suite.mempool.GetTopAuctionTx(suite.ctx)
-
-// 				// create a new bid that is greater than the current top bid
-// 				bid := sdk.NewCoin("foo", sdk.NewInt(200000000000000000))
-// 				bidTx, err := testutils.CreateAuctionTxWithSigners(
-// 					suite.encodingConfig.TxConfig,
-// 					suite.accounts[0],
-// 					bid,
-// 					0,
-// 					0,
-// 					[]testutils.Account{suite.accounts[0], suite.accounts[1]},
-// 				)
-// 				suite.Require().NoError(err)
-
-// 				// add the new bid to the mempool
-// 				err = suite.mempool.Insert(suite.ctx, bidTx)
-// 				suite.Require().NoError(err)
-
-// 				suite.Require().Equal(suite.mempool.CountAuctionTx(), 101)
-// 			},
-// 			202,
-// 			200,
-// 			100,
-// 		},
-// 	}
-
-// 	for _, tc := range cases {
-// 		suite.Run(tc.name, func() {
-// 			tc.malleate()
-
-// 			// Create a new auction.
-// 			params := buildertypes.Params{
-// 				MaxBundleSize:          maxBundleSize,
-// 				ReserveFee:             reserveFee,
-// 				FrontRunningProtection: frontRunningProtection,
-// 				MinBidIncrement:        suite.minBidIncrement,
-// 			}
-// 			suite.builderKeeper.SetParams(suite.ctx, params)
-// 			suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxEncoder(), suite.mempool)
-
-// 			// Reset the proposal handler with the new mempool.
-// 			suite.proposalHandler = v2.NewProposalHandler(suite.mempool, suite.logger, suite.anteHandler, suite.encodingConfig.TxConfig.TxEncoder(), suite.encodingConfig.TxConfig.TxDecoder())
-
-// 			// Create a prepare proposal request based on the current state of the mempool.
-// 			handler := suite.proposalHandler.PrepareProposalHandler()
-// 			req := suite.createPrepareProposalRequest(maxTxBytes)
-// 			res := handler(suite.ctx, req)
-
-// 			// -------------------- Check Invariants -------------------- //
-// 			// The first slot in the proposal must be the auction info
-// 			auctionInfo := abci.AuctionInfo{}
-// 			err := auctionInfo.Unmarshal(res.Txs[v2.AuctionInfoIndex])
-// 			suite.Require().NoError(err)
-
-// 			// Total bytes must be less than or equal to maxTxBytes
-// 			totalBytes := int64(0)
-// 			for _, tx := range res.Txs[v2.NumInjectedTxs:] {
-// 				totalBytes += int64(len(tx))
-// 			}
-// 			suite.Require().LessOrEqual(totalBytes, maxTxBytes)
-
-// 			// The number of transactions in the response must be equal to the number of expected transactions
-// 			suite.Require().Equal(tc.expectedNumberProposalTxs, len(res.Txs))
-
-// 			// If there are auction transactions, the first transaction must be the top bid
-// 			// and the rest of the bundle must be in the response
-// 			if expectedTopAuctionTx != nil {
-// 				auctionTx, err := suite.encodingConfig.TxConfig.TxDecoder()(res.Txs[1])
-// 				suite.Require().NoError(err)
-
-// 				bidInfo, err := suite.mempool.GetAuctionBidInfo(auctionTx)
-// 				suite.Require().NoError(err)
-
-// 				for index, tx := range bidInfo.Transactions {
-// 					suite.Require().Equal(tx, res.Txs[v2.NumInjectedTxs+index+1])
-// 				}
-// 			}
-
-// 			// 5. All of the transactions must be unique
-// 			uniqueTxs := make(map[string]bool)
-// 			for _, tx := range res.Txs[v2.NumInjectedTxs:] {
-// 				suite.Require().False(uniqueTxs[string(tx)])
-// 				uniqueTxs[string(tx)] = true
-// 			}
-
-// 			// 6. The number of transactions in the mempool must be correct
-// 			suite.Require().Equal(tc.expectedNumberTxsInMempool, suite.mempool.CountTx())
-// 			suite.Require().Equal(tc.expectedNumberTxsInAuctionMempool, suite.mempool.CountAuctionTx())
-// 		})
-// 	}
-// }
+			// 5. The number of transactions in the mempool must be correct
+			suite.Require().Equal(tc.expectedMempoolDistribution, suite.mempool.GetTxDistribution())
+		})
+	}
+}
 
 // func (suite *ABCITestSuite) TestProcessProposal() {
 // 	var (

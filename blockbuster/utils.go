@@ -9,17 +9,18 @@ import (
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
-// GetTxHashStr returns the hex-encoded hash of the transaction.
-func GetTxHashStr(txEncoder sdk.TxEncoder, tx sdk.Tx) (string, error) {
+// GetTxHashStr returns the hex-encoded hash of the transaction alongside the
+// transaction bytes.
+func GetTxHashStr(txEncoder sdk.TxEncoder, tx sdk.Tx) ([]byte, string, error) {
 	txBz, err := txEncoder(tx)
 	if err != nil {
-		return "", fmt.Errorf("failed to encode transaction: %w", err)
+		return nil, "", fmt.Errorf("failed to encode transaction: %w", err)
 	}
 
 	txHash := sha256.Sum256(txBz)
 	txHashStr := hex.EncodeToString(txHash[:])
 
-	return txHashStr, nil
+	return txBz, txHashStr, nil
 }
 
 // RemoveTxsFromLane removes the transactions from the given lane's mempool.
@@ -62,13 +63,7 @@ func UpdateProposal(proposal Proposal, txs [][]byte, totalSize int64) Proposal {
 		txHashStr := hex.EncodeToString(txHash[:])
 
 		proposal.Txs = append(proposal.Txs, tx)
-		proposal.SelectedTxs[txHashStr] = struct{}{}
-	}
-
-	for _, tx := range txs {
-		txHash := sha256.Sum256(tx)
-		txHashStr := hex.EncodeToString(txHash[:])
-		proposal.SelectedTxs[txHashStr] = struct{}{}
+		proposal.Cache[txHashStr] = struct{}{}
 	}
 
 	return proposal
