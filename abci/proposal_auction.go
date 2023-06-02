@@ -7,7 +7,7 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/skip-mev/pob/blockbuster"
+	"github.com/skip-mev/pob/blockbuster/utils"
 )
 
 // TopOfBlock contains information about how the top of block should be built.
@@ -184,7 +184,7 @@ func (h *ProposalHandler) buildTOB(ctx sdk.Context, bidTx sdk.Tx) (TopOfBlock, e
 		}
 
 		// convert the sdk.Tx to a hash and bytes
-		txBz, hash, err := blockbuster.GetTxHashStr(h.txEncoder, refTx)
+		txBz, hash, err := utils.GetTxHashStr(h.txEncoder, refTx)
 		if err != nil {
 			return proposal, err
 		}
@@ -194,7 +194,7 @@ func (h *ProposalHandler) buildTOB(ctx sdk.Context, bidTx sdk.Tx) (TopOfBlock, e
 	}
 
 	// cache the bytes of the bid transaction
-	txBz, hash, err := blockbuster.GetTxHashStr(h.txEncoder, bidTx)
+	txBz, hash, err := utils.GetTxHashStr(h.txEncoder, bidTx)
 	if err != nil {
 		return proposal, err
 	}

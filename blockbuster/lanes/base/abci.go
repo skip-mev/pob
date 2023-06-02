@@ -5,6 +5,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/blockbuster"
+	"github.com/skip-mev/pob/blockbuster/utils"
 )
 
 // PrepareLane will prepare a partial proposal for the base lane.
@@ -16,14 +17,14 @@ func (l *DefaultLane) PrepareLane(ctx sdk.Context, proposal blockbuster.Proposal
 
 	// Calculate the max tx bytes for the lane and track the total size of the
 	// transactions we have selected so far.
-	maxTxBytes := blockbuster.GetMaxTxBytesForLane(proposal, l.cfg.MaxBlockSpace)
+	maxTxBytes := utils.GetMaxTxBytesForLane(proposal, l.cfg.MaxBlockSpace)
 
 	// Select all transactions in the mempool that are valid and not already in the
 	// partial proposal.
 	for iterator := l.Mempool.Select(ctx, nil); iterator != nil; iterator = iterator.Next() {
 		tx := iterator.Tx()
 
-		txBytes, hash, err := blockbuster.GetTxHashStr(l.cfg.TxEncoder, tx)
+		txBytes, hash, err := utils.GetTxHashStr(l.cfg.TxEncoder, tx)
 		if err != nil {
 			txsToRemove[tx] = struct{}{}
 			continue
@@ -51,12 +52,12 @@ func (l *DefaultLane) PrepareLane(ctx sdk.Context, proposal blockbuster.Proposal
 	}
 
 	// Remove all transactions that were invalid during the creation of the partial proposal.
-	if err := blockbuster.RemoveTxsFromLane(txsToRemove, l.Mempool); err != nil {
+	if err := utils.RemoveTxsFromLane(txsToRemove, l.Mempool); err != nil {
 		l.cfg.Logger.Error("failed to remove txs from mempool", "lane", l.Name(), "err", err)
 		return proposal
 	}
 
-	proposal = blockbuster.UpdateProposal(proposal, txs, totalSize)
+	proposal = utils.UpdateProposal(proposal, txs, totalSize)
 
 	return next(ctx, proposal)
 }

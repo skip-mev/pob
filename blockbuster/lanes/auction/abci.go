@@ -6,6 +6,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/blockbuster"
+	"github.com/skip-mev/pob/blockbuster/utils"
 )
 
 // PrepareLane will attempt to select the highest bid transaction that is valid
@@ -18,7 +19,7 @@ func (l *TOBLane) PrepareLane(ctx sdk.Context, proposal blockbuster.Proposal, ne
 
 	// Calculate the max tx bytes for the lane and track the total size of the
 	// transactions we have selected so far.
-	maxTxBytes := blockbuster.GetMaxTxBytesForLane(proposal, l.cfg.MaxBlockSpace)
+	maxTxBytes := utils.GetMaxTxBytesForLane(proposal, l.cfg.MaxBlockSpace)
 	totalSize := int64(0)
 
 	// Attempt to select the highest bid transaction that is valid and whose
@@ -29,7 +30,7 @@ selectBidTxLoop:
 		cacheCtx, write := ctx.CacheContext()
 		tmpBidTx := bidTxIterator.Tx()
 
-		bidTxBz, txHash, err := blockbuster.GetTxHashStr(l.cfg.TxEncoder, tmpBidTx)
+		bidTxBz, txHash, err := utils.GetTxHashStr(l.cfg.TxEncoder, tmpBidTx)
 		if err != nil {
 			txsToRemove[tmpBidTx] = struct{}{}
 			continue
@@ -67,7 +68,7 @@ selectBidTxLoop:
 					continue selectBidTxLoop
 				}
 
-				sdkTxBz, hash, err := blockbuster.GetTxHashStr(l.cfg.TxEncoder, sdkTx)
+				sdkTxBz, hash, err := utils.GetTxHashStr(l.cfg.TxEncoder, sdkTx)
 				if err != nil {
 					txsToRemove[tmpBidTx] = struct{}{}
 					continue selectBidTxLoop
@@ -107,13 +108,13 @@ selectBidTxLoop:
 	}
 
 	// Remove all transactions that were invalid during the creation of the partial proposal.
-	if err := blockbuster.RemoveTxsFromLane(txsToRemove, l.Mempool); err != nil {
+	if err := utils.RemoveTxsFromLane(txsToRemove, l.Mempool); err != nil {
 		l.cfg.Logger.Error("failed to remove txs from mempool", "lane", l.Name(), "err", err)
 		return proposal
 	}
 
 	// Update the proposal with the selected transactions.
-	proposal = blockbuster.UpdateProposal(proposal, txs, totalSize)
+	proposal = utils.UpdateProposal(proposal, txs, totalSize)
 
 	return next(ctx, proposal)
 }

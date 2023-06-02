@@ -8,6 +8,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	"github.com/skip-mev/pob/blockbuster"
+	"github.com/skip-mev/pob/blockbuster/utils"
 )
 
 var _ sdkmempool.Mempool = (*DefaultMempool)(nil)
@@ -55,7 +56,7 @@ func (am *DefaultMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 		return fmt.Errorf("failed to insert tx into auction index: %w", err)
 	}
 
-	_, txHashStr, err := blockbuster.GetTxHashStr(am.txEncoder, tx)
+	_, txHashStr, err := utils.GetTxHashStr(am.txEncoder, tx)
 	if err != nil {
 		return err
 	}
@@ -81,7 +82,7 @@ func (am *DefaultMempool) CountTx() int {
 
 // Contains returns true if the transaction is contained in the mempool.
 func (am *DefaultMempool) Contains(tx sdk.Tx) (bool, error) {
-	_, txHashStr, err := blockbuster.GetTxHashStr(am.txEncoder, tx)
+	_, txHashStr, err := utils.GetTxHashStr(am.txEncoder, tx)
 	if err != nil {
 		return false, fmt.Errorf("failed to get tx hash string: %w", err)
 	}
@@ -96,7 +97,7 @@ func (am *DefaultMempool) removeTx(mp sdkmempool.Mempool, tx sdk.Tx) {
 		panic(fmt.Errorf("failed to remove invalid transaction from the mempool: %w", err))
 	}
 
-	_, txHashStr, err := blockbuster.GetTxHashStr(am.txEncoder, tx)
+	_, txHashStr, err := utils.GetTxHashStr(am.txEncoder, tx)
 	if err != nil {
 		panic(fmt.Errorf("failed to get tx hash string: %w", err))
 	}
