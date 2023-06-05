@@ -81,10 +81,8 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 // into a single function. The first lane in the chain is the first lane to be prepared and
 // the last lane in the chain is the last lane to be prepared.
 //
-// In the case where any of the lanes fail to prepare the proposal, the lane that failed
+// In the case where any of the lanes fail to prepare the partial proposal, the lane that failed
 // will be skipped and the next lane in the chain will be called to prepare the proposal.
-//
-// TODO: Determine how expensive the caches are.
 func ChainPrepareLanes(chain ...blockbuster.Lane) blockbuster.PrepareLanesHandler {
 	if len(chain) == 0 {
 		return nil
@@ -134,7 +132,8 @@ func ChainPrepareLanes(chain ...blockbuster.Lane) blockbuster.PrepareLanesHandle
 				return
 			}
 
-			// Write the cache to the context
+			// Write the cache to the context since we know that the lane successfully prepared
+			// the partial proposal.
 			write()
 		}()
 
@@ -167,6 +166,7 @@ func ChainProcessLanes(chain ...blockbuster.Lane) blockbuster.ProcessLanesHandle
 	}
 
 	return func(ctx sdk.Context, proposalTxs [][]byte) (sdk.Context, error) {
+		// Short circuit if there are no transactions to process.
 		if len(proposalTxs) == 0 {
 			return ctx, nil
 		}

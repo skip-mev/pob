@@ -149,8 +149,8 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next blockb
 // ProcessLaneBasic does basic validation on the block proposal to ensure that
 // transactions that belong to this lane are not misplaced in the block proposal.
 // In this case, we ensure that the bid transaction is the first transaction in the
-// proposal and that all of the bundled transactions are included after the bid transaction
-// in the order they were included in the bid transaction. We enforce that at most one
+// partial proposal and that all of the bundled transactions are included after the bid transaction
+// are in the order they were included in the bid transaction. We enforce that at most one
 // auction bid transaction is included in the block proposal.
 func (l *TOBLane) ProcessLaneBasic(txs [][]byte) error {
 	tx, err := l.cfg.TxDecoder(txs[0])

@@ -100,14 +100,13 @@ func (suite *AnteTestSuite) SetupTest() {
 	// Mempool set up
 	suite.lanes = []blockbuster.Lane{suite.tobLane, suite.baseLane}
 	suite.mempool = blockbuster.NewMempool(suite.lanes...)
-
 }
 
-func (suite *AnteTestSuite) anteHandler(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
+func (suite *AnteTestSuite) anteHandler(ctx sdk.Context, tx sdk.Tx, _ bool) (sdk.Context, error) {
 	signer := tx.GetMsgs()[0].GetSigners()[0]
 	suite.bankKeeper.EXPECT().GetAllBalances(ctx, signer).AnyTimes().Return(suite.balance)
 
-	next := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
+	next := func(ctx sdk.Context, tx sdk.Tx, _ bool) (sdk.Context, error) {
 		return ctx, nil
 	}
 

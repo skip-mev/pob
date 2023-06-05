@@ -69,7 +69,7 @@ type (
 		// PrepareLane builds a portion of the block. It inputs the maxTxBytes that can be
 		// included in the proposal for the given lane, the partial proposal, and a function
 		// to call the next lane in the chain. The next lane in the chain will be called with
-		// the updated proposal.
+		// the updated proposal and context.
 		PrepareLane(ctx sdk.Context, proposal *Proposal, maxTxBytes int64, next PrepareLanesHandler) *Proposal
 
 		// ProcessLaneBasic validates that transactions belonging to this lane are not misplaced
@@ -78,7 +78,7 @@ type (
 
 		// ProcessLane verifies this lane's portion of a proposed block. It inputs the transactions
 		// that may belong to this lane and a function to call the next lane in the chain. The next
-		// lane in the chain will be called with the updated context.
+		// lane in the chain will be called with the updated context and filtered down transactions.
 		ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next ProcessLanesHandler) (sdk.Context, error)
 
 		// SetAnteHandler sets the lane's antehandler.
