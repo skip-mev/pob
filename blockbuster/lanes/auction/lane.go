@@ -8,10 +8,13 @@ import (
 
 const (
 	// LaneName defines the name of the top-of-block auction lane.
-	LaneName = "tob"
+	LaneName = "top-of-block"
 )
 
-var _ blockbuster.Lane = (*TOBLane)(nil)
+var (
+	_ blockbuster.Lane = (*TOBLane)(nil)
+	_ Factory          = (*TOBLane)(nil)
+)
 
 // TOBLane defines a top-of-block auction lane. The top of block auction lane
 // hosts transactions that want to bid for inclusion at the top of the next block.
@@ -34,17 +37,17 @@ type TOBLane struct {
 
 // NewTOBLane returns a new TOB lane.
 func NewTOBLane(
-	logger log.Logger,
-	txDecoder sdk.TxDecoder,
-	txEncoder sdk.TxEncoder,
+	cfg blockbuster.BaseLaneConfig,
 	maxTx int,
-	anteHandler sdk.AnteHandler,
 	af Factory,
-	maxBlockSpace sdk.Dec,
 ) *TOBLane {
+	if err := cfg.ValidateBasic(); err != nil {
+		panic(err)
+	}
+
 	return &TOBLane{
-		Mempool: NewMempool(txEncoder, maxTx, af),
-		cfg:     blockbuster.NewBaseLaneConfig(logger, txEncoder, txDecoder, anteHandler, maxBlockSpace),
+		Mempool: NewMempool(cfg.TxEncoder, maxTx, af),
+		cfg:     cfg,
 		Factory: af,
 	}
 }
@@ -59,4 +62,19 @@ func (l *TOBLane) Match(tx sdk.Tx) bool {
 // Name returns the name of the lane.
 func (l *TOBLane) Name() string {
 	return LaneName
+}
+
+// Logger returns the lane's logger.
+func (l *TOBLane) Logger() log.Logger {
+	return l.cfg.Logger
+}
+
+// SetAnteHandler sets the lane's configuration.
+func (l *TOBLane) SetAnteHandler(anteHandler sdk.AnteHandler) {
+	l.cfg.AnteHandler = anteHandler
+}
+
+// GetMaxBlockSpace returns the maximum block space for the lane.
+func (l *TOBLane) GetMaxBlockSpace() sdk.Dec {
+	return l.cfg.MaxBlockSpace
 }
