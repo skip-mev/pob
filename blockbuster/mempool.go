@@ -8,7 +8,7 @@ import (
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
-var _ Mempool = (*BlockBusterMempool)(nil)
+var _ Mempool = (*BBMempool)(nil)
 
 type (
 	Mempool interface {
@@ -20,20 +20,20 @@ type (
 
 	// Mempool defines the Blockbuster mempool implement. It contains a registry
 	// of lanes, which allows for customizable block proposal construction.
-	BlockBusterMempool struct {
+	BBMempool struct {
 		registry []Lane
 	}
 )
 
-func NewMempool(lanes ...Lane) *BlockBusterMempool {
-	return &BlockBusterMempool{
+func NewMempool(lanes ...Lane) *BBMempool {
+	return &BBMempool{
 		registry: lanes,
 	}
 }
 
 // TODO: Consider using a tx cache in Mempool and returning the length of that
 // cache instead of relying on lane count tracking.
-func (m *BlockBusterMempool) CountTx() int {
+func (m *BBMempool) CountTx() int {
 	var total int
 	for _, lane := range m.registry {
 		// TODO: If a global lane exists, we assume that lane has all transactions
@@ -51,7 +51,7 @@ func (m *BlockBusterMempool) CountTx() int {
 
 // Insert inserts a transaction into every lane that it matches. Insertion will
 // be attempted on all lanes, even if an error is encountered.
-func (m *BlockBusterMempool) Insert(ctx context.Context, tx sdk.Tx) error {
+func (m *BBMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 	errs := make([]error, 0, len(m.registry))
 
 	for _, lane := range m.registry {
@@ -70,13 +70,13 @@ func (m *BlockBusterMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 // - Determine if it even makes sense to return an iterator. What does that even
 // mean in the context where you have multiple lanes?
 // - Perhaps consider implementing and returning a no-op iterator?
-func (m *BlockBusterMempool) Select(_ context.Context, _ [][]byte) sdkmempool.Iterator {
+func (m *BBMempool) Select(_ context.Context, _ [][]byte) sdkmempool.Iterator {
 	return nil
 }
 
 // Remove removes a transaction from every lane that it matches. Removal will be
 // attempted on all lanes, even if an error is encountered.
-func (m *BlockBusterMempool) Remove(tx sdk.Tx) error {
+func (m *BBMempool) Remove(tx sdk.Tx) error {
 	errs := make([]error, 0, len(m.registry))
 
 	for _, lane := range m.registry {
@@ -90,6 +90,6 @@ func (m *BlockBusterMempool) Remove(tx sdk.Tx) error {
 }
 
 // Registry returns the mempool's lane registry.
-func (m *BlockBusterMempool) Registry() []Lane {
+func (m *BBMempool) Registry() []Lane {
 	return m.registry
 }
