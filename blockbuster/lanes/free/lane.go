@@ -21,6 +21,10 @@ type FreeLane struct {
 }
 
 func NewFreeLane(cfg blockbuster.BaseLaneConfig, factory Factory) *FreeLane {
+	if err := cfg.ValidateBasic(); err != nil {
+		panic(err)
+	}
+
 	return &FreeLane{
 		DefaultLane: base.NewDefaultLane(cfg),
 		Factory:     factory,

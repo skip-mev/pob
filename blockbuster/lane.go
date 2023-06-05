@@ -3,6 +3,7 @@ package blockbuster
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 
 	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -101,6 +102,26 @@ func NewBaseLaneConfig(logger log.Logger, txEncoder sdk.TxEncoder, txDecoder sdk
 		AnteHandler:   anteHandler,
 		MaxBlockSpace: maxBlockSpace,
 	}
+}
+
+func (c *BaseLaneConfig) ValidateBasic() error {
+	if c.Logger == nil {
+		return fmt.Errorf("logger cannot be nil")
+	}
+
+	if c.TxEncoder == nil {
+		return fmt.Errorf("tx encoder cannot be nil")
+	}
+
+	if c.TxDecoder == nil {
+		return fmt.Errorf("tx decoder cannot be nil")
+	}
+
+	if c.MaxBlockSpace.IsNil() || c.MaxBlockSpace.IsNegative() || c.MaxBlockSpace.GT(sdk.OneDec()) {
+		return fmt.Errorf("max block space must be set to a value between 0 and 1")
+	}
+
+	return nil
 }
 
 func NewProposal(maxTxBytes int64) *Proposal {

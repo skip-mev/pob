@@ -20,8 +20,7 @@ import (
 
 type BlockBusterTestSuite struct {
 	suite.Suite
-	logger log.Logger
-	ctx    sdk.Context
+	ctx sdk.Context
 
 	// Define basic tx configuration
 	encodingConfig testutils.EncodingConfig
@@ -59,7 +58,7 @@ func (suite *BlockBusterTestSuite) SetupTest() {
 	//
 	// TOB lane set up
 	suite.config = blockbuster.BaseLaneConfig{
-		Logger:        suite.logger,
+		Logger:        log.NewNopLogger(),
 		TxEncoder:     suite.encodingConfig.TxConfig.TxEncoder(),
 		TxDecoder:     suite.encodingConfig.TxConfig.TxDecoder(),
 		AnteHandler:   nil,

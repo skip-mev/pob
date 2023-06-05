@@ -21,7 +21,7 @@ func (l *TOBLane) PrepareLane(
 	// Define all of the info we need to select transactions for the partial proposal.
 	var (
 		totalSize   int64
-		txs         [][]byte
+		txs         = make([][]byte, 0)
 		txsToRemove = make(map[sdk.Tx]struct{}, 0)
 	)
 

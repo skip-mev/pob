@@ -16,9 +16,11 @@ func (l *DefaultLane) PrepareLane(
 	next blockbuster.PrepareLanesHandler,
 ) *blockbuster.Proposal {
 	// Define all of the info we need to select transactions for the partial proposal.
-	txs := make([][]byte, 0)
-	txsToRemove := make(map[sdk.Tx]struct{}, 0)
-	totalSize := int64(0)
+	var (
+		totalSize   int64
+		txs         = make([][]byte, 0)
+		txsToRemove = make(map[sdk.Tx]struct{}, 0)
+	)
 
 	// Select all transactions in the mempool that are valid and not already in the
 	// partial proposal.

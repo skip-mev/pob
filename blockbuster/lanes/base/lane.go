@@ -24,6 +24,10 @@ type DefaultLane struct {
 }
 
 func NewDefaultLane(cfg blockbuster.BaseLaneConfig) *DefaultLane {
+	if err := cfg.ValidateBasic(); err != nil {
+		panic(err)
+	}
+
 	return &DefaultLane{
 		Mempool: NewDefaultMempool(cfg.TxEncoder),
 		cfg:     cfg,

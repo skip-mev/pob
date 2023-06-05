@@ -76,7 +76,7 @@ func (suite *ABCITestSuite) SetupTest() {
 	//
 	// TOB lane set up
 	suite.config = blockbuster.BaseLaneConfig{
-		Logger:        suite.logger,
+		Logger:        log.NewNopLogger(),
 		TxEncoder:     suite.encodingConfig.TxConfig.TxEncoder(),
 		TxDecoder:     suite.encodingConfig.TxConfig.TxDecoder(),
 		AnteHandler:   suite.anteHandler,
