@@ -52,18 +52,3 @@ func GetMaxTxBytesForLane(proposal *Proposal, ratio sdk.Dec) int64 {
 	// Otherwise, we calculate the max tx bytes for the lane based on the ratio.
 	return ratio.MulInt64(proposal.MaxTxBytes).TruncateInt().Int64()
 }
-
-// UpdateProposal updates the proposal with the given transactions and total size.
-func UpdateProposal(proposal *Proposal, txs [][]byte, totalSize int64) *Proposal {
-	proposal.TotalTxBytes += totalSize
-	proposal.Txs = append(proposal.Txs, txs...)
-
-	for _, tx := range txs {
-		txHash := sha256.Sum256(tx)
-		txHashStr := hex.EncodeToString(txHash[:])
-
-		proposal.SelectedTxs[txHashStr] = struct{}{}
-	}
-
-	return proposal
-}
