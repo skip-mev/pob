@@ -61,7 +61,7 @@ func (l *DefaultLane) PrepareLane(ctx sdk.Context, proposal *blockbuster.Proposa
 		return proposal
 	}
 
-	blockbuster.UpdateProposal(proposal, txs, totalSize)
+	proposal.UpdateProposal(txs, totalSize)
 
 	return next(ctx, proposal)
 }

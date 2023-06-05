@@ -34,11 +34,7 @@ func NewProposalHandler(logger log.Logger, mempool blockbuster.Mempool) *Proposa
 // will include all valid transactions in the proposal (up to MaxTxBytes).
 func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 	return func(ctx sdk.Context, req abci.RequestPrepareProposal) abci.ResponsePrepareProposal {
-		proposal := h.prepareLanesHandler(ctx, &blockbuster.Proposal{
-			SelectedTxs: make(map[string]struct{}),
-			Txs:         make([][]byte, 0),
-			MaxTxBytes:  req.MaxTxBytes,
-		})
+		proposal := h.prepareLanesHandler(ctx, blockbuster.NewProposal(req.MaxTxBytes))
 
 		return abci.ResponsePrepareProposal{Txs: proposal.Txs}
 	}
