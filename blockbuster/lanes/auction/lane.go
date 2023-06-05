@@ -1,9 +1,9 @@
 package auction
 
 import (
-	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/blockbuster"
+	"github.com/skip-mev/pob/blockbuster/lanes/base"
 )
 
 const (
@@ -27,7 +27,7 @@ type TOBLane struct {
 	Mempool
 
 	// LaneConfig defines the base lane configuration.
-	cfg blockbuster.BaseLaneConfig
+	*base.DefaultLane
 
 	// Factory defines the API/functionality which is responsible for determining
 	// if a transaction is a bid transaction and how to extract relevant
@@ -46,9 +46,9 @@ func NewTOBLane(
 	}
 
 	return &TOBLane{
-		Mempool: NewMempool(cfg.TxEncoder, maxTx, af),
-		cfg:     cfg,
-		Factory: af,
+		Mempool:     NewMempool(cfg.TxEncoder, maxTx, af),
+		DefaultLane: base.NewDefaultLane(cfg),
+		Factory:     af,
 	}
 }
 
@@ -62,19 +62,4 @@ func (l *TOBLane) Match(tx sdk.Tx) bool {
 // Name returns the name of the lane.
 func (l *TOBLane) Name() string {
 	return LaneName
-}
-
-// Logger returns the lane's logger.
-func (l *TOBLane) Logger() log.Logger {
-	return l.cfg.Logger
-}
-
-// SetAnteHandler sets the lane's configuration.
-func (l *TOBLane) SetAnteHandler(anteHandler sdk.AnteHandler) {
-	l.cfg.AnteHandler = anteHandler
-}
-
-// GetMaxBlockSpace returns the maximum block space for the lane.
-func (l *TOBLane) GetMaxBlockSpace() sdk.Dec {
-	return l.cfg.MaxBlockSpace
 }
