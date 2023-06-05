@@ -1,15 +1,14 @@
-package blockbuster
+package abci
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
+	"github.com/skip-mev/pob/blockbuster"
+	"github.com/skip-mev/pob/blockbuster/lanes/terminator"
 )
 
 type (
@@ -17,38 +16,33 @@ type (
 	// handlers.
 	ProposalHandler struct {
 		logger              log.Logger
-		mempool             Mempool
+		mempool             blockbuster.Mempool
 		txEncoder           sdk.TxEncoder
-		processLanesHandler ProcessLanesHandler
+		processLanesHandler blockbuster.ProcessLanesHandler
 	}
-
-	// ProcessLanesHandler wraps all of the lanes Process functions into a single chained
-	// function. You can think of it like an AnteHandler, but for processing proposals in the
-	// context of lanes instead of modules.
-	ProcessLanesHandler func(ctx sdk.Context, proposalTxs [][]byte) (sdk.Context, error)
 )
 
 // NewProposalHandler returns a new ProposalHandler.
-func NewProposalHandler(logger log.Logger, mempool Mempool, txEncoder sdk.TxEncoder) *ProposalHandler {
+func NewProposalHandler(logger log.Logger, mempool blockbuster.Mempool, txEncoder sdk.TxEncoder) *ProposalHandler {
 	return &ProposalHandler{
 		logger:              logger,
 		mempool:             mempool,
 		txEncoder:           txEncoder,
-		processLanesHandler: ChainProcessLanes(mempool.registry...),
+		processLanesHandler: ChainProcessLanes(mempool.Registry()...),
 	}
 }
 
 // ChainProcessLane chains together the proposal verification logic from each lane
 // into a single function. The first lane in the chain is the first lane to be verified and
 // the last lane in the chain is the last lane to be verified.
-func ChainProcessLanes(chain ...Lane) ProcessLanesHandler {
+func ChainProcessLanes(chain ...blockbuster.Lane) blockbuster.ProcessLanesHandler {
 	if len(chain) == 0 {
 		return nil
 	}
 
 	// Handle non-terminated decorators chain
-	if (chain[len(chain)-1] != Terminator{}) {
-		chain = append(chain, Terminator{})
+	if (chain[len(chain)-1] != terminator.Terminator{}) {
+		chain = append(chain, terminator.Terminator{})
 	}
 
 	return func(ctx sdk.Context, proposalTxs [][]byte) (sdk.Context, error) {
@@ -63,7 +57,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 			totalTxBytes int64
 		)
 
-		for _, l := range h.mempool.registry {
+		for _, l := range h.mempool.Registry() {
 			if totalTxBytes < req.MaxTxBytes {
 				laneTxs, err := l.PrepareLane(ctx, req.MaxTxBytes, selectedTxs)
 				if err != nil {
@@ -104,60 +98,4 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 
 		return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_ACCEPT}
 	}
-}
-
-// Terminator Lane will get added to the chain to simplify chaining code so that we
-// don't need to check if next == nil further up the chain
-type Terminator struct{}
-
-var _ Lane = (*Terminator)(nil)
-
-// PrepareLane is a no-op
-func (t Terminator) PrepareLane(_ sdk.Context, _ int64, _ map[string][]byte) ([][]byte, error) {
-	return nil, nil
-}
-
-// ProcessLane is a no-op
-func (t Terminator) ProcessLane(ctx sdk.Context, _ [][]byte, _ ProcessLanesHandler) (sdk.Context, error) {
-	return ctx, nil
-}
-
-// Name returns the name of the lane
-func (t Terminator) Name() string {
-	return "Terminator"
-}
-
-// Match is a no-op
-func (t Terminator) Match(sdk.Tx) bool {
-	return false
-}
-
-// VerifyTx is a no-op
-func (t Terminator) VerifyTx(sdk.Context, sdk.Tx) error {
-	return fmt.Errorf("Terminator lane should not be called")
-}
-
-// Contains is a no-op
-func (t Terminator) Contains(sdk.Tx) (bool, error) {
-	return false, nil
-}
-
-// CountTx is a no-op
-func (t Terminator) CountTx() int {
-	return 0
-}
-
-// Insert is a no-op
-func (t Terminator) Insert(context.Context, sdk.Tx) error {
-	return nil
-}
-
-// Remove is a no-op
-func (t Terminator) Remove(sdk.Tx) error {
-	return nil
-}
-
-// Select is a no-op
-func (t Terminator) Select(context.Context, [][]byte) sdkmempool.Iterator {
-	return nil
 }
