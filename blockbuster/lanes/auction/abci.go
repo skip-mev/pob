@@ -86,7 +86,7 @@ selectBidTxLoop:
 			// update the total size selected thus far.
 			txs = append(txs, bidTxBz)
 			txs = append(txs, bundledTxBz...)
-			totalSize += bidTxSize
+			totalSize = bidTxSize
 
 			// Write the cache context to the original context when we know we have a
 			// valid top of block bundle.

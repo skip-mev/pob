@@ -7,31 +7,38 @@ import (
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
-var _ sdkmempool.Mempool = (*Mempool)(nil)
+var _ Mempool = (*BBMempool)(nil)
 
-// Mempool defines the Blockbuster mempool implement. It contains a registry
-// of lanes, which allows for customizable block proposal construction.
 type (
-	BlockBusterMempool interface {
+	// Mempool defines the Blockbuster mempool interface.
+	Mempool interface {
 		sdkmempool.Mempool
 
-		GetTxDistribution() map[string]int
+		// Registry returns the mempool's lane registry.
+		Registry() []Lane
+
+		// Contains returns true if the transaction is contained in the mempool.
 		Contains(tx sdk.Tx) (bool, error)
+
+		// GetTxDistribution returns the number of transactions in each lane.
+		GetTxDistribution() map[string]int
 	}
 
-	Mempool struct {
+	// Mempool defines the Blockbuster mempool implement. It contains a registry
+	// of lanes, which allows for customizable block proposal construction.
+	BBMempool struct {
 		registry []Lane
 	}
 )
 
-func NewMempool(lanes ...Lane) *Mempool {
-	return &Mempool{
+func NewMempool(lanes ...Lane) *BBMempool {
+	return &BBMempool{
 		registry: lanes,
 	}
 }
 
 // CountTx returns the total number of transactions in the mempool.
-func (m *Mempool) CountTx() int {
+func (m *BBMempool) CountTx() int {
 	var total int
 	for _, lane := range m.registry {
 		total += lane.CountTx()
@@ -41,7 +48,7 @@ func (m *Mempool) CountTx() int {
 }
 
 // GetTxDistribution returns the number of transactions in each lane.
-func (m *Mempool) GetTxDistribution() map[string]int {
+func (m *BBMempool) GetTxDistribution() map[string]int {
 	counts := make(map[string]int, len(m.registry))
 
 	for _, lane := range m.registry {
@@ -53,7 +60,7 @@ func (m *Mempool) GetTxDistribution() map[string]int {
 
 // Insert inserts a transaction into every lane that it matches. Insertion will
 // be attempted on all lanes, even if an error is encountered.
-func (m *Mempool) Insert(ctx context.Context, tx sdk.Tx) error {
+func (m *BBMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 	for _, lane := range m.registry {
 		if lane.Match(tx) {
 			return lane.Insert(ctx, tx)
@@ -69,13 +76,13 @@ func (m *Mempool) Insert(ctx context.Context, tx sdk.Tx) error {
 // - Determine if it even makes sense to return an iterator. What does that even
 // mean in the context where you have multiple lanes?
 // - Perhaps consider implementing and returning a no-op iterator?
-func (m *Mempool) Select(_ context.Context, _ [][]byte) sdkmempool.Iterator {
+func (m *BBMempool) Select(_ context.Context, _ [][]byte) sdkmempool.Iterator {
 	return nil
 }
 
 // Remove removes a transaction from the mempool. It removes the transaction
 // from the first lane that it matches.
-func (m *Mempool) Remove(tx sdk.Tx) error {
+func (m *BBMempool) Remove(tx sdk.Tx) error {
 	for _, lane := range m.registry {
 		if lane.Match(tx) {
 			return lane.Remove(tx)
@@ -86,7 +93,7 @@ func (m *Mempool) Remove(tx sdk.Tx) error {
 }
 
 // Contains returns true if the transaction is contained in the mempool.
-func (m *Mempool) Contains(tx sdk.Tx) (bool, error) {
+func (m *BBMempool) Contains(tx sdk.Tx) (bool, error) {
 	for _, lane := range m.registry {
 		if lane.Match(tx) {
 			return lane.Contains(tx)
@@ -96,7 +103,7 @@ func (m *Mempool) Contains(tx sdk.Tx) (bool, error) {
 	return false, nil
 }
 
-// Lanes returns the lanes in the mempool.
-func (m *Mempool) Lanes() []Lane {
+// Registry returns the mempool's lane registry.
+func (m *BBMempool) Registry() []Lane {
 	return m.registry
 }

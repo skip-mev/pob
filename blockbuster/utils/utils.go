@@ -7,6 +7,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
+	"github.com/skip-mev/pob/blockbuster"
 )
 
 // GetTxHashStr returns the hex-encoded hash of the transaction alongside the
@@ -52,4 +53,19 @@ func GetMaxTxBytesForLane(maxTxBytes, remainingBytes int64, ratio sdk.Dec) int64
 
 	// Otherwise, we calculate the max tx bytes for the lane based on the ratio.
 	return ratio.MulInt64(maxTxBytes).TruncateInt().Int64()
+}
+
+// UpdateProposal updates the proposal with the given transactions and total size.
+func UpdateProposal(proposal blockbuster.Proposal, txs [][]byte, totalSize int64) blockbuster.Proposal {
+	proposal.TotalTxBytes += totalSize
+	proposal.Txs = append(proposal.Txs, txs...)
+
+	for _, tx := range txs {
+		txHash := sha256.Sum256(tx)
+		txHashStr := hex.EncodeToString(txHash[:])
+
+		proposal.Cache[txHashStr] = struct{}{}
+	}
+
+	return proposal
 }

@@ -1,15 +1,11 @@
-package blockbuster
+package abci
 
 import (
-	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
-
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
+	"github.com/skip-mev/pob/blockbuster"
+	"github.com/skip-mev/pob/blockbuster/lanes/terminator"
 	"github.com/skip-mev/pob/blockbuster/utils"
 )
 
@@ -18,38 +14,17 @@ type (
 	// handlers.
 	ProposalHandler struct {
 		logger              log.Logger
-		prepareLanesHandler PrepareLanesHandler
-		processLanesHandler ProcessLanesHandler
+		prepareLanesHandler blockbuster.PrepareLanesHandler
+		processLanesHandler blockbuster.ProcessLanesHandler
 	}
-
-	// Proposal defines a proposal.
-	Proposal struct {
-		// Txs is the list of transactions in the proposal.
-		Txs [][]byte
-
-		// SelectedTxs is a cache of the selected transactions in the proposal.
-		Cache map[string]struct{}
-
-		// TotalTxBytes is the total number of bytes currently included in the proposal.
-		TotalTxBytes int64
-
-		// MaxTxBytes is the maximum number of bytes that can be included in the proposal.
-		MaxTxBytes int64
-	}
-
-	// PrepareLanesHandler wraps all of the lanes Prepare function into a single function.
-	PrepareLanesHandler func(ctx sdk.Context, proposal Proposal) Proposal
-
-	// ProcessLanesHandler wraps all of the lanes Process function into a single function.
-	ProcessLanesHandler func(ctx sdk.Context, proposalTxs [][]byte) (sdk.Context, error)
 )
 
 // NewProposalHandler returns a new proposal handler.
-func NewProposalHandler(logger log.Logger, mempool *Mempool, txEncoder sdk.TxEncoder) *ProposalHandler {
+func NewProposalHandler(logger log.Logger, mempool blockbuster.Mempool, txEncoder sdk.TxEncoder) *ProposalHandler {
 	return &ProposalHandler{
 		logger:              logger,
-		prepareLanesHandler: ChainPrepareLanes(mempool.registry...),
-		processLanesHandler: ChainProcessLanes(mempool.registry...),
+		prepareLanesHandler: ChainPrepareLanes(mempool.Registry()...),
+		processLanesHandler: ChainProcessLanes(mempool.Registry()...),
 	}
 }
 
@@ -68,7 +43,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 			}
 		}()
 
-		proposal := h.prepareLanesHandler(ctx, Proposal{
+		proposal := h.prepareLanesHandler(ctx, blockbuster.Proposal{
 			Cache:      make(map[string]struct{}),
 			Txs:        make([][]byte, 0),
 			MaxTxBytes: req.MaxTxBytes,
@@ -114,17 +89,17 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 // will be skipped and the next lane in the chain will be called to prepare the proposal.
 //
 // TODO: Determine how expensive the caches are.
-func ChainPrepareLanes(chain ...Lane) PrepareLanesHandler {
+func ChainPrepareLanes(chain ...blockbuster.Lane) blockbuster.PrepareLanesHandler {
 	if len(chain) == 0 {
 		return nil
 	}
 
 	// Handle non-terminated decorators chain
-	if (chain[len(chain)-1] != Terminator{}) {
-		chain = append(chain, Terminator{})
+	if (chain[len(chain)-1] != terminator.Terminator{}) {
+		chain = append(chain, terminator.Terminator{})
 	}
 
-	return func(ctx sdk.Context, partialProposal Proposal) (finalProposal Proposal) {
+	return func(ctx sdk.Context, partialProposal blockbuster.Proposal) (finalProposal blockbuster.Proposal) {
 		lane := chain[0]
 		lane.Logger().Info("preparing lane", "lane", lane.Name())
 
@@ -187,14 +162,14 @@ func ChainPrepareLanes(chain ...Lane) PrepareLanesHandler {
 // ChainProcessLanes chains together the proposal verification logic from each lane
 // into a single function. The first lane in the chain is the first lane to be verified and
 // the last lane in the chain is the last lane to be verified.
-func ChainProcessLanes(chain ...Lane) ProcessLanesHandler {
+func ChainProcessLanes(chain ...blockbuster.Lane) blockbuster.ProcessLanesHandler {
 	if len(chain) == 0 {
 		return nil
 	}
 
 	// Handle non-terminated decorators chain
-	if (chain[len(chain)-1] != Terminator{}) {
-		chain = append(chain, Terminator{})
+	if (chain[len(chain)-1] != terminator.Terminator{}) {
+		chain = append(chain, terminator.Terminator{})
 	}
 
 	return func(ctx sdk.Context, proposalTxs [][]byte) (sdk.Context, error) {
@@ -209,111 +184,4 @@ func ChainProcessLanes(chain ...Lane) ProcessLanesHandler {
 
 		return chain[0].ProcessLane(ctx, proposalTxs, ChainProcessLanes(chain[1:]...))
 	}
-}
-
-// UpdateProposal updates the proposal with the given transactions and total size.
-func UpdateProposal(proposal Proposal, txs [][]byte, totalSize int64) Proposal {
-	proposal.TotalTxBytes += totalSize
-
-	for _, tx := range txs {
-		txHash := sha256.Sum256(tx)
-		txHashStr := hex.EncodeToString(txHash[:])
-
-		proposal.Txs = append(proposal.Txs, tx)
-		proposal.Cache[txHashStr] = struct{}{}
-	}
-
-	return proposal
-}
-
-// Terminator Lane will get added to the chain to simplify chaining code so that we
-// don't need to check if next == nil further up the chain.
-//
-// sniped from the sdk
-//
-//	                      ______
-//	                   <((((((\\\
-//	                   /      . }\
-//	                   ;--..--._|}
-//	(\                 '--/\--'  )
-//	 \\                | '-'  :'|
-//	  \\               . -==- .-|
-//	   \\               \.__.'   \--._
-//	   [\\          __.--|       //  _/'--.
-//	   \ \\       .'-._ ('-----'/ __/      \
-//	    \ \\     /   __>|      | '--.       |
-//	     \ \\   |   \   |     /    /       /
-//	      \ '\ /     \  |     |  _/       /
-//	       \  \       \ |     | /        /
-//	 snd    \  \      \        /
-type Terminator struct{}
-
-var _ Lane = (*Terminator)(nil)
-
-// PrepareLane is a no-op
-func (t Terminator) PrepareLane(_ sdk.Context, proposal Proposal, _ int64, _ PrepareLanesHandler) Proposal {
-	return proposal
-}
-
-// ProcessLane is a no-op
-func (t Terminator) ProcessLane(ctx sdk.Context, _ [][]byte, _ ProcessLanesHandler) (sdk.Context, error) {
-	return ctx, nil
-}
-
-// Name returns the name of the lane
-func (t Terminator) Name() string {
-	return "Terminator"
-}
-
-// Match is a no-op
-func (t Terminator) Match(sdk.Tx) bool {
-	return false
-}
-
-// VerifyTx is a no-op
-func (t Terminator) VerifyTx(sdk.Context, sdk.Tx) error {
-	return fmt.Errorf("Terminator lane should not be called")
-}
-
-// Contains is a no-op
-func (t Terminator) Contains(sdk.Tx) (bool, error) {
-	return false, nil
-}
-
-// CountTx is a no-op
-func (t Terminator) CountTx() int {
-	return 0
-}
-
-// Insert is a no-op
-func (t Terminator) Insert(context.Context, sdk.Tx) error {
-	return nil
-}
-
-// Remove is a no-op
-func (t Terminator) Remove(sdk.Tx) error {
-	return nil
-}
-
-// Select is a no-op
-func (t Terminator) Select(context.Context, [][]byte) sdkmempool.Iterator {
-	return nil
-}
-
-// ValidateLaneBasic is a no-op
-func (t Terminator) ProcessLaneBasic([][]byte) error {
-	return nil
-}
-
-// SetLaneConfig is a no-op
-func (t Terminator) SetAnteHandler(sdk.AnteHandler) {}
-
-// Logger is a no-op
-func (t Terminator) Logger() log.Logger {
-	return log.NewNopLogger()
-}
-
-// GetMaxBlockSpace is a no-op
-func (t Terminator) GetMaxBlockSpace() sdk.Dec {
-	return sdk.ZeroDec()
 }
