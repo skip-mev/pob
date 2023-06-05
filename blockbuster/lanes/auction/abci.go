@@ -186,7 +186,7 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next blockb
 					return ctx, err
 				}
 
-				endIndex += len(bidInfo.Transactions) + 1
+				endIndex = len(bidInfo.Transactions) + 1
 			}
 		}
 	}
