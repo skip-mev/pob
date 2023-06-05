@@ -8,7 +8,7 @@ import (
 )
 
 // PrepareLane will prepare a partial proposal for the base lane.
-func (l *DefaultLane) PrepareLane(ctx sdk.Context, proposal blockbuster.Proposal, next blockbuster.PrepareLanesHandler) blockbuster.Proposal {
+func (l *DefaultLane) PrepareLane(ctx sdk.Context, proposal *blockbuster.Proposal, next blockbuster.PrepareLanesHandler) *blockbuster.Proposal {
 	// Define all of the info we need to select transactions for the partial proposal.
 	txs := make([][]byte, 0)
 	txsToRemove := make(map[sdk.Tx]struct{}, 0)
@@ -61,7 +61,7 @@ func (l *DefaultLane) PrepareLane(ctx sdk.Context, proposal blockbuster.Proposal
 		return proposal
 	}
 
-	proposal = blockbuster.UpdateProposal(proposal, txs, totalSize)
+	blockbuster.UpdateProposal(proposal, txs, totalSize)
 
 	return next(ctx, proposal)
 }

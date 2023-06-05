@@ -13,19 +13,15 @@ type (
 	// handlers.
 	ProposalHandler struct {
 		logger              log.Logger
-		mempool             blockbuster.Mempool
-		txEncoder           sdk.TxEncoder
 		prepareLanesHandler blockbuster.PrepareLanesHandler
 		processLanesHandler blockbuster.ProcessLanesHandler
 	}
 )
 
 // NewProposalHandler returns a new abci++ proposal handler.
-func NewProposalHandler(logger log.Logger, mempool blockbuster.Mempool, txEncoder sdk.TxEncoder) *ProposalHandler {
+func NewProposalHandler(logger log.Logger, mempool blockbuster.Mempool) *ProposalHandler {
 	return &ProposalHandler{
 		logger:              logger,
-		mempool:             mempool,
-		txEncoder:           txEncoder,
 		prepareLanesHandler: ChainPrepareLanes(mempool.Registry()...),
 		processLanesHandler: ChainProcessLanes(mempool.Registry()...),
 	}
@@ -38,7 +34,7 @@ func NewProposalHandler(logger log.Logger, mempool blockbuster.Mempool, txEncode
 // will include all valid transactions in the proposal (up to MaxTxBytes).
 func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 	return func(ctx sdk.Context, req abci.RequestPrepareProposal) abci.ResponsePrepareProposal {
-		proposal := h.prepareLanesHandler(ctx, blockbuster.Proposal{
+		proposal := h.prepareLanesHandler(ctx, &blockbuster.Proposal{
 			SelectedTxs: make(map[string]struct{}),
 			Txs:         make([][]byte, 0),
 			MaxTxBytes:  req.MaxTxBytes,
@@ -76,7 +72,7 @@ func ChainPrepareLanes(chain ...blockbuster.Lane) blockbuster.PrepareLanesHandle
 		chain = append(chain, terminator.Terminator{})
 	}
 
-	return func(ctx sdk.Context, proposal blockbuster.Proposal) blockbuster.Proposal {
+	return func(ctx sdk.Context, proposal *blockbuster.Proposal) *blockbuster.Proposal {
 		return chain[0].PrepareLane(ctx, proposal, ChainPrepareLanes(chain[1:]...))
 	}
 }
