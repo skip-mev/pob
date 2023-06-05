@@ -9,15 +9,16 @@ import (
 )
 
 // PrepareLane will prepare a partial proposal for the base lane.
-func (l *DefaultLane) PrepareLane(ctx sdk.Context, proposal blockbuster.Proposal, next blockbuster.PrepareLanesHandler) blockbuster.Proposal {
+func (l *DefaultLane) PrepareLane(
+	ctx sdk.Context,
+	proposal blockbuster.Proposal,
+	maxTxBytes int64,
+	next blockbuster.PrepareLanesHandler,
+) blockbuster.Proposal {
 	// Define all of the info we need to select transactions for the partial proposal.
 	txs := make([][]byte, 0)
 	txsToRemove := make(map[sdk.Tx]struct{}, 0)
 	totalSize := int64(0)
-
-	// Calculate the max tx bytes for the lane and track the total size of the
-	// transactions we have selected so far.
-	maxTxBytes := utils.GetMaxTxBytesForLane(proposal, l.cfg.MaxBlockSpace)
 
 	// Select all transactions in the mempool that are valid and not already in the
 	// partial proposal.
@@ -57,7 +58,7 @@ func (l *DefaultLane) PrepareLane(ctx sdk.Context, proposal blockbuster.Proposal
 		return proposal
 	}
 
-	proposal = utils.UpdateProposal(proposal, txs, totalSize)
+	proposal = blockbuster.UpdateProposal(proposal, txs, totalSize)
 
 	return next(ctx, proposal)
 }

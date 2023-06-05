@@ -1,13 +1,14 @@
 package blockbuster
 
 import (
-	"context"
-	"fmt"
+	"crypto/sha256"
+	"encoding/hex"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
+	"github.com/skip-mev/pob/blockbuster/lanes/terminator"
+	"github.com/skip-mev/pob/blockbuster/utils"
 )
 
 type (
@@ -117,25 +118,26 @@ func ChainPrepareLanes(chain ...Lane) PrepareLanesHandler {
 	}
 
 	// Handle non-terminated decorators chain
-	if (chain[len(chain)-1] != Terminator{}) {
-		chain = append(chain, Terminator{})
+	if (chain[len(chain)-1] != terminator.Terminator{}) {
+		chain = append(chain, terminator.Terminator{})
 	}
 
 	return func(ctx sdk.Context, partialProposal Proposal) (finalProposal Proposal) {
-		chain[0].Logger().Info("preparing lane", "lane", chain[0].Name())
+		lane := chain[0]
+		lane.Logger().Info("preparing lane", "lane", lane.Name())
 
 		// Cache the context in the case where any of the lanes fail to prepare the proposal.
 		cacheCtx, write := ctx.CacheContext()
 
 		defer func() {
 			if err := recover(); err != nil {
-				chain[0].Logger().Error("failed to prepare lane", "lane", chain[0].Name(), "err", err)
+				lane.Logger().Error("failed to prepare lane", "lane", lane.Name(), "err", err)
 
 				lanesRemaining := len(chain)
 				switch {
 				case lanesRemaining <= 2:
 					// If there are only two lanes remaining, then the first lane in the chain
-					// is the lane that failed to prepare the proposal and the second lane in the
+					// is the lane that failed to prepare the partial proposal and the second lane in the
 					// chain is the terminator lane. We return the proposal as is.
 					finalProposal = partialProposal
 				default:
@@ -143,7 +145,13 @@ func ChainPrepareLanes(chain ...Lane) PrepareLanesHandler {
 					// is the lane that failed to prepare the proposal but the second lane in the
 					// chain is not the terminator lane so there could potentially be more transactions
 					// added to the proposal
-					finalProposal = chain[1].PrepareLane(ctx, partialProposal, ChainPrepareLanes(chain[2:]...))
+					maxTxBytesForLane := utils.GetMaxTxBytesForLane(partialProposal.MaxTxBytes, partialProposal.TotalTxBytes, chain[1].GetMaxBlockSpace())
+					finalProposal = chain[1].PrepareLane(
+						ctx,
+						partialProposal,
+						maxTxBytesForLane,
+						ChainPrepareLanes(chain[2:]...),
+					)
 				}
 
 				return
@@ -153,7 +161,13 @@ func ChainPrepareLanes(chain ...Lane) PrepareLanesHandler {
 			write()
 		}()
 
-		return chain[0].PrepareLane(cacheCtx, partialProposal, ChainPrepareLanes(chain[1:]...))
+		maxTxBytesForLane := utils.GetMaxTxBytesForLane(partialProposal.MaxTxBytes, partialProposal.TotalTxBytes, lane.GetMaxBlockSpace())
+		return lane.PrepareLane(
+			cacheCtx,
+			partialProposal,
+			maxTxBytesForLane,
+			ChainPrepareLanes(chain[1:]...),
+		)
 	}
 }
 
@@ -166,17 +180,16 @@ func ChainProcessLanes(chain ...Lane) ProcessLanesHandler {
 	}
 
 	// Handle non-terminated decorators chain
-	if (chain[len(chain)-1] != Terminator{}) {
-		chain = append(chain, Terminator{})
+	if (chain[len(chain)-1] != terminator.Terminator{}) {
+		chain = append(chain, terminator.Terminator{})
 	}
 
 	return func(ctx sdk.Context, proposalTxs [][]byte) (sdk.Context, error) {
-		chain[0].Logger().Info("processing lane", "lane", chain[0].Name())
-
 		if len(proposalTxs) == 0 {
 			return ctx, nil
 		}
 
+		chain[0].Logger().Info("processing lane", "lane", chain[0].Name())
 		if err := chain[0].ProcessLaneBasic(proposalTxs); err != nil {
 			return ctx, err
 		}
@@ -185,89 +198,17 @@ func ChainProcessLanes(chain ...Lane) ProcessLanesHandler {
 	}
 }
 
-// Terminator Lane will get added to the chain to simplify chaining code so that we
-// don't need to check if next == nil further up the chain.
-//
-// sniped from the sdk
-//
-//	                      ______
-//	                   <((((((\\\
-//	                   /      . }\
-//	                   ;--..--._|}
-//	(\                 '--/\--'  )
-//	 \\                | '-'  :'|
-//	  \\               . -==- .-|
-//	   \\               \.__.'   \--._
-//	   [\\          __.--|       //  _/'--.
-//	   \ \\       .'-._ ('-----'/ __/      \
-//	    \ \\     /   __>|      | '--.       |
-//	     \ \\   |   \   |     /    /       /
-//	      \ '\ /     \  |     |  _/       /
-//	       \  \       \ |     | /        /
-//	 snd    \  \      \        /
-type Terminator struct{}
+// UpdateProposal updates the proposal with the given transactions and total size.
+func UpdateProposal(proposal Proposal, txs [][]byte, totalSize int64) Proposal {
+	proposal.TotalTxBytes += totalSize
 
-var _ Lane = (*Terminator)(nil)
+	for _, tx := range txs {
+		txHash := sha256.Sum256(tx)
+		txHashStr := hex.EncodeToString(txHash[:])
 
-// PrepareLane is a no-op
-func (t Terminator) PrepareLane(_ sdk.Context, proposal Proposal, _ PrepareLanesHandler) Proposal {
+		proposal.Txs = append(proposal.Txs, tx)
+		proposal.Cache[txHashStr] = struct{}{}
+	}
+
 	return proposal
-}
-
-// ProcessLane is a no-op
-func (t Terminator) ProcessLane(ctx sdk.Context, _ [][]byte, _ ProcessLanesHandler) (sdk.Context, error) {
-	return ctx, nil
-}
-
-// Name returns the name of the lane
-func (t Terminator) Name() string {
-	return "Terminator"
-}
-
-// Match is a no-op
-func (t Terminator) Match(sdk.Tx) bool {
-	return false
-}
-
-// VerifyTx is a no-op
-func (t Terminator) VerifyTx(sdk.Context, sdk.Tx) error {
-	return fmt.Errorf("Terminator lane should not be called")
-}
-
-// Contains is a no-op
-func (t Terminator) Contains(sdk.Tx) (bool, error) {
-	return false, nil
-}
-
-// CountTx is a no-op
-func (t Terminator) CountTx() int {
-	return 0
-}
-
-// Insert is a no-op
-func (t Terminator) Insert(context.Context, sdk.Tx) error {
-	return nil
-}
-
-// Remove is a no-op
-func (t Terminator) Remove(sdk.Tx) error {
-	return nil
-}
-
-// Select is a no-op
-func (t Terminator) Select(context.Context, [][]byte) sdkmempool.Iterator {
-	return nil
-}
-
-// ValidateLaneBasic is a no-op
-func (t Terminator) ProcessLaneBasic([][]byte) error {
-	return nil
-}
-
-// SetLaneConfig is a no-op
-func (t Terminator) SetAnteHandler(sdk.AnteHandler) {}
-
-// Logger is a no-op
-func (t Terminator) Logger() log.Logger {
-	return log.NewNopLogger()
 }

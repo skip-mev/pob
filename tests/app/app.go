@@ -70,7 +70,7 @@ import (
 	"github.com/skip-mev/pob/abci"
 	"github.com/skip-mev/pob/blockbuster"
 	"github.com/skip-mev/pob/blockbuster/lanes/auction"
-	"github.com/skip-mev/pob/blockbuster/lanes/base"
+	"github.com/skip-mev/pob/blockbuster/lanes/free"
 	buildermodule "github.com/skip-mev/pob/x/builder"
 	builderkeeper "github.com/skip-mev/pob/x/builder/keeper"
 )
@@ -279,11 +279,11 @@ func New(
 		0,
 		auction.NewDefaultAuctionFactory(app.txConfig.TxDecoder()),
 	)
-	baseLane := base.NewDefaultLane(config)
+	freeLane := free.NewFreeLane(config)
 
 	lanes := []blockbuster.Lane{
 		tobLane,
-		baseLane,
+		freeLane,
 	}
 	mempool := blockbuster.NewMempool(lanes...)
 	app.App.SetMempool(mempool)
@@ -304,6 +304,7 @@ func New(
 		TOBLane:       tobLane,
 		TxDecoder:     app.txConfig.TxDecoder(),
 		TxEncoder:     app.txConfig.TxEncoder(),
+		FreeLane:      freeLane,
 	}
 	anteHandler := NewPOBAnteHandler(options)
 

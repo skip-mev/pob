@@ -51,3 +51,8 @@ func (l *DefaultLane) Logger() log.Logger {
 func (l *DefaultLane) SetAnteHandler(anteHandler sdk.AnteHandler) {
 	l.cfg.AnteHandler = anteHandler
 }
+
+// GetMaxBlockSpace returns the maximum block space for the lane.
+func (l *DefaultLane) GetMaxBlockSpace() sdk.Dec {
+	return l.cfg.MaxBlockSpace
+}

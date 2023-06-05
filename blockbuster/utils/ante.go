@@ -12,15 +12,15 @@ type (
 		Match(tx sdk.Tx) bool
 	}
 
-	IgnoreDecorator[D sdk.AnteDecorator] struct {
-		decorator D
+	IgnoreDecorator struct {
+		decorator sdk.AnteDecorator
 		lanes     []Lane
 	}
 )
 
 // NewIgnoreDecorator returns a new IgnoreDecorator[D, M] instance.
-func NewIgnoreDecorator[D sdk.AnteDecorator](decorator D, lanes ...Lane) *IgnoreDecorator[D] {
-	return &IgnoreDecorator[D]{
+func NewIgnoreDecorator(decorator sdk.AnteDecorator, lanes ...Lane) *IgnoreDecorator {
+	return &IgnoreDecorator{
 		decorator: decorator,
 		lanes:     lanes,
 	}
@@ -28,7 +28,7 @@ func NewIgnoreDecorator[D sdk.AnteDecorator](decorator D, lanes ...Lane) *Ignore
 
 // AnteHandle implements the sdk.AnteDecorator interface, it is handle the
 // type check for the message type.
-func (sd IgnoreDecorator[D]) AnteHandle(
+func (sd IgnoreDecorator) AnteHandle(
 	ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler,
 ) (sdk.Context, error) {
 	for _, lane := range sd.lanes {

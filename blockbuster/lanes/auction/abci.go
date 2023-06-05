@@ -12,14 +12,10 @@ import (
 // PrepareLane will attempt to select the highest bid transaction that is valid
 // and whose bundled transactions are valid and include them in the proposal. It
 // will return an empty partial proposal if no valid bids are found.
-func (l *TOBLane) PrepareLane(ctx sdk.Context, proposal blockbuster.Proposal, next blockbuster.PrepareLanesHandler) blockbuster.Proposal {
+func (l *TOBLane) PrepareLane(ctx sdk.Context, proposal blockbuster.Proposal, maxTxBytes int64, next blockbuster.PrepareLanesHandler) blockbuster.Proposal {
 	// Define all of the info we need to select transactions for the partial proposal.
 	txs := make([][]byte, 0)
 	txsToRemove := make(map[sdk.Tx]struct{}, 0)
-
-	// Calculate the max tx bytes for the lane and track the total size of the
-	// transactions we have selected so far.
-	maxTxBytes := utils.GetMaxTxBytesForLane(proposal, l.cfg.MaxBlockSpace)
 	totalSize := int64(0)
 
 	// Attempt to select the highest bid transaction that is valid and whose
@@ -114,7 +110,7 @@ selectBidTxLoop:
 	}
 
 	// Update the proposal with the selected transactions.
-	proposal = utils.UpdateProposal(proposal, txs, totalSize)
+	proposal = blockbuster.UpdateProposal(proposal, txs, totalSize)
 
 	return next(ctx, proposal)
 }

@@ -44,20 +44,23 @@ type (
 		// number of bytes that can be included in the block and the selected transactions
 		// thus from from previous lane(s) as mapping from their HEX-encoded hash to
 		// the raw transaction.
-		PrepareLane(ctx sdk.Context, proposal Proposal, next PrepareLanesHandler) Proposal
-
-		// ProcessLane verifies this lane's portion of a proposed block.
-		ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next ProcessLanesHandler) (sdk.Context, error)
+		PrepareLane(ctx sdk.Context, proposal Proposal, maxTxBytes int64, next PrepareLanesHandler) Proposal
 
 		// ProcessLaneBasic validates that transactions belonging to this lane are not misplaced
 		// in the block proposal.
 		ProcessLaneBasic(txs [][]byte) error
+
+		// ProcessLane verifies this lane's portion of a proposed block.
+		ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next ProcessLanesHandler) (sdk.Context, error)
 
 		// SetAnteHandler sets the lane's antehandler.
 		SetAnteHandler(antehander sdk.AnteHandler)
 
 		// Logger returns the lane's logger.
 		Logger() log.Logger
+
+		// GetMaxBlockSpace returns the max block space for the lane.
+		GetMaxBlockSpace() sdk.Dec
 	}
 )
 
