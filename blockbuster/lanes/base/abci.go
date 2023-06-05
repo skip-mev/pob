@@ -39,7 +39,7 @@ func (l *DefaultLane) PrepareLane(ctx sdk.Context, proposal blockbuster.Proposal
 			continue
 		}
 
-		// if the transaction is too big, we break and do not attempt to include more txs.
+		// If the transaction is too large, we break and do not attempt to include more txs.
 		txSize := int64(len(txBytes))
 		if updatedSize := totalSize + txSize; updatedSize > maxTxBytes {
 			break

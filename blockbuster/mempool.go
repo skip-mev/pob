@@ -10,11 +10,15 @@ import (
 var _ Mempool = (*BBMempool)(nil)
 
 type (
+	// Mempool defines the Blockbuster mempool interface.
 	Mempool interface {
 		sdkmempool.Mempool
 
 		// Registry returns the mempool's lane registry.
 		Registry() []Lane
+
+		// Contains returns true if the transaction is contained in the mempool.
+		Contains(tx sdk.Tx) (bool, error)
 	}
 
 	// Mempool defines the Blockbuster mempool implement. It contains a registry

@@ -56,12 +56,12 @@ func GetMaxTxBytesForLane(proposal Proposal, ratio sdk.Dec) int64 {
 // UpdateProposal updates the proposal with the given transactions and total size.
 func UpdateProposal(proposal Proposal, txs [][]byte, totalSize int64) Proposal {
 	proposal.TotalTxBytes += totalSize
+	proposal.Txs = append(proposal.Txs, txs...)
 
 	for _, tx := range txs {
 		txHash := sha256.Sum256(tx)
 		txHashStr := hex.EncodeToString(txHash[:])
 
-		proposal.Txs = append(proposal.Txs, tx)
 		proposal.SelectedTxs[txHashStr] = struct{}{}
 	}
 

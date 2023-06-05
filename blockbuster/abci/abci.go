@@ -20,7 +20,7 @@ type (
 	}
 )
 
-// NewProposalHandler returns a new proposal handler.
+// NewProposalHandler returns a new abci++ proposal handler.
 func NewProposalHandler(logger log.Logger, mempool blockbuster.Mempool, txEncoder sdk.TxEncoder) *ProposalHandler {
 	return &ProposalHandler{
 		logger:              logger,
