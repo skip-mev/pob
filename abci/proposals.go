@@ -97,7 +97,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		txs = append(txs, auctionInfoBz)
 		txs = append(txs, topOfBlock.Txs...)
 
-		proposal := blockbuster.Proposal{
+		proposal := &blockbuster.Proposal{
 			Txs:          txs,
 			Cache:        topOfBlock.Cache,
 			TotalTxBytes: topOfBlock.Size,

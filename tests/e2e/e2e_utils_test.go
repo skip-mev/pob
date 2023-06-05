@@ -16,6 +16,7 @@ import (
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	buildertypes "github.com/skip-mev/pob/x/builder/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -325,4 +326,15 @@ func (s *IntegrationTestSuite) queryBlockTxs(height uint64) [][]byte {
 	s.Require().NoError(err)
 
 	return resp.GetSdkBlock().Data.Txs
+}
+
+// queryValidators returns the validators of the network.
+func (s *IntegrationTestSuite) queryValidators() []stakingtypes.Validator {
+	queryClient := stakingtypes.NewQueryClient(s.createClientContext())
+
+	req := &stakingtypes.QueryValidatorsRequest{}
+	resp, err := queryClient.Validators(context.Background(), req)
+	s.Require().NoError(err)
+
+	return resp.Validators
 }

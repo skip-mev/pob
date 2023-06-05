@@ -3,8 +3,6 @@
 package e2e
 
 import (
-	"fmt"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/tests/app"
 )
@@ -1012,12 +1010,13 @@ func (s *IntegrationTestSuite) TestFreeLanes() {
 	numAccounts := 4
 	accounts := s.createTestAccounts(numAccounts, initBalance)
 
-	// basic send amount
-	defaultSendAmount := sdk.NewCoins(sdk.NewCoin(app.BondDenom, sdk.NewInt(10)))
-
 	balanceBefore := s.queryBalanceOf(accounts[0].Address.String(), app.BondDenom)
 
-	tx := s.createMsgSendTx(accounts[0], accounts[1].Address.String(), defaultSendAmount, 0, 1000)
+	// basic stake amount
+	defaultStakeAmount := sdk.NewCoin(app.BondDenom, sdk.NewInt(10))
+	validators := s.queryValidators()
+	validator := validators[0]
+	tx := s.createMsgDelegateTx(accounts[0], validator.OperatorAddress, defaultStakeAmount, 0, 1000)
 
 	// Broadcast the transaction
 	s.broadcastTx(tx, 0)
@@ -1028,7 +1027,5 @@ func (s *IntegrationTestSuite) TestFreeLanes() {
 	// Ensure that the transaction was executed
 	balanceAfter := s.queryBalanceOf(accounts[0].Address.String(), app.BondDenom)
 
-	fmt.Println(balanceBefore, balanceAfter)
-
-	s.Require().Equal(balanceBefore.Sub(sdk.NewCoin(app.BondDenom, sdk.NewInt(10))), balanceAfter)
+	s.Require().Equal(balanceBefore.Sub(defaultStakeAmount), balanceAfter)
 }

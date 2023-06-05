@@ -43,11 +43,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 			}
 		}()
 
-		proposal := h.prepareLanesHandler(ctx, blockbuster.Proposal{
-			Cache:      make(map[string]struct{}),
-			Txs:        make([][]byte, 0),
-			MaxTxBytes: req.MaxTxBytes,
-		})
+		proposal := h.prepareLanesHandler(ctx, blockbuster.NewProposal(req.MaxTxBytes))
 
 		resp = abci.ResponsePrepareProposal{
 			Txs: proposal.Txs,
@@ -144,8 +140,7 @@ func ChainPrepareLanes(chain ...blockbuster.Lane) blockbuster.PrepareLanesHandle
 
 		// Get the maximum number of bytes that can be included in the proposal for this lane.
 		maxTxBytesForLane := utils.GetMaxTxBytesForLane(
-			partialProposal.MaxTxBytes,
-			partialProposal.TotalTxBytes,
+			partialProposal,
 			lane.GetMaxBlockSpace(),
 		)
 

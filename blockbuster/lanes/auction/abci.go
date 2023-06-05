@@ -12,7 +12,12 @@ import (
 // PrepareLane will attempt to select the highest bid transaction that is valid
 // and whose bundled transactions are valid and include them in the proposal. It
 // will return an empty partial proposal if no valid bids are found.
-func (l *TOBLane) PrepareLane(ctx sdk.Context, proposal blockbuster.Proposal, maxTxBytes int64, next blockbuster.PrepareLanesHandler) blockbuster.Proposal {
+func (l *TOBLane) PrepareLane(
+	ctx sdk.Context,
+	proposal *blockbuster.Proposal,
+	maxTxBytes int64,
+	next blockbuster.PrepareLanesHandler,
+) *blockbuster.Proposal {
 	// Define all of the info we need to select transactions for the partial proposal.
 	var (
 		totalSize   int64

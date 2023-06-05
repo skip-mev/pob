@@ -317,11 +317,11 @@ func New(
 	options := POBHandlerOptions{
 		BaseOptions:   handlerOptions,
 		BuilderKeeper: app.BuilderKeeper,
-		Mempool:       mempool,
-		TOBLane:       tobLane,
 		TxDecoder:     app.txConfig.TxDecoder(),
 		TxEncoder:     app.txConfig.TxEncoder(),
 		FreeLane:      freeLane,
+		TOBLane:       tobLane,
+		Mempool:       mempool,
 	}
 	anteHandler := NewPOBAnteHandler(options)
 
@@ -334,7 +334,6 @@ func New(
 	proposalHandlers := abci.NewProposalHandler(
 		app.Logger(),
 		mempool,
-		app.txConfig.TxEncoder(),
 	)
 	app.App.SetPrepareProposal(proposalHandlers.PrepareProposalHandler())
 	app.App.SetProcessProposal(proposalHandlers.ProcessProposalHandler())

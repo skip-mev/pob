@@ -72,7 +72,7 @@ type (
 		// number of bytes that can be included in the block and the selected transactions
 		// thus from from previous lane(s) as mapping from their HEX-encoded hash to
 		// the raw transaction.
-		PrepareLane(ctx sdk.Context, proposal Proposal, maxTxBytes int64, next PrepareLanesHandler) Proposal
+		PrepareLane(ctx sdk.Context, proposal *Proposal, maxTxBytes int64, next PrepareLanesHandler) *Proposal
 
 		// ProcessLaneBasic validates that transactions belonging to this lane are not misplaced
 		// in the block proposal.

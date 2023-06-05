@@ -37,13 +37,13 @@ func RemoveTxsFromLane(txs map[sdk.Tx]struct{}, mempool sdkmempool.Mempool) erro
 
 // GetMaxTxBytesForLane returns the maximum number of bytes that can be included in the proposal
 // for the given lane.
-func GetMaxTxBytesForLane(maxTxBytes, remainingBytes int64, ratio sdk.Dec) int64 {
+func GetMaxTxBytesForLane(proposal *blockbuster.Proposal, ratio sdk.Dec) int64 {
 	// In the case where the ratio is zero, we return the max tx bytes remaining. Note, the only
 	// lane that should have a ratio of zero is the default lane. This means the default lane
 	// will have no limit on the number of transactions it can include in a block and is only
 	// limited by the maxTxBytes included in the PrepareProposalRequest.
 	if ratio.IsZero() {
-		remainder := maxTxBytes - remainingBytes
+		remainder := proposal.MaxTxBytes - proposal.TotalTxBytes
 		if remainder < 0 {
 			return 0
 		}
@@ -52,20 +52,5 @@ func GetMaxTxBytesForLane(maxTxBytes, remainingBytes int64, ratio sdk.Dec) int64
 	}
 
 	// Otherwise, we calculate the max tx bytes for the lane based on the ratio.
-	return ratio.MulInt64(maxTxBytes).TruncateInt().Int64()
-}
-
-// UpdateProposal updates the proposal with the given transactions and total size.
-func UpdateProposal(proposal blockbuster.Proposal, txs [][]byte, totalSize int64) blockbuster.Proposal {
-	proposal.TotalTxBytes += totalSize
-	proposal.Txs = append(proposal.Txs, txs...)
-
-	for _, tx := range txs {
-		txHash := sha256.Sum256(tx)
-		txHashStr := hex.EncodeToString(txHash[:])
-
-		proposal.Cache[txHashStr] = struct{}{}
-	}
-
-	return proposal
+	return ratio.MulInt64(proposal.MaxTxBytes).TruncateInt().Int64()
 }

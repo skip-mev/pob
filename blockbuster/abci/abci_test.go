@@ -135,7 +135,7 @@ func (suite *ABCITestSuite) SetupTest() {
 	suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxEncoder(), suite.tobLane, suite.mempool)
 
 	// Proposal handler set up
-	suite.proposalHandler = abci.NewProposalHandler(log.NewNopLogger(), suite.mempool, suite.encodingConfig.TxConfig.TxEncoder())
+	suite.proposalHandler = abci.NewProposalHandler(log.NewNopLogger(), suite.mempool)
 }
 
 func (suite *ABCITestSuite) anteHandler(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
@@ -422,7 +422,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 			suite.builderKeeper.SetParams(suite.ctx, params)
 			suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxEncoder(), suite.tobLane, suite.mempool)
 
-			suite.proposalHandler = abci.NewProposalHandler(suite.logger, suite.mempool, suite.encodingConfig.TxConfig.TxEncoder())
+			suite.proposalHandler = abci.NewProposalHandler(suite.logger, suite.mempool)
 			handler := suite.proposalHandler.PrepareProposalHandler()
 			res := handler(suite.ctx, abcitypes.RequestPrepareProposal{
 				MaxTxBytes: maxTxBytes,
