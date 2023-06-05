@@ -2,7 +2,6 @@ package free
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/skip-mev/pob/blockbuster"
 	"github.com/skip-mev/pob/blockbuster/lanes/base"
 )
@@ -18,11 +17,13 @@ var _ blockbuster.Lane = (*FreeLane)(nil)
 // index along with core lane functionality.
 type FreeLane struct {
 	*base.DefaultLane
+	Factory
 }
 
-func NewFreeLane(cfg blockbuster.BaseLaneConfig) *FreeLane {
+func NewFreeLane(cfg blockbuster.BaseLaneConfig, factory Factory) *FreeLane {
 	return &FreeLane{
 		DefaultLane: base.NewDefaultLane(cfg),
+		Factory:     factory,
 	}
 }
 
@@ -30,16 +31,7 @@ func NewFreeLane(cfg blockbuster.BaseLaneConfig) *FreeLane {
 // this is the default lane, it always returns true. This means that
 // any transaction can be included in this lane.
 func (l *FreeLane) Match(tx sdk.Tx) bool {
-	for _, msg := range tx.GetMsgs() {
-		switch msg.(type) {
-		case *types.MsgDelegate:
-			return true
-		case *types.MsgBeginRedelegate:
-			return true
-		}
-	}
-
-	return false
+	return l.IsFreeTx(tx)
 }
 
 // Name returns the name of the lane.

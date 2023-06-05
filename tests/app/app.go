@@ -70,6 +70,7 @@ import (
 	"github.com/skip-mev/pob/abci"
 	"github.com/skip-mev/pob/blockbuster"
 	"github.com/skip-mev/pob/blockbuster/lanes/auction"
+	"github.com/skip-mev/pob/blockbuster/lanes/base"
 	"github.com/skip-mev/pob/blockbuster/lanes/free"
 	buildermodule "github.com/skip-mev/pob/x/builder"
 	builderkeeper "github.com/skip-mev/pob/x/builder/keeper"
@@ -274,17 +275,33 @@ func New(
 		TxDecoder:     app.txConfig.TxDecoder(),
 		MaxBlockSpace: sdk.ZeroDec(),
 	}
+
+	// Create the lanes.
+	//
+	// NOTE: The lanes are ordered by priority. The first lane is the highest priority
+	// lane and the last lane is the lowest priority lane.
+
+	// Top of block lane allows transactions to bid for inclusion at the top of the next block.
 	tobLane := auction.NewTOBLane(
 		config,
 		0,
 		auction.NewDefaultAuctionFactory(app.txConfig.TxDecoder()),
 	)
-	freeLane := free.NewFreeLane(config)
 
+	// Free lane allows transactions to be included in the next block for free.
+	freeLane := free.NewFreeLane(
+		config,
+		free.NewDefaultFreeFactory(app.txConfig.TxDecoder()),
+	)
+
+	// Default lane accepts all other transactions.
+	defaultLane := base.NewDefaultLane(config)
 	lanes := []blockbuster.Lane{
 		tobLane,
 		freeLane,
+		defaultLane,
 	}
+
 	mempool := blockbuster.NewMempool(lanes...)
 	app.App.SetMempool(mempool)
 
