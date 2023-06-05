@@ -20,7 +20,7 @@ type DefaultLane struct {
 	Mempool
 
 	// LaneConfig defines the base lane configuration.
-	cfg blockbuster.BaseLaneConfig
+	Cfg blockbuster.BaseLaneConfig
 }
 
 func NewDefaultLane(cfg blockbuster.BaseLaneConfig) *DefaultLane {
@@ -30,7 +30,7 @@ func NewDefaultLane(cfg blockbuster.BaseLaneConfig) *DefaultLane {
 
 	return &DefaultLane{
 		Mempool: NewDefaultMempool(cfg.TxEncoder),
-		cfg:     cfg,
+		Cfg:     cfg,
 	}
 }
 
@@ -48,15 +48,15 @@ func (l *DefaultLane) Name() string {
 
 // Logger returns the lane's logger.
 func (l *DefaultLane) Logger() log.Logger {
-	return l.cfg.Logger
+	return l.Cfg.Logger
 }
 
 // SetAnteHandler sets the lane's configuration.
 func (l *DefaultLane) SetAnteHandler(anteHandler sdk.AnteHandler) {
-	l.cfg.AnteHandler = anteHandler
+	l.Cfg.AnteHandler = anteHandler
 }
 
 // GetMaxBlockSpace returns the maximum block space for the lane.
 func (l *DefaultLane) GetMaxBlockSpace() sdk.Dec {
-	return l.cfg.MaxBlockSpace
+	return l.Cfg.MaxBlockSpace
 }

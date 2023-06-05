@@ -33,7 +33,7 @@ selectBidTxLoop:
 		cacheCtx, write := ctx.CacheContext()
 		tmpBidTx := bidTxIterator.Tx()
 
-		bidTxBz, txHash, err := utils.GetTxHashStr(l.cfg.TxEncoder, tmpBidTx)
+		bidTxBz, txHash, err := utils.GetTxHashStr(l.Cfg.TxEncoder, tmpBidTx)
 		if err != nil {
 			txsToRemove[tmpBidTx] = struct{}{}
 			continue
@@ -71,7 +71,7 @@ selectBidTxLoop:
 					continue selectBidTxLoop
 				}
 
-				sdkTxBz, hash, err := utils.GetTxHashStr(l.cfg.TxEncoder, sdkTx)
+				sdkTxBz, hash, err := utils.GetTxHashStr(l.Cfg.TxEncoder, sdkTx)
 				if err != nil {
 					txsToRemove[tmpBidTx] = struct{}{}
 					continue selectBidTxLoop
@@ -103,7 +103,7 @@ selectBidTxLoop:
 		}
 
 		txsToRemove[tmpBidTx] = struct{}{}
-		l.cfg.Logger.Info(
+		l.Cfg.Logger.Info(
 			"failed to select auction bid tx; tx size is too large",
 			"tx_size", bidTxSize,
 			"max_size", proposal.MaxTxBytes,
@@ -112,7 +112,7 @@ selectBidTxLoop:
 
 	// Remove all transactions that were invalid during the creation of the partial proposal.
 	if err := utils.RemoveTxsFromLane(txsToRemove, l.Mempool); err != nil {
-		l.cfg.Logger.Error("failed to remove txs from mempool", "lane", l.Name(), "err", err)
+		l.Cfg.Logger.Error("failed to remove txs from mempool", "lane", l.Name(), "err", err)
 		return proposal
 	}
 
@@ -128,7 +128,7 @@ selectBidTxLoop:
 // respect the ordering of transactions in the bid transaction or if the bid/bundled
 // transactions are invalid.
 func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next blockbuster.ProcessLanesHandler) (sdk.Context, error) {
-	tx, err := l.cfg.TxDecoder(proposalTxs[0])
+	tx, err := l.Cfg.TxDecoder(proposalTxs[0])
 	if err != nil {
 		return ctx, fmt.Errorf("failed to decode tx in lane %s: %w", l.Name(), err)
 	}
@@ -156,7 +156,7 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next blockb
 // after the bid transaction. We enforce that at most one auction bid transaction
 // is included in the block proposal.
 func (l *TOBLane) ProcessLaneBasic(txs [][]byte) error {
-	tx, err := l.cfg.TxDecoder(txs[0])
+	tx, err := l.Cfg.TxDecoder(txs[0])
 	if err != nil {
 		return fmt.Errorf("failed to decode tx in lane %s: %w", l.Name(), err)
 	}
@@ -164,7 +164,7 @@ func (l *TOBLane) ProcessLaneBasic(txs [][]byte) error {
 	// If there is a bid transaction, it must be the first transaction in the block proposal.
 	if !l.Match(tx) {
 		for _, txBz := range txs[1:] {
-			tx, err := l.cfg.TxDecoder(txBz)
+			tx, err := l.Cfg.TxDecoder(txBz)
 			if err != nil {
 				return fmt.Errorf("failed to decode tx in lane %s: %w", l.Name(), err)
 			}
@@ -197,7 +197,7 @@ func (l *TOBLane) ProcessLaneBasic(txs [][]byte) error {
 			return fmt.Errorf("multiple bid transactions in lane %s", l.Name())
 		}
 
-		txBz, err := l.cfg.TxEncoder(tx)
+		txBz, err := l.Cfg.TxEncoder(tx)
 		if err != nil {
 			return fmt.Errorf("failed to encode bundled tx in lane %s: %w", l.Name(), err)
 		}
@@ -209,7 +209,7 @@ func (l *TOBLane) ProcessLaneBasic(txs [][]byte) error {
 
 	// Ensure that there are no more bid transactions in the block proposal.
 	for _, txBz := range txs[len(bidInfo.Transactions)+1:] {
-		tx, err := l.cfg.TxDecoder(txBz)
+		tx, err := l.Cfg.TxDecoder(txBz)
 		if err != nil {
 			return fmt.Errorf("failed to decode tx in lane %s: %w", l.Name(), err)
 		}
@@ -261,8 +261,8 @@ func (l *TOBLane) VerifyTx(ctx sdk.Context, bidTx sdk.Tx) error {
 // verifyTx will execute the ante handler on the transaction and return the
 // resulting context and error.
 func (l *TOBLane) verifyTx(ctx sdk.Context, tx sdk.Tx) (sdk.Context, error) {
-	if l.cfg.AnteHandler != nil {
-		newCtx, err := l.cfg.AnteHandler(ctx, tx, false)
+	if l.Cfg.AnteHandler != nil {
+		newCtx, err := l.Cfg.AnteHandler(ctx, tx, false)
 		return newCtx, err
 	}
 

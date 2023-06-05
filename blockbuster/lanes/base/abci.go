@@ -27,7 +27,7 @@ func (l *DefaultLane) PrepareLane(
 	for iterator := l.Mempool.Select(ctx, nil); iterator != nil; iterator = iterator.Next() {
 		tx := iterator.Tx()
 
-		txBytes, hash, err := utils.GetTxHashStr(l.cfg.TxEncoder, tx)
+		txBytes, hash, err := utils.GetTxHashStr(l.Cfg.TxEncoder, tx)
 		if err != nil {
 			txsToRemove[tx] = struct{}{}
 			continue
@@ -56,7 +56,7 @@ func (l *DefaultLane) PrepareLane(
 
 	// Remove all transactions that were invalid during the creation of the partial proposal.
 	if err := utils.RemoveTxsFromLane(txsToRemove, l.Mempool); err != nil {
-		l.cfg.Logger.Error("failed to remove txs from mempool", "lane", l.Name(), "err", err)
+		l.Cfg.Logger.Error("failed to remove txs from mempool", "lane", l.Name(), "err", err)
 		return proposal
 	}
 
@@ -68,7 +68,7 @@ func (l *DefaultLane) PrepareLane(
 // ProcessLane verifies the default lane's portion of a block proposal.
 func (l *DefaultLane) ProcessLane(ctx sdk.Context, proposalTxs [][]byte, next blockbuster.ProcessLanesHandler) (sdk.Context, error) {
 	for index, tx := range proposalTxs {
-		tx, err := l.cfg.TxDecoder(tx)
+		tx, err := l.Cfg.TxDecoder(tx)
 		if err != nil {
 			return ctx, fmt.Errorf("failed to decode tx: %w", err)
 		}
@@ -93,7 +93,7 @@ func (l *DefaultLane) ProcessLaneBasic(txs [][]byte) error {
 	lastSeenIndex := 0
 
 	for _, txBz := range txs {
-		tx, err := l.cfg.TxDecoder(txBz)
+		tx, err := l.Cfg.TxDecoder(txBz)
 		if err != nil {
 			return fmt.Errorf("failed to decode tx in lane %s: %w", l.Name(), err)
 		}
@@ -115,8 +115,8 @@ func (l *DefaultLane) ProcessLaneBasic(txs [][]byte) error {
 
 // VerifyTx does basic verification of the transaction using the ante handler.
 func (l *DefaultLane) VerifyTx(ctx sdk.Context, tx sdk.Tx) error {
-	if l.cfg.AnteHandler != nil {
-		_, err := l.cfg.AnteHandler(ctx, tx, false)
+	if l.Cfg.AnteHandler != nil {
+		_, err := l.Cfg.AnteHandler(ctx, tx, false)
 		return err
 	}
 
