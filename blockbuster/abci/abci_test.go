@@ -1,22 +1,179 @@
-package blockbuster_test
+package abci_test
 
 import (
+	"math/big"
+	"math/rand"
+	"testing"
+	"time"
+
+	"github.com/cometbft/cometbft/libs/log"
+	storetypes "github.com/cosmos/cosmos-sdk/store/types"
+	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/golang/mock/gomock"
 	"github.com/skip-mev/pob/blockbuster"
+	"github.com/skip-mev/pob/blockbuster/abci"
 	"github.com/skip-mev/pob/blockbuster/lanes/auction"
 	"github.com/skip-mev/pob/blockbuster/lanes/base"
 	testutils "github.com/skip-mev/pob/testutils"
 	"github.com/skip-mev/pob/x/builder/ante"
+	"github.com/skip-mev/pob/x/builder/keeper"
+	buildertypes "github.com/skip-mev/pob/x/builder/types"
+	"github.com/stretchr/testify/suite"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
-	buildertypes "github.com/skip-mev/pob/x/builder/types"
 )
+
+type ABCITestSuite struct {
+	suite.Suite
+	logger log.Logger
+	ctx    sdk.Context
+
+	// Define basic tx configuration
+	encodingConfig testutils.EncodingConfig
+	auctionFactory auction.Factory
+
+	// Define all of the lanes utilized in the test suite
+	config        blockbuster.BaseLaneConfig
+	tobBlockSpace sdk.Dec
+	tobLane       *auction.TOBLane
+
+	baseLane *base.DefaultLane
+
+	lanes   []blockbuster.Lane
+	mempool blockbuster.Mempool
+
+	// Proposal handler set up
+	proposalHandler *abci.ProposalHandler
+
+	// account set up
+	accounts []testutils.Account
+	random   *rand.Rand
+	nonces   map[string]uint64
+
+	// Keeper set up
+	builderKeeper    keeper.Keeper
+	bankKeeper       *testutils.MockBankKeeper
+	accountKeeper    *testutils.MockAccountKeeper
+	distrKeeper      *testutils.MockDistributionKeeper
+	stakingKeeper    *testutils.MockStakingKeeper
+	builderDecorator ante.BuilderDecorator
+}
+
+func TestBlockBusterTestSuite(t *testing.T) {
+	suite.Run(t, new(ABCITestSuite))
+}
+
+func (suite *ABCITestSuite) SetupTest() {
+	// General config for transactions and randomness for the test suite
+	suite.encodingConfig = testutils.CreateTestEncodingConfig()
+	suite.random = rand.New(rand.NewSource(time.Now().Unix()))
+	key := sdk.NewKVStoreKey(buildertypes.StoreKey)
+	testCtx := testutil.DefaultContextWithDB(suite.T(), key, storetypes.NewTransientStoreKey("transient_test"))
+	suite.ctx = testCtx.Ctx.WithBlockHeight(1)
+
+	// Lanes configuration
+	//
+	// TOB lane set up
+	suite.config = blockbuster.BaseLaneConfig{
+		Logger:        suite.logger,
+		TxEncoder:     suite.encodingConfig.TxConfig.TxEncoder(),
+		TxDecoder:     suite.encodingConfig.TxConfig.TxDecoder(),
+		AnteHandler:   suite.anteHandler,
+		MaxBlockSpace: sdk.ZeroDec(),
+	}
+
+	suite.auctionFactory = auction.NewDefaultAuctionFactory(suite.encodingConfig.TxConfig.TxDecoder())
+	suite.tobBlockSpace = sdk.NewDecFromBigIntWithPrec(big.NewInt(1), 1) // 10% of the block space
+	suite.tobLane = auction.NewTOBLane(
+		suite.config,
+		0, // No bound on the number of transactions in the lane
+		suite.auctionFactory,
+	)
+
+	// Base lane set up
+	suite.baseLane = base.NewDefaultLane(
+		suite.config,
+	)
+
+	// Mempool set up
+	suite.lanes = []blockbuster.Lane{suite.tobLane, suite.baseLane}
+	suite.mempool = blockbuster.NewMempool(suite.lanes...)
+
+	// Accounts set up
+	suite.accounts = testutils.RandomAccounts(suite.random, 10)
+	suite.nonces = make(map[string]uint64)
+	for _, acc := range suite.accounts {
+		suite.nonces[acc.Address.String()] = 0
+	}
+
+	// Set up the keepers and decorators
+	// Mock keepers set up
+	ctrl := gomock.NewController(suite.T())
+	suite.accountKeeper = testutils.NewMockAccountKeeper(ctrl)
+	suite.accountKeeper.EXPECT().GetModuleAddress(buildertypes.ModuleName).Return(sdk.AccAddress{}).AnyTimes()
+	suite.bankKeeper = testutils.NewMockBankKeeper(ctrl)
+	suite.distrKeeper = testutils.NewMockDistributionKeeper(ctrl)
+	suite.stakingKeeper = testutils.NewMockStakingKeeper(ctrl)
+
+	// Builder keeper / decorator set up
+	suite.builderKeeper = keeper.NewKeeper(
+		suite.encodingConfig.Codec,
+		key,
+		suite.accountKeeper,
+		suite.bankKeeper,
+		suite.distrKeeper,
+		suite.stakingKeeper,
+		sdk.AccAddress([]byte("authority")).String(),
+	)
+
+	// Set the default params for the builder keeper
+	err := suite.builderKeeper.SetParams(suite.ctx, buildertypes.DefaultParams())
+	suite.Require().NoError(err)
+
+	// Set up the ante handler
+	suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxEncoder(), suite.tobLane, suite.mempool)
+
+	// Proposal handler set up
+	suite.proposalHandler = abci.NewProposalHandler(log.NewNopLogger(), suite.mempool, suite.encodingConfig.TxConfig.TxEncoder())
+}
+
+func (suite *ABCITestSuite) anteHandler(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
+	signer := tx.GetMsgs()[0].GetSigners()[0]
+	suite.bankKeeper.EXPECT().GetAllBalances(ctx, signer).AnyTimes().Return(
+		sdk.NewCoins(
+			sdk.NewCoin("foo", sdk.NewInt(100000000000000)),
+		),
+	)
+
+	next := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
+		return ctx, nil
+	}
+
+	return suite.builderDecorator.AnteHandle(ctx, tx, false, next)
+}
+
+func (suite *ABCITestSuite) resetLanes() {
+	suite.tobLane = auction.NewTOBLane(
+		suite.config,
+		0, // No bound on the number of transactions in the lane
+		suite.auctionFactory,
+	)
+
+	// Base lane set up
+	suite.baseLane = base.NewDefaultLane(
+		suite.config,
+	)
+
+	suite.lanes = []blockbuster.Lane{suite.tobLane, suite.baseLane}
+	suite.mempool = blockbuster.NewMempool(suite.lanes...)
+}
 
 // TODO:
 // - Test the case where partial proposals do not exceed the amount they should build
 // - Test the case where the mempool is empty
 // - Test the case where the maxTxBytes is small
-func (suite *BlockBusterTestSuite) TestPrepareProposal() {
+func (suite *ABCITestSuite) TestPrepareProposal() {
 	var (
 		// the modified transactions cannot exceed this size
 		maxTxBytes int64 = 1000000000000000000
@@ -265,7 +422,7 @@ func (suite *BlockBusterTestSuite) TestPrepareProposal() {
 			suite.builderKeeper.SetParams(suite.ctx, params)
 			suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxEncoder(), suite.tobLane, suite.mempool)
 
-			suite.proposalHandler = blockbuster.NewProposalHandler(suite.logger, suite.mempool, suite.encodingConfig.TxConfig.TxEncoder())
+			suite.proposalHandler = abci.NewProposalHandler(suite.logger, suite.mempool, suite.encodingConfig.TxConfig.TxEncoder())
 			handler := suite.proposalHandler.PrepareProposalHandler()
 			res := handler(suite.ctx, abcitypes.RequestPrepareProposal{
 				MaxTxBytes: maxTxBytes,
@@ -318,7 +475,7 @@ func (suite *BlockBusterTestSuite) TestPrepareProposal() {
 	}
 }
 
-func (suite *BlockBusterTestSuite) TestProcessProposal() {
+func (suite *ABCITestSuite) TestProcessProposal() {
 	var (
 		// mempool configuration
 		normalTxs    []sdk.Tx

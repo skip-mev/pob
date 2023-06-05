@@ -1,5 +1,137 @@
 package blockbuster_test
 
+import (
+	"math/big"
+	"math/rand"
+	"testing"
+	"time"
+
+	"github.com/cometbft/cometbft/libs/log"
+	storetypes "github.com/cosmos/cosmos-sdk/store/types"
+	"github.com/cosmos/cosmos-sdk/testutil"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/skip-mev/pob/blockbuster"
+	"github.com/skip-mev/pob/blockbuster/lanes/auction"
+	"github.com/skip-mev/pob/blockbuster/lanes/base"
+	testutils "github.com/skip-mev/pob/testutils"
+	buildertypes "github.com/skip-mev/pob/x/builder/types"
+	"github.com/stretchr/testify/suite"
+)
+
+type BlockBusterTestSuite struct {
+	suite.Suite
+	logger log.Logger
+	ctx    sdk.Context
+
+	// Define basic tx configuration
+	encodingConfig testutils.EncodingConfig
+	auctionFactory auction.Factory
+
+	// Define all of the lanes utilized in the test suite
+	config        blockbuster.BaseLaneConfig
+	tobBlockSpace sdk.Dec
+	tobLane       *auction.TOBLane
+
+	baseLane *base.DefaultLane
+
+	lanes   []blockbuster.Lane
+	mempool blockbuster.Mempool
+
+	// account set up
+	accounts []testutils.Account
+	random   *rand.Rand
+	nonces   map[string]uint64
+}
+
+func TestBlockBusterTestSuite(t *testing.T) {
+	suite.Run(t, new(BlockBusterTestSuite))
+}
+
+func (suite *BlockBusterTestSuite) SetupTest() {
+	// General config for transactions and randomness for the test suite
+	suite.encodingConfig = testutils.CreateTestEncodingConfig()
+	suite.random = rand.New(rand.NewSource(time.Now().Unix()))
+	key := sdk.NewKVStoreKey(buildertypes.StoreKey)
+	testCtx := testutil.DefaultContextWithDB(suite.T(), key, storetypes.NewTransientStoreKey("transient_test"))
+	suite.ctx = testCtx.Ctx.WithBlockHeight(1)
+
+	// Lanes configuration
+	//
+	// TOB lane set up
+	suite.config = blockbuster.BaseLaneConfig{
+		Logger:        suite.logger,
+		TxEncoder:     suite.encodingConfig.TxConfig.TxEncoder(),
+		TxDecoder:     suite.encodingConfig.TxConfig.TxDecoder(),
+		AnteHandler:   nil,
+		MaxBlockSpace: sdk.ZeroDec(),
+	}
+
+	suite.auctionFactory = auction.NewDefaultAuctionFactory(suite.encodingConfig.TxConfig.TxDecoder())
+	suite.tobBlockSpace = sdk.NewDecFromBigIntWithPrec(big.NewInt(1), 1) // 10% of the block space
+	suite.tobLane = auction.NewTOBLane(
+		suite.config,
+		0, // No bound on the number of transactions in the lane
+		suite.auctionFactory,
+	)
+
+	// Base lane set up
+	suite.baseLane = base.NewDefaultLane(
+		suite.config,
+	)
+
+	// Mempool set up
+	suite.lanes = []blockbuster.Lane{suite.tobLane, suite.baseLane}
+	suite.mempool = blockbuster.NewMempool(suite.lanes...)
+
+	// Accounts set up
+	suite.accounts = testutils.RandomAccounts(suite.random, 10)
+	suite.nonces = make(map[string]uint64)
+	for _, acc := range suite.accounts {
+		suite.nonces[acc.Address.String()] = 0
+	}
+}
+
+// fillBaseLane fills the base lane with numTxs transactions that are randomly created.
+func (suite *BlockBusterTestSuite) fillBaseLane(numTxs int) {
+	for i := 0; i < numTxs; i++ {
+		// randomly select an account to create the tx
+		randomIndex := suite.random.Intn(len(suite.accounts))
+		acc := suite.accounts[randomIndex]
+
+		// create a few random msgs and construct the tx
+		nonce := suite.nonces[acc.Address.String()]
+		randomMsgs := testutils.CreateRandomMsgs(acc.Address, 3)
+		tx, err := testutils.CreateTx(suite.encodingConfig.TxConfig, acc, nonce, 1000, randomMsgs)
+		suite.Require().NoError(err)
+
+		// insert the tx into the lane and update the account
+		suite.nonces[acc.Address.String()]++
+		priority := suite.random.Int63n(100) + 1
+		suite.Require().NoError(suite.mempool.Insert(suite.ctx.WithPriority(priority), tx))
+	}
+}
+
+// fillTOBLane fills the TOB lane with numTxs transactions that are randomly created.
+func (suite *BlockBusterTestSuite) fillTOBLane(numTxs int) {
+	// Insert a bunch of auction transactions into the global mempool and auction mempool
+	for i := 0; i < numTxs; i++ {
+		// randomly select a bidder to create the tx
+		randomIndex := suite.random.Intn(len(suite.accounts))
+		acc := suite.accounts[randomIndex]
+
+		// create a randomized auction transaction
+		nonce := suite.nonces[acc.Address.String()]
+		bidAmount := sdk.NewInt(int64(suite.random.Intn(1000) + 1))
+		bid := sdk.NewCoin("foo", bidAmount)
+		tx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, acc, bid, nonce, 1000, nil)
+		suite.Require().NoError(err)
+
+		// insert the auction tx into the global mempool
+		suite.Require().NoError(suite.mempool.Insert(suite.ctx, tx))
+		suite.nonces[acc.Address.String()]++
+	}
+}
+
 func (suite *BlockBusterTestSuite) TestInsert() {
 	cases := []struct {
 		name       string

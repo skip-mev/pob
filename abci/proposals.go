@@ -4,11 +4,12 @@ import (
 	"errors"
 	"fmt"
 
-	abci "github.com/cometbft/cometbft/abci/types"
+	cometabci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	"github.com/skip-mev/pob/blockbuster"
+	"github.com/skip-mev/pob/blockbuster/abci"
 	"github.com/skip-mev/pob/blockbuster/lanes/auction"
 )
 
@@ -51,8 +52,8 @@ func NewProposalHandler(
 	txDecoder sdk.TxDecoder,
 ) *ProposalHandler {
 	return &ProposalHandler{
-		prepareLanesHandler: blockbuster.ChainPrepareLanes(lanes...),
-		processLanesHandler: blockbuster.ChainProcessLanes(lanes...),
+		prepareLanesHandler: abci.ChainPrepareLanes(lanes...),
+		processLanesHandler: abci.ChainProcessLanes(lanes...),
 		lane:                lane,
 		logger:              logger,
 		txEncoder:           txEncoder,
@@ -63,7 +64,7 @@ func NewProposalHandler(
 // PrepareProposalHandler returns the PrepareProposal ABCI handler that performs
 // top-of-block auctioning and general block proposal construction.
 func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
-	return func(ctx sdk.Context, req abci.RequestPrepareProposal) abci.ResponsePrepareProposal {
+	return func(ctx sdk.Context, req cometabci.RequestPrepareProposal) cometabci.ResponsePrepareProposal {
 		// Proposal includes all of the transactions that will be included in the
 		// block along with the vote extensions from the previous block included at
 		// the beginning of the proposal. Vote extensions must be included in the
@@ -78,7 +79,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		// cause another proposal to be generated after it is rejected in ProcessProposal.
 		lastCommitInfo, err := req.LocalLastCommit.Marshal()
 		if err != nil {
-			return abci.ResponsePrepareProposal{Txs: txs}
+			return cometabci.ResponsePrepareProposal{Txs: txs}
 		}
 
 		auctionInfo := &AuctionInfo{
@@ -90,7 +91,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		// Add the auction info and top of block transactions into the proposal.
 		auctionInfoBz, err := auctionInfo.Marshal()
 		if err != nil {
-			return abci.ResponsePrepareProposal{Txs: txs}
+			return cometabci.ResponsePrepareProposal{Txs: txs}
 		}
 
 		txs = append(txs, auctionInfoBz)
@@ -107,29 +108,29 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		// each lane's selection logic.
 		proposal = h.prepareLanesHandler(ctx, proposal)
 
-		return abci.ResponsePrepareProposal{Txs: proposal.Txs}
+		return cometabci.ResponsePrepareProposal{Txs: proposal.Txs}
 	}
 }
 
 // ProcessProposalHandler returns the ProcessProposal ABCI handler that performs
 // block proposal verification.
 func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
-	return func(ctx sdk.Context, req abci.RequestProcessProposal) abci.ResponseProcessProposal {
+	return func(ctx sdk.Context, req cometabci.RequestProcessProposal) cometabci.ResponseProcessProposal {
 		proposal := req.Txs
 
 		// Verify that the same top of block transactions can be built from the vote
 		// extensions included in the proposal.
 		auctionInfo, err := h.VerifyTOB(ctx, proposal)
 		if err != nil {
-			return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
+			return cometabci.ResponseProcessProposal{Status: cometabci.ResponseProcessProposal_REJECT}
 		}
 
 		// Verify that the rest of the proposal is valid according to each lane's verification logic.
 		if _, err = h.processLanesHandler(ctx, proposal[auctionInfo.NumTxs:]); err != nil {
-			return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
+			return cometabci.ResponseProcessProposal{Status: cometabci.ResponseProcessProposal_REJECT}
 		}
 
-		return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_ACCEPT}
+		return cometabci.ResponseProcessProposal{Status: cometabci.ResponseProcessProposal_ACCEPT}
 	}
 }
 

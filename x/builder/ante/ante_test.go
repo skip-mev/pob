@@ -37,7 +37,7 @@ type AnteTestSuite struct {
 	authorityAccount sdk.AccAddress
 
 	// mempool and lane set up
-	mempool  *blockbuster.Mempool
+	mempool  blockbuster.Mempool
 	tobLane  *auction.TOBLane
 	baseLane *base.DefaultLane
 	lanes    []blockbuster.Lane

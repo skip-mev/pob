@@ -12,8 +12,8 @@ type (
 		// Txs is the list of transactions in the proposal.
 		Txs [][]byte
 
-		// SelectedTxs is a cache of the selected transactions in the proposal.
-		SelectedTxs map[string]struct{}
+		// Cache is a cache of the selected transactions in the proposal.
+		Cache map[string]struct{}
 
 		// TotalTxBytes is the total number of bytes currently included in the proposal.
 		TotalTxBytes int64

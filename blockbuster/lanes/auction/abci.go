@@ -110,7 +110,7 @@ selectBidTxLoop:
 	}
 
 	// Update the proposal with the selected transactions.
-	proposal = blockbuster.UpdateProposal(proposal, txs, totalSize)
+	proposal = utils.UpdateProposal(proposal, txs, totalSize)
 
 	return next(ctx, proposal)
 }

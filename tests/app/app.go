@@ -67,8 +67,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/upgrade"
 	upgradeclient "github.com/cosmos/cosmos-sdk/x/upgrade/client"
 	upgradekeeper "github.com/cosmos/cosmos-sdk/x/upgrade/keeper"
-	"github.com/skip-mev/pob/abci"
 	"github.com/skip-mev/pob/blockbuster"
+	"github.com/skip-mev/pob/blockbuster/abci"
 	"github.com/skip-mev/pob/blockbuster/lanes/auction"
 	"github.com/skip-mev/pob/blockbuster/lanes/base"
 	"github.com/skip-mev/pob/blockbuster/lanes/free"
@@ -331,7 +331,7 @@ func New(
 	}
 
 	// Set the proposal handlers on the BaseApp along with the custom antehandler.
-	proposalHandlers := blockbuster.NewProposalHandler(
+	proposalHandlers := abci.NewProposalHandler(
 		app.Logger(),
 		mempool,
 		app.txConfig.TxEncoder(),

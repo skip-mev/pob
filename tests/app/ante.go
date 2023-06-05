@@ -11,7 +11,7 @@ import (
 
 type POBHandlerOptions struct {
 	BaseOptions   ante.HandlerOptions
-	Mempool       *blockbuster.Mempool
+	Mempool       blockbuster.Mempool
 	TOBLane       builderante.TOBLane
 	TxDecoder     sdk.TxDecoder
 	TxEncoder     sdk.TxEncoder

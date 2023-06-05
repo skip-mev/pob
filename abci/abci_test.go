@@ -27,10 +27,9 @@ type ABCITestSuite struct {
 	ctx sdk.Context
 
 	// mempool and lane set up
-	mempool  *blockbuster.Mempool
+	mempool  blockbuster.Mempool
 	tobLane  *auction.TOBLane
 	baseLane *base.DefaultLane
-	lanes    []blockbuster.Lane
 
 	logger               log.Logger
 	encodingConfig       testutils.EncodingConfig
@@ -198,23 +197,6 @@ func (suite *ABCITestSuite) fillTOBLane(numTxs int, numBundledTxs int) {
 	}
 }
 
-func (suite *ABCITestSuite) exportMempool() [][]byte {
-	txs := make([][]byte, 0)
-	seenTxs := make(map[string]bool)
-
-	iterator := suite.mempool.Select(suite.ctx, nil)
-	for ; iterator != nil; iterator = iterator.Next() {
-		txBz, err := suite.encodingConfig.TxConfig.TxEncoder()(iterator.Tx())
-		suite.Require().NoError(err)
-
-		if !seenTxs[string(txBz)] {
-			txs = append(txs, txBz)
-		}
-	}
-
-	return txs
-}
-
 func (suite *ABCITestSuite) createPrepareProposalRequest(maxBytes int64) comettypes.RequestPrepareProposal {
 	voteExtensions := make([]comettypes.ExtendedVoteInfo, 0)
 
@@ -236,55 +218,6 @@ func (suite *ABCITestSuite) createPrepareProposalRequest(maxBytes int64) cometty
 			Votes: voteExtensions,
 		},
 	}
-}
-
-func (suite *ABCITestSuite) createExtendedCommitInfoFromTxBzs(txs [][]byte) []byte {
-	voteExtensions := make([]comettypes.ExtendedVoteInfo, 0)
-
-	for _, txBz := range txs {
-		voteExtensions = append(voteExtensions, comettypes.ExtendedVoteInfo{
-			VoteExtension: txBz,
-		})
-	}
-
-	commitInfo := comettypes.ExtendedCommitInfo{
-		Votes: voteExtensions,
-	}
-
-	commitInfoBz, err := commitInfo.Marshal()
-	suite.Require().NoError(err)
-
-	return commitInfoBz
-}
-
-func (suite *ABCITestSuite) createAuctionInfoFromTxBzs(txs [][]byte, numTxs uint64) []byte {
-	auctionInfo := abci.AuctionInfo{
-		ExtendedCommitInfo: suite.createExtendedCommitInfoFromTxBzs(txs),
-		NumTxs:             numTxs,
-		MaxTxBytes:         int64(len(txs[0])),
-	}
-
-	auctionInfoBz, err := auctionInfo.Marshal()
-	suite.Require().NoError(err)
-
-	return auctionInfoBz
-}
-
-func (suite *ABCITestSuite) getAllAuctionTxs() ([]sdk.Tx, [][]byte) {
-	auctionIterator := suite.tobLane.Select(suite.ctx, nil)
-	txs := make([]sdk.Tx, 0)
-	txBzs := make([][]byte, 0)
-
-	for ; auctionIterator != nil; auctionIterator = auctionIterator.Next() {
-		txs = append(txs, auctionIterator.Tx())
-
-		bz, err := suite.encodingConfig.TxConfig.TxEncoder()(auctionIterator.Tx())
-		suite.Require().NoError(err)
-
-		txBzs = append(txBzs, bz)
-	}
-
-	return txs, txBzs
 }
 
 func (suite *ABCITestSuite) createExtendedCommitInfoFromTxs(txs []sdk.Tx) comettypes.ExtendedCommitInfo {
