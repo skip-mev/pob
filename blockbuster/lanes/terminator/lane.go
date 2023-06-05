@@ -35,7 +35,7 @@ type Terminator struct{}
 var _ blockbuster.Lane = (*Terminator)(nil)
 
 // PrepareLane is a no-op
-func (t Terminator) PrepareLane(_ sdk.Context, proposal *blockbuster.Proposal, maxTxBytes int64, next blockbuster.PrepareLanesHandler) *blockbuster.Proposal {
+func (t Terminator) PrepareLane(_ sdk.Context, proposal *blockbuster.Proposal, _ int64, next blockbuster.PrepareLanesHandler) *blockbuster.Proposal {
 	return proposal
 }
 
