@@ -19,8 +19,8 @@ type (
 	}
 )
 
-// NewProposalHandler returns a new proposal handler.
-func NewProposalHandler(logger log.Logger, mempool blockbuster.Mempool, txEncoder sdk.TxEncoder) *ProposalHandler {
+// NewProposalHandler returns a new abci++ proposal handler.
+func NewProposalHandler(logger log.Logger, mempool blockbuster.Mempool) *ProposalHandler {
 	return &ProposalHandler{
 		logger:              logger,
 		prepareLanesHandler: ChainPrepareLanes(mempool.Registry()...),
@@ -99,7 +99,7 @@ func ChainPrepareLanes(chain ...blockbuster.Lane) blockbuster.PrepareLanesHandle
 		chain = append(chain, terminator.Terminator{})
 	}
 
-	return func(ctx sdk.Context, partialProposal blockbuster.Proposal) (finalProposal blockbuster.Proposal) {
+	return func(ctx sdk.Context, partialProposal *blockbuster.Proposal) (finalProposal *blockbuster.Proposal) {
 		lane := chain[0]
 		lane.Logger().Info("preparing lane", "lane", lane.Name())
 
@@ -123,8 +123,7 @@ func ChainPrepareLanes(chain ...blockbuster.Lane) blockbuster.PrepareLanesHandle
 					// chain is not the terminator lane so there could potentially be more transactions
 					// added to the proposal
 					maxTxBytesForLane := utils.GetMaxTxBytesForLane(
-						partialProposal.MaxTxBytes,
-						partialProposal.TotalTxBytes,
+						partialProposal,
 						chain[1].GetMaxBlockSpace(),
 					)
 

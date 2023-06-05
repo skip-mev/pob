@@ -1,6 +1,9 @@
 package blockbuster
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+
 	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
@@ -25,7 +28,7 @@ type (
 	// PrepareLanesHandler wraps all of the lanes Prepare function into a single chained
 	// function. You can think of it like an AnteHandler, but for preparing proposals in the
 	// context of lanes instead of modules.
-	PrepareLanesHandler func(ctx sdk.Context, proposal Proposal) Proposal
+	PrepareLanesHandler func(ctx sdk.Context, proposal *Proposal) *Proposal
 
 	// ProcessLanesHandler wraps all of the lanes Process functions into a single chained
 	// function. You can think of it like an AnteHandler, but for processing proposals in the
@@ -98,4 +101,27 @@ func NewBaseLaneConfig(logger log.Logger, txEncoder sdk.TxEncoder, txDecoder sdk
 		AnteHandler:   anteHandler,
 		MaxBlockSpace: maxBlockSpace,
 	}
+}
+
+func NewProposal(maxTxBytes int64) *Proposal {
+	return &Proposal{
+		Txs:        make([][]byte, 0),
+		Cache:      make(map[string]struct{}),
+		MaxTxBytes: maxTxBytes,
+	}
+}
+
+// UpdateProposal updates the proposal with the given transactions and total size.
+func (p *Proposal) UpdateProposal(txs [][]byte, totalSize int64) *Proposal {
+	p.TotalTxBytes += totalSize
+	p.Txs = append(p.Txs, txs...)
+
+	for _, tx := range txs {
+		txHash := sha256.Sum256(tx)
+		txHashStr := hex.EncodeToString(txHash[:])
+
+		p.Cache[txHashStr] = struct{}{}
+	}
+
+	return p
 }

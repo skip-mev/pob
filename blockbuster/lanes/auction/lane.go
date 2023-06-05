@@ -40,6 +40,7 @@ func NewTOBLane(
 	cfg blockbuster.BaseLaneConfig,
 	maxTx int,
 	af Factory,
+	maxBlockSpace sdk.Dec,
 ) *TOBLane {
 	return &TOBLane{
 		Mempool: NewMempool(cfg.TxEncoder, maxTx, af),
