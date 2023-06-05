@@ -7,6 +7,25 @@ import (
 )
 
 type (
+	// Proposal defines a block proposal type.
+	Proposal struct {
+		// Txs is the list of transactions in the proposal.
+		Txs [][]byte
+
+		// SelectedTxs is a cache of the selected transactions in the proposal.
+		SelectedTxs map[string]struct{}
+
+		// TotalTxBytes is the total number of bytes currently included in the proposal.
+		TotalTxBytes int64
+
+		// MaxTxBytes is the maximum number of bytes that can be included in the proposal.
+		MaxTxBytes int64
+	}
+
+	// PrepareLanesHandler wraps all of the lanes Prepare function into a single chained
+	// function. You can think of it like an AnteHandler, but for preparing proposals in the
+	// context of lanes instead of modules.
+	PrepareLanesHandler func(ctx sdk.Context, proposal Proposal) Proposal
 
 	// ProcessLanesHandler wraps all of the lanes Process functions into a single chained
 	// function. You can think of it like an AnteHandler, but for processing proposals in the
