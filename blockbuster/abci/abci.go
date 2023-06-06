@@ -128,13 +128,13 @@ func ChainPrepareLanes(chain ...blockbuster.Lane) blockbuster.PrepareLanesHandle
 						ChainPrepareLanes(chain[2:]...),
 					)
 				}
+			} else {
+				// Write the cache to the context since we know that the lane successfully prepared
+				// the partial proposal.
+				write()
 
-				return
+				lane.Logger().Info("prepared lane", "lane", lane.Name())
 			}
-
-			// Write the cache to the context since we know that the lane successfully prepared
-			// the partial proposal.
-			write()
 		}()
 
 		// Get the maximum number of bytes that can be included in the proposal for this lane.
