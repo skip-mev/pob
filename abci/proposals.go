@@ -24,10 +24,22 @@ const (
 )
 
 type (
+	// TOBLaneProposal is the interface that defines all of the dependencies that
+	// are required to interact with the top of block lane.
 	TOBLaneProposal interface {
-		auction.Factory
 		sdkmempool.Mempool
+
+		// Factory defines the API/functionality which is responsible for determining
+		// if a transaction is a bid transaction and how to extract relevant
+		// information from the transaction (bid, timeout, bidder, etc.).
+		auction.Factory
+
+		// VerifyTx is utilized to verify a bid transaction according to the preferences
+		// of the top of block lane.
 		VerifyTx(ctx sdk.Context, tx sdk.Tx) error
+
+		// ProcessLaneBasic is utilized to verify the rest of the proposal according to
+		// the preferences of the top of block lane. This is used to verify that no
 		ProcessLaneBasic(txs [][]byte) error
 	}
 
@@ -47,7 +59,7 @@ type (
 // required to process, validate and build blocks.
 func NewProposalHandler(
 	lanes []blockbuster.Lane,
-	lane TOBLaneProposal,
+	tobLane TOBLaneProposal,
 	logger log.Logger,
 	txEncoder sdk.TxEncoder,
 	txDecoder sdk.TxDecoder,
@@ -55,7 +67,7 @@ func NewProposalHandler(
 	return &ProposalHandler{
 		prepareLanesHandler: abci.ChainPrepareLanes(lanes...),
 		processLanesHandler: abci.ChainProcessLanes(lanes...),
-		tobLane:             lane,
+		tobLane:             tobLane,
 		logger:              logger,
 		txEncoder:           txEncoder,
 		txDecoder:           txDecoder,
@@ -74,6 +86,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		// cause another proposal to be generated after it is rejected in ProcessProposal.
 		lastCommitInfo, err := req.LocalLastCommit.Marshal()
 		if err != nil {
+			h.logger.Error("failed to marshal last commit info", "err", err)
 			return cometabci.ResponsePrepareProposal{Txs: nil}
 		}
 
@@ -86,6 +99,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		// Add the auction info and top of block transactions into the proposal.
 		auctionInfoBz, err := auctionInfo.Marshal()
 		if err != nil {
+			h.logger.Error("failed to marshal auction info", "err", err)
 			return cometabci.ResponsePrepareProposal{Txs: nil}
 		}
 
@@ -109,17 +123,20 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 		// extensions included in the proposal.
 		auctionInfo, err := h.VerifyTOB(ctx, proposal)
 		if err != nil {
+			h.logger.Error("failed to verify top of block transactions", "err", err)
 			return cometabci.ResponseProcessProposal{Status: cometabci.ResponseProcessProposal_REJECT}
 		}
 
 		// Do a basic check of the rest of the proposal to make sure no auction transactions
-		// are included in the proposal.
+		// are included.
 		if err := h.tobLane.ProcessLaneBasic(proposal[NumInjectedTxs:]); err != nil {
+			h.logger.Error("failed to process proposal", "err", err)
 			return cometabci.ResponseProcessProposal{Status: cometabci.ResponseProcessProposal_REJECT}
 		}
 
 		// Verify that the rest of the proposal is valid according to each lane's verification logic.
 		if _, err = h.processLanesHandler(ctx, proposal[auctionInfo.NumTxs:]); err != nil {
+			h.logger.Error("failed to process proposal", "err", err)
 			return cometabci.ResponseProcessProposal{Status: cometabci.ResponseProcessProposal_REJECT}
 		}
 

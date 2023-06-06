@@ -26,8 +26,8 @@ type (
 		// bid transactions.
 		txDecoder sdk.TxDecoder
 
-		// mempool is utilized to retrieve the bid info of a transaction and to
-		// insert a transaction into the application-side mempool.
+		// TOBLane is utilized to retrieve the bid info of a transaction and to
+		// insert a bid transaction into the application-side mempool.
 		tobLane TOBLane
 
 		// anteHandler is utilized to verify the bid transaction against the latest
@@ -43,7 +43,7 @@ type (
 	CheckTx func(cometabci.RequestCheckTx) cometabci.ResponseCheckTx
 
 	// TOBLane is the interface that defines all of the dependencies that
-	// are required to interact with the application-side mempool.
+	// are required to interact with the top of block lane.
 	TOBLane interface {
 		// GetAuctionBidInfo is utilized to retrieve the bid info of a transaction.
 		GetAuctionBidInfo(tx sdk.Tx) (*types.BidInfo, error)

@@ -220,6 +220,36 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				auction.LaneName: 1,
 			},
 		},
+		{
+			"single tob transaction with other normal transactions in the mempool",
+			func() {
+				// Create an valid tob transaction
+				bidder := suite.accounts[0]
+				bid := sdk.NewCoin("foo", sdk.NewInt(10000000))
+				nonce := suite.nonces[bidder.Address.String()]
+				timeout := uint64(100)
+				signers := []testutils.Account{suite.accounts[2], suite.accounts[1], bidder, suite.accounts[3], suite.accounts[4]}
+				bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
+				suite.Require().NoError(err)
+
+				account := suite.accounts[5]
+				nonce = suite.nonces[account.Address.String()]
+				timeout = uint64(100)
+				numberMsgs := uint64(3)
+				normalTx, err := testutils.CreateRandomTx(suite.encodingConfig.TxConfig, account, nonce, numberMsgs, timeout)
+				suite.Require().NoError(err)
+
+				normalTxs = []sdk.Tx{normalTx}
+				auctionTxs = []sdk.Tx{bidTx}
+				winningBidTx = bidTx
+				insertBundledTxs = true
+			},
+			7,
+			map[string]int{
+				base.LaneName:    6,
+				auction.LaneName: 1,
+			},
+		},
 	}
 
 	for _, tc := range cases {

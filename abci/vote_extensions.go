@@ -1,30 +1,34 @@
 package abci
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
-	"github.com/skip-mev/pob/x/builder/types"
+	"github.com/skip-mev/pob/blockbuster/lanes/auction"
 )
 
 type (
 	// TOBLaneVE contains the methods required by the VoteExtensionHandler
 	// to interact with the local mempool i.e. the top of block lane.
 	TOBLaneVE interface {
-		Remove(tx sdk.Tx) error
-		Select(ctx context.Context, txs [][]byte) sdkmempool.Iterator
-		GetAuctionBidInfo(tx sdk.Tx) (*types.BidInfo, error)
-		WrapBundleTransaction(tx []byte) (sdk.Tx, error)
+		sdkmempool.Mempool
+
+		// Factory defines the API/functionality which is responsible for determining
+		// if a transaction is a bid transaction and how to extract relevant
+		// information from the transaction (bid, timeout, bidder, etc.).
+		auction.Factory
+
+		// VerifyTx is utilized to verify a bid transaction according to the preferences
+		// of the top of block lane.
 		VerifyTx(ctx sdk.Context, tx sdk.Tx) error
 	}
 
 	// VoteExtensionHandler contains the functionality and handlers required to
 	// process, validate and build vote extensions.
 	VoteExtensionHandler struct {
-		lane TOBLaneVE
+		tobLane TOBLaneVE
 
 		// txDecoder is used to decode the top bidding auction transaction
 		txDecoder sdk.TxDecoder
@@ -45,7 +49,7 @@ type (
 // required to inject, process, and validate vote extensions.
 func NewVoteExtensionHandler(lane TOBLaneVE, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder) *VoteExtensionHandler {
 	return &VoteExtensionHandler{
-		lane:          lane,
+		tobLane:       lane,
 		txDecoder:     txDecoder,
 		txEncoder:     txEncoder,
 		cache:         make(map[string]error),
@@ -59,15 +63,17 @@ func NewVoteExtensionHandler(lane TOBLaneVE, txDecoder sdk.TxDecoder, txEncoder 
 func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 	return func(ctx sdk.Context, req *RequestExtendVote) (*ResponseExtendVote, error) {
 		// Iterate through auction bids until we find a valid one
-		auctionIterator := h.lane.Select(ctx, nil)
+		auctionIterator := h.tobLane.Select(ctx, nil)
 
 		for ; auctionIterator != nil; auctionIterator = auctionIterator.Next() {
 			bidTx := auctionIterator.Tx()
 
 			// Verify the bid tx can be encoded and included in vote extension
 			if bidBz, err := h.txEncoder(bidTx); err == nil {
-				// Validate the auction transaction
-				if err := h.lane.VerifyTx(ctx, bidTx); err == nil {
+				// Validate the auction transaction against a cache state
+				cacheCtx, _ := ctx.CacheContext()
+
+				if err := h.tobLane.VerifyTx(cacheCtx, bidTx); err == nil {
 					return &ResponseExtendVote{VoteExtension: bidBz}, nil
 				}
 			}
@@ -110,7 +116,7 @@ func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionH
 		}
 
 		// Verify the auction transaction and cache the result
-		if err = h.lane.VerifyTx(ctx, bidTx); err != nil {
+		if err = h.tobLane.VerifyTx(ctx, bidTx); err != nil {
 			h.cache[hash] = err
 			return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_REJECT}, err
 		}
