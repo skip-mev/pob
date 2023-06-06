@@ -28,6 +28,7 @@ type (
 		auction.Factory
 		sdkmempool.Mempool
 		VerifyTx(ctx sdk.Context, tx sdk.Tx) error
+		ProcessLaneBasic(txs [][]byte) error
 	}
 
 	// ProposalHandler contains the functionality and handlers required to\
@@ -122,6 +123,12 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 		// extensions included in the proposal.
 		auctionInfo, err := h.VerifyTOB(ctx, proposal)
 		if err != nil {
+			return cometabci.ResponseProcessProposal{Status: cometabci.ResponseProcessProposal_REJECT}
+		}
+
+		// Do a basic check of the rest of the proposal to make sure no auction transactions
+		// are included in the proposal.
+		if err := h.lane.ProcessLaneBasic(proposal[NumInjectedTxs:]); err != nil {
 			return cometabci.ResponseProcessProposal{Status: cometabci.ResponseProcessProposal_REJECT}
 		}
 

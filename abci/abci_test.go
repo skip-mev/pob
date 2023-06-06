@@ -252,3 +252,45 @@ func (suite *ABCITestSuite) createExtendedCommitInfo(voteExtensions [][]byte) co
 
 	return commitInfo
 }
+
+func (suite *ABCITestSuite) createExtendedCommitInfoFromTxBzs(txs [][]byte) []byte {
+	voteExtensions := make([]comettypes.ExtendedVoteInfo, 0)
+
+	for _, txBz := range txs {
+		voteExtensions = append(voteExtensions, comettypes.ExtendedVoteInfo{
+			VoteExtension: txBz,
+		})
+	}
+
+	commitInfo := comettypes.ExtendedCommitInfo{
+		Votes: voteExtensions,
+	}
+
+	commitInfoBz, err := commitInfo.Marshal()
+	suite.Require().NoError(err)
+
+	return commitInfoBz
+}
+
+func (suite *ABCITestSuite) createAuctionInfoFromTxBzs(txs [][]byte, numTxs uint64) []byte {
+	auctionInfo := abci.AuctionInfo{
+		ExtendedCommitInfo: suite.createExtendedCommitInfoFromTxBzs(txs),
+		NumTxs:             numTxs,
+		MaxTxBytes:         int64(len(txs[0])),
+	}
+
+	auctionInfoBz, err := auctionInfo.Marshal()
+	suite.Require().NoError(err)
+
+	return auctionInfoBz
+}
+
+func (suite *ABCITestSuite) getAuctionBidInfoFromTxBz(txBz []byte) *buildertypes.BidInfo {
+	tx, err := suite.encodingConfig.TxConfig.TxDecoder()(txBz)
+	suite.Require().NoError(err)
+
+	bidInfo, err := suite.tobLane.GetAuctionBidInfo(tx)
+	suite.Require().NoError(err)
+
+	return bidInfo
+}
