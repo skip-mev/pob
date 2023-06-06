@@ -36,7 +36,7 @@ type (
 	ProposalHandler struct {
 		prepareLanesHandler blockbuster.PrepareLanesHandler
 		processLanesHandler blockbuster.ProcessLanesHandler
-		lane                TOBLaneProposal
+		tobLane             TOBLaneProposal
 		logger              log.Logger
 		txEncoder           sdk.TxEncoder
 		txDecoder           sdk.TxDecoder
@@ -55,7 +55,7 @@ func NewProposalHandler(
 	return &ProposalHandler{
 		prepareLanesHandler: abci.ChainPrepareLanes(lanes...),
 		processLanesHandler: abci.ChainProcessLanes(lanes...),
-		lane:                lane,
+		tobLane:             lane,
 		logger:              logger,
 		txEncoder:           txEncoder,
 		txDecoder:           txDecoder,
@@ -66,12 +66,6 @@ func NewProposalHandler(
 // top-of-block auctioning and general block proposal construction.
 func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 	return func(ctx sdk.Context, req cometabci.RequestPrepareProposal) cometabci.ResponsePrepareProposal {
-		// Proposal includes all of the transactions that will be included in the
-		// block along with the vote extensions from the previous block included at
-		// the beginning of the proposal. Vote extensions must be included in the
-		// first slot of the proposal because they are inaccessible in ProcessProposal.
-		txs := make([][]byte, 0)
-
 		// Build the top of block portion of the proposal given the vote extensions
 		// from the previous block.
 		topOfBlock := h.BuildTOB(ctx, req.LocalLastCommit, req.MaxTxBytes)
@@ -80,7 +74,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		// cause another proposal to be generated after it is rejected in ProcessProposal.
 		lastCommitInfo, err := req.LocalLastCommit.Marshal()
 		if err != nil {
-			return cometabci.ResponsePrepareProposal{Txs: txs}
+			return cometabci.ResponsePrepareProposal{Txs: nil}
 		}
 
 		auctionInfo := &AuctionInfo{
@@ -92,22 +86,14 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		// Add the auction info and top of block transactions into the proposal.
 		auctionInfoBz, err := auctionInfo.Marshal()
 		if err != nil {
-			return cometabci.ResponsePrepareProposal{Txs: txs}
+			return cometabci.ResponsePrepareProposal{Txs: nil}
 		}
 
-		txs = append(txs, auctionInfoBz)
-		txs = append(txs, topOfBlock.Txs...)
-
-		proposal := &blockbuster.Proposal{
-			Txs:          txs,
-			Cache:        topOfBlock.Cache,
-			TotalTxBytes: topOfBlock.Size,
-			MaxTxBytes:   req.MaxTxBytes,
-		}
+		topOfBlock.Txs = append([][]byte{auctionInfoBz}, topOfBlock.Txs...)
 
 		// Prepare the proposal by selecting transactions from each lane according to
 		// each lane's selection logic.
-		proposal = h.prepareLanesHandler(ctx, proposal)
+		proposal := h.prepareLanesHandler(ctx, topOfBlock)
 
 		return cometabci.ResponsePrepareProposal{Txs: proposal.Txs}
 	}
@@ -128,7 +114,7 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 
 		// Do a basic check of the rest of the proposal to make sure no auction transactions
 		// are included in the proposal.
-		if err := h.lane.ProcessLaneBasic(proposal[NumInjectedTxs:]); err != nil {
+		if err := h.tobLane.ProcessLaneBasic(proposal[NumInjectedTxs:]); err != nil {
 			return cometabci.ResponseProcessProposal{Status: cometabci.ResponseProcessProposal_REJECT}
 		}
 
@@ -143,7 +129,7 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 
 // RemoveTx removes a transaction from the application-side mempool.
 func (h *ProposalHandler) RemoveTx(tx sdk.Tx) {
-	if err := h.lane.Remove(tx); err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
+	if err := h.tobLane.Remove(tx); err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
 		panic(fmt.Errorf("failed to remove invalid transaction from the mempool: %w", err))
 	}
 }

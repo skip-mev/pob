@@ -481,11 +481,11 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 			proposal := suite.proposalHandler.BuildTOB(suite.ctx, commitInfo, tc.maxBytes)
 
 			// Size of the proposal should be less than or equal to the max bytes
-			suite.Require().LessOrEqual(proposal.Size, tc.maxBytes)
+			suite.Require().LessOrEqual(proposal.TotalTxBytes, tc.maxBytes)
 
 			if winningBid == nil {
 				suite.Require().Len(proposal.Txs, 0)
-				suite.Require().Equal(proposal.Size, int64(0))
+				suite.Require().Equal(proposal.TotalTxBytes, int64(0))
 			} else {
 				// Get info about the winning bid
 				winningBidBz, err := suite.encodingConfig.TxConfig.TxEncoder()(winningBid)
