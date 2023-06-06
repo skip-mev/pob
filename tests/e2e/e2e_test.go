@@ -1002,3 +1002,38 @@ func (s *IntegrationTestSuite) TestInvalidBids() {
 		s.Require().Equal(escrowBalance, s.queryBalanceOf(escrowAddress, app.BondDenom))
 	}
 }
+
+// TestFreeLanes tests that the application correctly handles free lanes. There are a few invariants that are tested:
+//
+// 1. Transactions that qualify as free should not be deducted any fees.
+// 2. Transactions that do not qualify as free should be deducted the correct fees.
+// 3. Transactions that qualify as free should be executed before transactions that do not qualify as free.
+// 4. Top of block transactions should come before free transactions.
+func (s *IntegrationTestSuite) TestFreeLanes() {
+	// Create the accounts that will create transactions to be included in bundles
+	initBalance := sdk.NewInt64Coin(app.BondDenom, 10000000000)
+	numAccounts := 4
+	accounts := s.createTestAccounts(numAccounts, initBalance)
+
+	s.Run("free lane with valid transaction", func() {
+		balanceBefore := s.queryBalanceOf(accounts[0].Address.String(), app.BondDenom)
+
+		// basic stake amount
+		defaultStakeAmount := sdk.NewCoin(app.BondDenom, sdk.NewInt(10))
+		validators := s.queryValidators()
+		validator := validators[0]
+		tx := s.createMsgDelegateTx(accounts[0], validator.OperatorAddress, defaultStakeAmount, 0, 1000)
+
+		// Broadcast the transaction
+		s.broadcastTx(tx, 0)
+
+		// Wait for a block to be created
+		s.waitForABlock()
+		s.waitForABlock()
+
+		// Ensure that the transaction was executed
+		balanceAfter := s.queryBalanceOf(accounts[0].Address.String(), app.BondDenom)
+
+		s.Require().Equal(balanceBefore.Sub(defaultStakeAmount), balanceAfter)
+	})
+}
