@@ -332,15 +332,14 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				for index, tx := range bidInfo.Transactions {
 					suite.Require().Equal(tx, res.Txs[index+1+abci.NumInjectedTxs])
 				}
-			} else {
-				if len(res.Txs) > 1 {
-					tx, err := suite.encodingConfig.TxConfig.TxDecoder()(res.Txs[1])
-					suite.Require().NoError(err)
+			} else if len(res.Txs) > 1 {
+				tx, err := suite.encodingConfig.TxConfig.TxDecoder()(res.Txs[1])
+				suite.Require().NoError(err)
 
-					bidInfo, err := suite.tobLane.GetAuctionBidInfo(tx)
-					suite.Require().NoError(err)
-					suite.Require().Nil(bidInfo)
-				}
+				bidInfo, err := suite.tobLane.GetAuctionBidInfo(tx)
+				suite.Require().NoError(err)
+				suite.Require().Nil(bidInfo)
+
 			}
 
 			// 4. All of the transactions must be unique
@@ -361,7 +360,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 		// auction configuration
 		maxBundleSize          uint32 = 10
 		reserveFee                    = sdk.NewCoin("foo", sdk.NewInt(1000))
-		frontRunningProtection bool   = true
+		frontRunningProtection        = true
 
 		// mempool configuration
 		proposal [][]byte
