@@ -1,4 +1,4 @@
-package v2_test
+package abci_test
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -491,7 +491,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 				winningBidBz, err := suite.encodingConfig.TxConfig.TxEncoder()(winningBid)
 				suite.Require().NoError(err)
 
-				auctionBidInfo, err := suite.mempool.GetAuctionBidInfo(winningBid)
+				auctionBidInfo, err := suite.tobLane.GetAuctionBidInfo(winningBid)
 				suite.Require().NoError(err)
 
 				// Verify that the size of the proposal is the size of the winning bid

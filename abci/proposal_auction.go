@@ -1,15 +1,13 @@
-package v2
+package abci
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"reflect"
 	"sort"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	pobabci "github.com/skip-mev/pob/abci"
+	"github.com/skip-mev/pob/blockbuster/utils"
 )
 
 // TopOfBlock contains information about how the top of block should be built.
@@ -43,7 +41,7 @@ func (h *ProposalHandler) BuildTOB(ctx sdk.Context, voteExtensionInfo abci.Exten
 
 	// Attempt to select the highest bid transaction that is valid and whose
 	// bundled transactions are valid.
-	var topOfBlock TopOfBlock
+	topOfBlock := NewTopOfBlock()
 	for _, bidTx := range sortedBidTxs {
 		// Cache the context so that we can write it back to the original context
 		// when we know we have a valid top of block bundle.
@@ -88,14 +86,14 @@ func (h *ProposalHandler) BuildTOB(ctx sdk.Context, voteExtensionInfo abci.Exten
 
 // VerifyTOB verifies that the set of vote extensions used in prepare proposal deterministically
 // produce the same top of block proposal.
-func (h *ProposalHandler) VerifyTOB(ctx sdk.Context, proposalTxs [][]byte) (*pobabci.AuctionInfo, error) {
+func (h *ProposalHandler) VerifyTOB(ctx sdk.Context, proposalTxs [][]byte) (*AuctionInfo, error) {
 	// Proposal must include at least the auction info.
 	if len(proposalTxs) < NumInjectedTxs {
 		return nil, fmt.Errorf("proposal is too small; expected at least %d slots", NumInjectedTxs)
 	}
 
 	// Extract the auction info from the proposal.
-	auctionInfo := &pobabci.AuctionInfo{}
+	auctionInfo := &AuctionInfo{}
 	if err := auctionInfo.Unmarshal(proposalTxs[AuctionInfoIndex]); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal auction info: %w", err)
 	}
@@ -141,12 +139,12 @@ func (h *ProposalHandler) GetBidsFromVoteExtensions(voteExtensions []abci.Extend
 	// Sort the auction transactions by their bid amount in descending order.
 	sort.Slice(bidTxs, func(i, j int) bool {
 		// In the case of an error, we want to sort the transaction to the end of the list.
-		bidInfoI, err := h.mempool.GetAuctionBidInfo(bidTxs[i])
+		bidInfoI, err := h.lane.GetAuctionBidInfo(bidTxs[i])
 		if err != nil {
 			return false
 		}
 
-		bidInfoJ, err := h.mempool.GetAuctionBidInfo(bidTxs[j])
+		bidInfoJ, err := h.lane.GetAuctionBidInfo(bidTxs[j])
 		if err != nil {
 			return true
 		}
@@ -165,12 +163,11 @@ func (h *ProposalHandler) buildTOB(ctx sdk.Context, bidTx sdk.Tx) (TopOfBlock, e
 	proposal := NewTopOfBlock()
 
 	// Ensure that the bid transaction is valid
-	bidTxBz, err := h.PrepareProposalVerifyTx(ctx, bidTx)
-	if err != nil {
+	if err := h.lane.VerifyTx(ctx, bidTx); err != nil {
 		return proposal, err
 	}
 
-	bidInfo, err := h.mempool.GetAuctionBidInfo(bidTx)
+	bidInfo, err := h.lane.GetAuctionBidInfo(bidTx)
 	if err != nil {
 		return proposal, err
 	}
@@ -181,34 +178,35 @@ func (h *ProposalHandler) buildTOB(ctx sdk.Context, bidTx sdk.Tx) (TopOfBlock, e
 	// Ensure that the bundled transactions are valid
 	for index, rawRefTx := range bidInfo.Transactions {
 		// convert the bundled raw transaction to a sdk.Tx
-		refTx, err := h.mempool.WrapBundleTransaction(rawRefTx)
+		refTx, err := h.lane.WrapBundleTransaction(rawRefTx)
 		if err != nil {
-			return TopOfBlock{}, err
+			return proposal, err
 		}
 
-		txBz, err := h.PrepareProposalVerifyTx(ctx, refTx)
+		// convert the sdk.Tx to a hash and bytes
+		txBz, hash, err := utils.GetTxHashStr(h.txEncoder, refTx)
 		if err != nil {
-			return TopOfBlock{}, err
+			return proposal, err
 		}
-
-		hashBz := sha256.Sum256(txBz)
-		hash := hex.EncodeToString(hashBz[:])
 
 		proposal.Cache[hash] = struct{}{}
 		sdkTxBytes[index] = txBz
 	}
 
 	// cache the bytes of the bid transaction
-	hashBz := sha256.Sum256(bidTxBz)
-	hash := hex.EncodeToString(hashBz[:])
+	txBz, hash, err := utils.GetTxHashStr(h.txEncoder, bidTx)
+	if err != nil {
+		return proposal, err
+	}
+
 	proposal.Cache[hash] = struct{}{}
 
-	txs := [][]byte{bidTxBz}
+	txs := [][]byte{txBz}
 	txs = append(txs, sdkTxBytes...)
 
 	// Set the top of block transactions and size.
 	proposal.Txs = txs
-	proposal.Size = int64(len(bidTxBz))
+	proposal.Size = int64(len(txBz))
 
 	return proposal, nil
 }
@@ -227,7 +225,7 @@ func (h *ProposalHandler) getAuctionTxFromVoteExtension(voteExtension []byte) (s
 	}
 
 	// Verify the auction transaction has bid information.
-	if bidInfo, err := h.mempool.GetAuctionBidInfo(bidTx); err != nil || bidInfo == nil {
+	if bidInfo, err := h.lane.GetAuctionBidInfo(bidTx); err != nil || bidInfo == nil {
 		return nil, fmt.Errorf("vote extension does not contain an auction transaction")
 	}
 
