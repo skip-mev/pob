@@ -151,7 +151,7 @@ type TestApp struct {
 	BuilderKeeper         builderkeeper.Keeper
 
 	// custom checkTx handler
-	checkTxHandler blockbuster.CheckTx
+	checkTxHandler abci.CheckTx
 }
 
 func init() {
@@ -331,7 +331,7 @@ func New(
 	app.App.SetAnteHandler(anteHandler)
 
 	// Set the custom CheckTx handler on BaseApp.
-	checkTxHandler := blockbuster.NewCheckTxHandler(
+	checkTxHandler := abci.NewCheckTxHandler(
 		app.App,
 		app.txConfig.TxDecoder(),
 		tobLane,
@@ -387,7 +387,7 @@ func (app *TestApp) CheckTx(req cometabci.RequestCheckTx) cometabci.ResponseChec
 }
 
 // SetCheckTx sets the checkTxHandler for the app.
-func (app *TestApp) SetCheckTx(handler blockbuster.CheckTx) {
+func (app *TestApp) SetCheckTx(handler abci.CheckTx) {
 	app.checkTxHandler = handler
 }
 
