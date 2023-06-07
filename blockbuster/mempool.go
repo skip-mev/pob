@@ -2,6 +2,7 @@ package blockbuster
 
 import (
 	"context"
+	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
@@ -22,6 +23,9 @@ type (
 
 		// GetTxDistribution returns the number of transactions in each lane.
 		GetTxDistribution() map[string]int
+
+		// Match will return the lane that the transaction belongs to.
+		Match(tx sdk.Tx) (string, error)
 	}
 
 	// Mempool defines the Blockbuster mempool implement. It contains a registry
@@ -56,6 +60,18 @@ func (m *BBMempool) GetTxDistribution() map[string]int {
 	}
 
 	return counts
+}
+
+// Match will return the lane that the transaction belongs to. It matches to
+// the first lane that matches the transaction.
+func (m *BBMempool) Match(tx sdk.Tx) (string, error) {
+	for _, lane := range m.registry {
+		if lane.Match(tx) {
+			return lane.Name(), nil
+		}
+	}
+
+	return "", fmt.Errorf("no lane matched transaction")
 }
 
 // Insert inserts a transaction into every lane that it matches. Insertion will
