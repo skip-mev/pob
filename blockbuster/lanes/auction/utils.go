@@ -1,4 +1,4 @@
-package mempool
+package auction
 
 import (
 	"errors"
