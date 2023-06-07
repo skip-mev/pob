@@ -25,7 +25,10 @@ type (
 		GetTxDistribution() map[string]int
 
 		// Match will return the lane that the transaction belongs to.
-		Match(tx sdk.Tx) (string, error)
+		Match(tx sdk.Tx) (Lane, error)
+
+		// GetLane returns the lane with the given name.
+		GetLane(name string) (Lane, error)
 	}
 
 	// Mempool defines the Blockbuster mempool implement. It contains a registry
@@ -63,27 +66,26 @@ func (m *BBMempool) GetTxDistribution() map[string]int {
 }
 
 // Match will return the lane that the transaction belongs to. It matches to
-// the first lane that matches the transaction.
-func (m *BBMempool) Match(tx sdk.Tx) (string, error) {
+// the first lane where lane.Match(tx) is true.
+func (m *BBMempool) Match(tx sdk.Tx) (Lane, error) {
 	for _, lane := range m.registry {
 		if lane.Match(tx) {
-			return lane.Name(), nil
+			return lane, nil
 		}
 	}
 
-	return "", fmt.Errorf("no lane matched transaction")
+	return nil, fmt.Errorf("no lane matched transaction")
 }
 
-// Insert inserts a transaction into every lane that it matches. Insertion will
-// be attempted on all lanes, even if an error is encountered.
+// Insert will insert a transaction into the mempool. It inserts the transaction
+// into the first lane that it matches.
 func (m *BBMempool) Insert(ctx context.Context, tx sdk.Tx) error {
-	for _, lane := range m.registry {
-		if lane.Match(tx) {
-			return lane.Insert(ctx, tx)
-		}
+	lane, err := m.Match(tx)
+	if err != nil {
+		return err
 	}
 
-	return nil
+	return lane.Insert(ctx, tx)
 }
 
 // Insert returns a nil iterator.
@@ -96,30 +98,40 @@ func (m *BBMempool) Select(_ context.Context, _ [][]byte) sdkmempool.Iterator {
 	return nil
 }
 
-// Remove removes a transaction from the mempool. It removes the transaction
-// from the first lane that it matches.
+// Remove removes a transaction from the mempool based on the first lane that
+// it matches.
 func (m *BBMempool) Remove(tx sdk.Tx) error {
-	for _, lane := range m.registry {
-		if lane.Match(tx) {
-			return lane.Remove(tx)
-		}
+	lane, err := m.Match(tx)
+	if err != nil {
+		return err
 	}
 
-	return nil
+	return lane.Remove(tx)
 }
 
-// Contains returns true if the transaction is contained in the mempool.
+// Contains returns true if the transaction is contained in the mempool. It
+// checks the first lane that it matches to.
 func (m *BBMempool) Contains(tx sdk.Tx) (bool, error) {
-	for _, lane := range m.registry {
-		if lane.Match(tx) {
-			return lane.Contains(tx)
-		}
+	lane, err := m.Match(tx)
+	if err != nil {
+		return false, err
 	}
 
-	return false, nil
+	return lane.Contains(tx)
 }
 
 // Registry returns the mempool's lane registry.
 func (m *BBMempool) Registry() []Lane {
 	return m.registry
+}
+
+// GetLane returns the lane with the given name.
+func (m *BBMempool) GetLane(name string) (Lane, error) {
+	for _, lane := range m.registry {
+		if lane.Name() == name {
+			return lane, nil
+		}
+	}
+
+	return nil, fmt.Errorf("lane %s not found", name)
 }

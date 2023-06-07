@@ -712,13 +712,13 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				tx, err := suite.encodingConfig.TxConfig.TxDecoder()(res.Txs[txIndex])
 				suite.Require().NoError(err)
 
-				laneName, err := suite.mempool.Match(tx)
+				lane, err := suite.mempool.Match(tx)
 				suite.Require().NoError(err)
 
 				// In the case where we have a tob tx, we skip the other transactions in the bundle
 				// in order to not double count
 				switch {
-				case laneName == suite.tobLane.Name():
+				case lane.Name() == suite.tobLane.Name():
 					bidInfo, err := suite.tobLane.GetAuctionBidInfo(tx)
 					suite.Require().NoError(err)
 
