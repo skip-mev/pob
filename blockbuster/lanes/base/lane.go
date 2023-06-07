@@ -36,8 +36,8 @@ func NewDefaultLane(cfg blockbuster.BaseLaneConfig) *DefaultLane {
 }
 
 // Match returns true if the transaction belongs to this lane. Since
-// this is the default lane, it always returns true. This means that
-// any transaction can be included in this lane.
+// this is the default lane, it always returns true except for transactions
+// that belong to lanes in the ignore list.
 func (l *DefaultLane) Match(tx sdk.Tx) bool {
 	for _, lane := range l.Cfg.IgnoreList {
 		if lane.Match(tx) {

@@ -34,7 +34,7 @@ type (
 	// ProcessLanesHandler wraps all of the lanes Process functions into a single chained
 	// function. You can think of it like an AnteHandler, but for processing proposals in the
 	// context of lanes instead of modules.
-	ProcessLanesHandler func(ctx sdk.Context, proposalTxs []sdk.Tx) (sdk.Context, error)
+	ProcessLanesHandler func(ctx sdk.Context, txs []sdk.Tx) (sdk.Context, error)
 
 	// BaseLaneConfig defines the basic functionality needed for a lane.
 	BaseLaneConfig struct {

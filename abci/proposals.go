@@ -40,7 +40,7 @@ type (
 		VerifyTx(ctx sdk.Context, tx sdk.Tx) error
 
 		// ProcessLaneBasic is utilized to verify the rest of the proposal according to
-		// the preferences of the top of block lane. This is used to verify that no
+		// the preferences of the top of block lane.
 		ProcessLaneBasic(txs []sdk.Tx) error
 	}
 

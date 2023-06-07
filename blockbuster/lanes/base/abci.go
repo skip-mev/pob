@@ -66,14 +66,14 @@ func (l *DefaultLane) PrepareLane(
 }
 
 // ProcessLane verifies the default lane's portion of a block proposal.
-func (l *DefaultLane) ProcessLane(ctx sdk.Context, proposalTxs []sdk.Tx, next blockbuster.ProcessLanesHandler) (sdk.Context, error) {
-	for index, tx := range proposalTxs {
+func (l *DefaultLane) ProcessLane(ctx sdk.Context, txs []sdk.Tx, next blockbuster.ProcessLanesHandler) (sdk.Context, error) {
+	for index, tx := range txs {
 		if l.Match(tx) {
 			if err := l.VerifyTx(ctx, tx); err != nil {
 				return ctx, fmt.Errorf("failed to verify tx: %w", err)
 			}
 		} else {
-			return next(ctx, proposalTxs[index:])
+			return next(ctx, txs[index:])
 		}
 	}
 
