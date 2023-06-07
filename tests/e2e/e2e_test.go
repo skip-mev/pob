@@ -1007,8 +1007,6 @@ func (s *IntegrationTestSuite) TestInvalidBids() {
 //
 // 1. Transactions that qualify as free should not be deducted any fees.
 // 2. Transactions that do not qualify as free should be deducted the correct fees.
-// 3. Transactions that qualify as free should be executed before transactions that do not qualify as free.
-// 4. Transactions that belong to other lanes after the free lane should be executed after the free lane.
 func (s *IntegrationTestSuite) TestFreeLane() {
 	// Create the accounts that will create transactions to be included in bundles
 	initBalance := sdk.NewInt64Coin(app.BondDenom, 10000000000)
