@@ -146,7 +146,7 @@ func (suite *ABCITestSuite) SetupTest() {
 	suite.proposalHandler = abci.NewProposalHandler(log.NewNopLogger(), suite.mempool)
 }
 
-func (suite *ABCITestSuite) anteHandler(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
+func (suite *ABCITestSuite) anteHandler(ctx sdk.Context, tx sdk.Tx, _ bool) (sdk.Context, error) {
 	signer := tx.GetMsgs()[0].GetSigners()[0]
 	suite.bankKeeper.EXPECT().GetAllBalances(ctx, signer).AnyTimes().Return(
 		sdk.NewCoins(
@@ -742,15 +742,13 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				for index, tx := range bidInfo.Transactions {
 					suite.Require().Equal(tx, res.Txs[index+1])
 				}
-			} else {
-				if len(res.Txs) > 0 {
-					tx, err := suite.encodingConfig.TxConfig.TxDecoder()(res.Txs[0])
-					suite.Require().NoError(err)
+			} else if len(res.Txs) > 0 {
+				tx, err := suite.encodingConfig.TxConfig.TxDecoder()(res.Txs[0])
+				suite.Require().NoError(err)
 
-					bidInfo, err := suite.tobLane.GetAuctionBidInfo(tx)
-					suite.Require().NoError(err)
-					suite.Require().Nil(bidInfo)
-				}
+				bidInfo, err := suite.tobLane.GetAuctionBidInfo(tx)
+				suite.Require().NoError(err)
+				suite.Require().Nil(bidInfo)
 			}
 
 			// 4. All of the transactions must be unique
