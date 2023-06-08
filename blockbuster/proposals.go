@@ -66,8 +66,6 @@ type (
 
 	// Proposal defines a block proposal type.
 	Proposal struct {
-		logger log.Logger
-
 		// txs is the list of transactions in the proposal.
 		txs [][]byte
 
@@ -86,13 +84,12 @@ type (
 )
 
 // NewProposal returns a new empty proposal.
-func NewProposal(maxTxBytes int64, logger log.Logger) *Proposal {
+func NewProposal(maxTxBytes int64) *Proposal {
 	return &Proposal{
 		txs:            make([][]byte, 0),
 		voteExtensions: make([][]byte, 0),
 		cache:          make(map[string]struct{}),
 		maxTxBytes:     maxTxBytes,
-		logger:         logger,
 	}
 }
 

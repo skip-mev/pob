@@ -43,7 +43,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 			}
 		}()
 
-		proposal, err := h.prepareLanesHandler(ctx, blockbuster.NewProposal(req.MaxTxBytes, h.logger))
+		proposal, err := h.prepareLanesHandler(ctx, blockbuster.NewProposal(req.MaxTxBytes))
 		if err != nil {
 			h.logger.Error("failed to prepare proposal", "err", err)
 			return abci.ResponsePrepareProposal{Txs: make([][]byte, 0)}

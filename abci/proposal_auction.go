@@ -23,7 +23,7 @@ func (h *ProposalHandler) BuildTOB(ctx sdk.Context, voteExtensionInfo abci.Exten
 
 	// Attempt to select the highest bid transaction that is valid and whose
 	// bundled transactions are valid.
-	topOfBlock := blockbuster.NewProposal(maxBytes, h.logger)
+	topOfBlock := blockbuster.NewProposal(maxBytes)
 	for _, bidTx := range sortedBidTxs {
 		// Cache the context so that we can write it back to the original context
 		// when we know we have a valid top of block bundle.
@@ -137,7 +137,7 @@ func (h *ProposalHandler) GetBidsFromVoteExtensions(voteExtensions []abci.Extend
 // of the auction transaction and bundle, and a cache of all transactions that
 // should be ignored.
 func (h *ProposalHandler) buildTOB(ctx sdk.Context, bidTx sdk.Tx, maxBytes int64) (*blockbuster.Proposal, error) {
-	proposal := blockbuster.NewProposal(maxBytes, h.logger)
+	proposal := blockbuster.NewProposal(maxBytes)
 
 	// cache the bytes of the bid transaction
 	txBz, _, err := utils.GetTxHashStr(h.txEncoder, bidTx)
