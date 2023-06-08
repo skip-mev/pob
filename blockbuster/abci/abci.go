@@ -55,11 +55,9 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 			"total_tx_bytes", proposal.GetTotalTxBytes(),
 		)
 
-		resp = abci.ResponsePrepareProposal{
+		return abci.ResponsePrepareProposal{
 			Txs: proposal.GetProposal(),
 		}
-
-		return
 	}
 }
 
@@ -77,11 +75,19 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 			}
 		}()
 
+		txs := req.Txs
+		if len(txs) == 0 {
+			h.logger.Info("accepted empty proposal")
+			return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_ACCEPT}
+		}
+
 		// Verify the proposal using the verification logic from each lane.
-		if _, err := h.processLanesHandler(ctx, req.Txs); err != nil {
+		if _, err := h.processLanesHandler(ctx, txs); err != nil {
 			h.logger.Error("failed to validate the proposal", "err", err)
 			return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 		}
+
+		h.logger.Info("validated proposal", "num_txs", len(txs))
 
 		return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_ACCEPT}
 	}

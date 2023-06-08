@@ -102,6 +102,10 @@ func NewProposal(maxTxBytes int64, logger log.Logger) *Proposal {
 //  2. The total size of the partial proposal must be less than the maximum number of bytes allowed for
 //     the lane.
 func (p *Proposal) UpdateProposal(lane LaneProposal, partialProposalTxs [][]byte) error {
+	if len(partialProposalTxs) == 0 {
+		return nil
+	}
+
 	partialProposalSize := int64(0)
 	for _, tx := range partialProposalTxs {
 		partialProposalSize += int64(len(tx))

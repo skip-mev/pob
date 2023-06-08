@@ -26,8 +26,7 @@ import (
 
 type ABCITestSuite struct {
 	suite.Suite
-	logger log.Logger
-	ctx    sdk.Context
+	ctx sdk.Context
 
 	// Define basic tx configuration
 	encodingConfig testutils.EncodingConfig
