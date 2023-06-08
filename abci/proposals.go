@@ -41,7 +41,7 @@ type (
 
 		// ProcessLaneBasic is utilized to verify the rest of the proposal according to
 		// the preferences of the top of block lane.
-		ProcessLaneBasic(txs [][]byte) error
+		ProcessLaneBasic(txs []sdk.Tx) error
 
 		// GetMaxBlockSpace returns the maximum block space that can be used by the top of
 		// block lane as a percentage of the total block space.
