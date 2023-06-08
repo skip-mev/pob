@@ -7,8 +7,16 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
-	"github.com/skip-mev/pob/blockbuster"
 )
+
+// LaneUtils defines the interfaces required by the util functions.
+type BlockProposal interface {
+	// GetMaxTxBytes returns the maximum number of bytes that can be included in the proposal.
+	GetMaxTxBytes() int64
+
+	// GetTotalTxBytes returns the total number of bytes currently included in the proposal.
+	GetTotalTxBytes() int64
+}
 
 // GetTxHashStr returns the hex-encoded hash of the transaction alongside the
 // transaction bytes.
@@ -37,13 +45,13 @@ func RemoveTxsFromLane(txs map[sdk.Tx]struct{}, mempool sdkmempool.Mempool) erro
 
 // GetMaxTxBytesForLane returns the maximum number of bytes that can be included in the proposal
 // for the given lane.
-func GetMaxTxBytesForLane(proposal *blockbuster.Proposal, ratio sdk.Dec) int64 {
+func GetMaxTxBytesForLane(proposal BlockProposal, ratio sdk.Dec) int64 {
 	// In the case where the ratio is zero, we return the max tx bytes remaining. Note, the only
 	// lane that should have a ratio of zero is the default lane. This means the default lane
 	// will have no limit on the number of transactions it can include in a block and is only
 	// limited by the maxTxBytes included in the PrepareProposalRequest.
 	if ratio.IsZero() {
-		remainder := proposal.MaxTxBytes - proposal.TotalTxBytes
+		remainder := proposal.GetMaxTxBytes() - proposal.GetTotalTxBytes()
 		if remainder < 0 {
 			return 0
 		}
@@ -52,5 +60,5 @@ func GetMaxTxBytesForLane(proposal *blockbuster.Proposal, ratio sdk.Dec) int64 {
 	}
 
 	// Otherwise, we calculate the max tx bytes for the lane based on the ratio.
-	return ratio.MulInt64(proposal.MaxTxBytes).TruncateInt().Int64()
+	return ratio.MulInt64(proposal.GetMaxTxBytes()).TruncateInt().Int64()
 }

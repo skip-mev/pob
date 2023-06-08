@@ -2,6 +2,7 @@ package blockbuster
 
 import (
 	"context"
+	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
@@ -31,13 +32,28 @@ type (
 	}
 )
 
+// NewMempool returns a new Blockbuster mempool. The blockbuster mempool is
+// comprised of a registry of lanes. Each lane is responsible for selecting
+// transactions according to its own selection logic. The lanes are ordered
+// according to their priority. The first lane in the registry has the highest
+// priority. Proposals are verified according to the order of the lanes in the
+// registry. Basic mempool API, such as insertion, removal, and contains, are
+// delegated to the first lane that matches the transaction. Each transaction
+// should only belong in one lane.
 func NewMempool(lanes ...Lane) *BBMempool {
-	return &BBMempool{
+	mempool := &BBMempool{
 		registry: lanes,
 	}
+
+	if err := mempool.ValidateBasic(); err != nil {
+		panic(err)
+	}
+
+	return mempool
 }
 
-// CountTx returns the total number of transactions in the mempool.
+// CountTx returns the total number of transactions in the mempool. This will
+// be the sum of the number of transactions in each lane.
 func (m *BBMempool) CountTx() int {
 	var total int
 	for _, lane := range m.registry {
@@ -58,8 +74,8 @@ func (m *BBMempool) GetTxDistribution() map[string]int {
 	return counts
 }
 
-// Insert inserts a transaction into every lane that it matches. Insertion will
-// be attempted on all lanes, even if an error is encountered.
+// Insert inserts a transaction into the mempool. It inserts the transaction
+// into the first lane that it matches.
 func (m *BBMempool) Insert(ctx context.Context, tx sdk.Tx) error {
 	for _, lane := range m.registry {
 		if lane.Match(tx) {
@@ -106,4 +122,31 @@ func (m *BBMempool) Contains(tx sdk.Tx) (bool, error) {
 // Registry returns the mempool's lane registry.
 func (m *BBMempool) Registry() []Lane {
 	return m.registry
+}
+
+// validateBasic validates the mempools configuration.
+func (m *BBMempool) ValidateBasic() error {
+	sum := sdk.ZeroDec()
+	seenZeroMaxBlockSpace := false
+
+	for _, lane := range m.registry {
+		maxBlockSpace := lane.GetMaxBlockSpace()
+		if maxBlockSpace.IsZero() {
+			seenZeroMaxBlockSpace = true
+		}
+
+		sum = sum.Add(lane.GetMaxBlockSpace())
+	}
+
+	switch {
+	// Ensure that the sum of the lane max block space percentages is less than
+	// or equal to 1.
+	case sum.GT(sdk.OneDec()):
+		return fmt.Errorf("sum of lane max block space percentages must be less than or equal to 1, got %s", sum)
+	// Ensure that there is no unused block space.
+	case sum.LT(sdk.OneDec()) && !seenZeroMaxBlockSpace:
+		return fmt.Errorf("sum of total block space percentages will be less than 1")
+	}
+
+	return nil
 }

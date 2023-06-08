@@ -43,10 +43,20 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 			}
 		}()
 
-		proposal := h.prepareLanesHandler(ctx, blockbuster.NewProposal(req.MaxTxBytes))
+		proposal, err := h.prepareLanesHandler(ctx, blockbuster.NewProposal(req.MaxTxBytes, h.logger))
+		if err != nil {
+			h.logger.Error("failed to prepare proposal", "err", err)
+			return abci.ResponsePrepareProposal{Txs: make([][]byte, 0)}
+		}
+
+		h.logger.Info(
+			"prepared proposal",
+			"num_txs", proposal.GetNumTxs(),
+			"total_tx_bytes", proposal.GetTotalTxBytes(),
+		)
 
 		resp = abci.ResponsePrepareProposal{
-			Txs: proposal.Txs,
+			Txs: proposal.GetTxs(),
 		}
 
 		return
@@ -93,7 +103,7 @@ func ChainPrepareLanes(chain ...blockbuster.Lane) blockbuster.PrepareLanesHandle
 		chain = append(chain, terminator.Terminator{})
 	}
 
-	return func(ctx sdk.Context, partialProposal *blockbuster.Proposal) (finalProposal *blockbuster.Proposal) {
+	return func(ctx sdk.Context, partialProposal blockbuster.BlockProposal) (finalProposal blockbuster.BlockProposal, err error) {
 		lane := chain[0]
 		lane.Logger().Info("preparing lane", "lane", lane.Name())
 
@@ -101,8 +111,8 @@ func ChainPrepareLanes(chain ...blockbuster.Lane) blockbuster.PrepareLanesHandle
 		cacheCtx, write := ctx.CacheContext()
 
 		defer func() {
-			if err := recover(); err != nil {
-				lane.Logger().Error("failed to prepare lane", "lane", lane.Name(), "err", err)
+			if rec := recover(); rec != nil || err != nil {
+				lane.Logger().Error("failed to prepare lane", "lane", lane.Name(), "err", err, "recover_error", rec)
 
 				lanesRemaining := len(chain)
 				switch {
@@ -110,7 +120,7 @@ func ChainPrepareLanes(chain ...blockbuster.Lane) blockbuster.PrepareLanesHandle
 					// If there are only two lanes remaining, then the first lane in the chain
 					// is the lane that failed to prepare the partial proposal and the second lane in the
 					// chain is the terminator lane. We return the proposal as is.
-					finalProposal = partialProposal
+					finalProposal, err = partialProposal, nil
 				default:
 					// If there are more than two lanes remaining, then the first lane in the chain
 					// is the lane that failed to prepare the proposal but the second lane in the
@@ -121,7 +131,7 @@ func ChainPrepareLanes(chain ...blockbuster.Lane) blockbuster.PrepareLanesHandle
 						chain[1].GetMaxBlockSpace(),
 					)
 
-					finalProposal = chain[1].PrepareLane(
+					finalProposal, err = chain[1].PrepareLane(
 						ctx,
 						partialProposal,
 						maxTxBytesForLane,
@@ -132,8 +142,6 @@ func ChainPrepareLanes(chain ...blockbuster.Lane) blockbuster.PrepareLanesHandle
 				// Write the cache to the context since we know that the lane successfully prepared
 				// the partial proposal.
 				write()
-
-				lane.Logger().Info("prepared lane", "lane", lane.Name())
 			}
 		}()
 

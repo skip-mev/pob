@@ -23,7 +23,7 @@ func (h *ProposalHandler) BuildTOB(ctx sdk.Context, voteExtensionInfo abci.Exten
 
 	// Attempt to select the highest bid transaction that is valid and whose
 	// bundled transactions are valid.
-	topOfBlock := blockbuster.NewProposal(maxBytes)
+	topOfBlock := blockbuster.NewProposal(maxBytes, h.logger)
 	for _, bidTx := range sortedBidTxs {
 		// Cache the context so that we can write it back to the original context
 		// when we know we have a valid top of block bundle.
@@ -91,7 +91,7 @@ func (h *ProposalHandler) VerifyTOB(ctx sdk.Context, proposalTxs [][]byte) (*Auc
 
 	// Verify that the top of block txs matches the top of block proposal txs.
 	actualTOBTxs := proposalTxs[NumInjectedTxs : auctionInfo.NumTxs+NumInjectedTxs]
-	if !reflect.DeepEqual(actualTOBTxs, expectedTOB.Txs) {
+	if !reflect.DeepEqual(actualTOBTxs, expectedTOB.GetTxs()) {
 		return nil, fmt.Errorf("expected top of block txs does not match top of block proposal")
 	}
 
@@ -137,21 +137,22 @@ func (h *ProposalHandler) GetBidsFromVoteExtensions(voteExtensions []abci.Extend
 // of the auction transaction and bundle, and a cache of all transactions that
 // should be ignored.
 func (h *ProposalHandler) buildTOB(ctx sdk.Context, bidTx sdk.Tx, maxBytes int64) (*blockbuster.Proposal, error) {
-	proposal := blockbuster.NewProposal(maxBytes)
+	proposal := blockbuster.NewProposal(maxBytes, h.logger)
 
 	// cache the bytes of the bid transaction
-	txBz, hash, err := utils.GetTxHashStr(h.txEncoder, bidTx)
+	txBz, _, err := utils.GetTxHashStr(h.txEncoder, bidTx)
 	if err != nil {
 		return proposal, err
 	}
 
-	proposal.Cache[hash] = struct{}{}
-	proposal.TotalTxBytes = int64(len(txBz))
-	proposal.Txs = append(proposal.Txs, txBz)
-
-	if int64(len(txBz)) > maxBytes {
+	maxBytesForLane := utils.GetMaxTxBytesForLane(proposal, h.tobLane.GetMaxBlockSpace())
+	if int64(len(txBz)) > maxBytesForLane {
 		return proposal, fmt.Errorf("bid transaction is too large; got %d, max %d", len(txBz), maxBytes)
 	}
+
+	// store the bytes of each ref tx as sdk.Tx bytes in order to build a valid proposal
+	txs := make([][]byte, 0)
+	txs = append(txs, txBz)
 
 	// Ensure that the bid transaction is valid
 	if err := h.tobLane.VerifyTx(ctx, bidTx); err != nil {
@@ -163,11 +164,8 @@ func (h *ProposalHandler) buildTOB(ctx sdk.Context, bidTx sdk.Tx, maxBytes int64
 		return proposal, err
 	}
 
-	// store the bytes of each ref tx as sdk.Tx bytes in order to build a valid proposal
-	sdkTxBytes := make([][]byte, len(bidInfo.Transactions))
-
 	// Ensure that the bundled transactions are valid
-	for index, rawRefTx := range bidInfo.Transactions {
+	for _, rawRefTx := range bidInfo.Transactions {
 		// convert the bundled raw transaction to a sdk.Tx
 		refTx, err := h.tobLane.WrapBundleTransaction(rawRefTx)
 		if err != nil {
@@ -175,17 +173,18 @@ func (h *ProposalHandler) buildTOB(ctx sdk.Context, bidTx sdk.Tx, maxBytes int64
 		}
 
 		// convert the sdk.Tx to a hash and bytes
-		txBz, hash, err := utils.GetTxHashStr(h.txEncoder, refTx)
+		txBz, _, err := utils.GetTxHashStr(h.txEncoder, refTx)
 		if err != nil {
 			return proposal, err
 		}
 
-		proposal.Cache[hash] = struct{}{}
-		sdkTxBytes[index] = txBz
+		txs = append(txs, txBz)
 	}
 
 	// Add the bundled transactions to the proposal.
-	proposal.Txs = append(proposal.Txs, sdkTxBytes...)
+	if err := proposal.UpdateProposal(h.tobLane, txs); err != nil {
+		return proposal, err
+	}
 
 	return proposal, nil
 }
