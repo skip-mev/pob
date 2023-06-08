@@ -100,9 +100,8 @@ selectBidTxLoop:
 			break selectBidTxLoop
 		}
 
-		txsToRemove[tmpBidTx] = struct{}{}
 		l.Cfg.Logger.Info(
-			"failed to select auction bid tx; tx size is too large",
+			"failed to select auction bid tx for lane; tx size is too large",
 			"tx_size", bidTxSize,
 			"max_size", maxTxBytes,
 		)
