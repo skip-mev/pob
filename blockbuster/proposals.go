@@ -108,7 +108,7 @@ func (p *Proposal) UpdateProposal(lane LaneProposal, partialProposalTxs [][]byte
 	}
 
 	// Invarient check: Ensure that the lane did not prepare a proposal that is too large.
-	maxTxBytesForLane := utils.GetMaxTxBytesForLane(p, lane.GetMaxBlockSpace())
+	maxTxBytesForLane := utils.GetMaxTxBytesForLane(p.GetMaxTxBytes(), p.GetTotalTxBytes(), lane.GetMaxBlockSpace())
 	if partialProposalSize > maxTxBytesForLane {
 		return fmt.Errorf(
 			"%s lane prepared a proposal that is too large: %d > %d",

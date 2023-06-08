@@ -127,7 +127,8 @@ func ChainPrepareLanes(chain ...blockbuster.Lane) blockbuster.PrepareLanesHandle
 					// chain is not the terminator lane so there could potentially be more transactions
 					// added to the proposal
 					maxTxBytesForLane := utils.GetMaxTxBytesForLane(
-						partialProposal,
+						partialProposal.GetMaxTxBytes(),
+						partialProposal.GetTotalTxBytes(),
 						chain[1].GetMaxBlockSpace(),
 					)
 
@@ -147,7 +148,8 @@ func ChainPrepareLanes(chain ...blockbuster.Lane) blockbuster.PrepareLanesHandle
 
 		// Get the maximum number of bytes that can be included in the proposal for this lane.
 		maxTxBytesForLane := utils.GetMaxTxBytesForLane(
-			partialProposal,
+			partialProposal.GetMaxTxBytes(),
+			partialProposal.GetTotalTxBytes(),
 			lane.GetMaxBlockSpace(),
 		)
 
