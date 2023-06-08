@@ -56,7 +56,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		)
 
 		resp = abci.ResponsePrepareProposal{
-			Txs: proposal.GetTxs(),
+			Txs: proposal.GetProposal(),
 		}
 
 		return

@@ -16,7 +16,7 @@ type (
 	// LaneProposal defines the interface/APIs that are required for the proposal to interact
 	// with a lane.
 	LaneProposal interface {
-		// GetMaxTxBytes returns the maximum number of bytes that can be included in the proposal.
+		// Logger returns the lane's logger.
 		Logger() log.Logger
 
 		// GetMaxBlockSpace returns the maximum block space for the lane as a relative percentage.
@@ -26,13 +26,16 @@ type (
 		Name() string
 	}
 
-	// BlockProposal is the interface/APIs that are required for the proposal to interact with
-	// and update proposals. BlockProposals are iteratively updated as each lane prepares its
-	// partial proposal. Each lane must call UpdateProposal with its partial proposal. BlockProposals
+	// BlockProposal is the interface/APIs that are required for proposal creation + interacting with
+	// and updating proposals. BlockProposals are iteratively updated as each lane prepares its
+	// partial proposal. Each lane must call UpdateProposal with its partial proposal in PrepareLane. BlockProposals
 	// can also include vote extensions, which are included at the top of the proposal.
 	BlockProposal interface {
-		// UpdateProposal updates the proposal with the given transactions and total size. In the
-		// case where the proposal is too large, a panic will be thrown.
+		// UpdateProposal updates the proposal with the given transactions. There are a
+		// few invarients that are checked:
+		//  1. The total size of the proposal must be less than the maximum number of bytes allowed.
+		//  2. The total size of the partial proposal must be less than the maximum number of bytes allowed for
+		//     the lane.
 		UpdateProposal(lane LaneProposal, partialProposalTxs [][]byte) error
 
 		// GetMaxTxBytes returns the maximum number of bytes that can be included in the proposal.

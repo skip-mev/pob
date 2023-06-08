@@ -124,7 +124,7 @@ func (m *BBMempool) Registry() []Lane {
 	return m.registry
 }
 
-// validateBasic validates the mempools configuration.
+// ValidateBasic validates the mempools configuration.
 func (m *BBMempool) ValidateBasic() error {
 	sum := sdk.ZeroDec()
 	seenZeroMaxBlockSpace := false

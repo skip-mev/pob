@@ -103,7 +103,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		auctionInfo := &AuctionInfo{
 			ExtendedCommitInfo: lastCommitInfo,
 			MaxTxBytes:         req.MaxTxBytes,
-			NumTxs:             uint64(len(topOfBlock.GetTxs())),
+			NumTxs:             uint64(topOfBlock.GetNumTxs()),
 		}
 
 		// Add the auction info and top of block transactions into the proposal.

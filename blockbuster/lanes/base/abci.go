@@ -8,7 +8,7 @@ import (
 	"github.com/skip-mev/pob/blockbuster/utils"
 )
 
-// PrepareLane will prepare a partial proposal for the base lane. It will select and include
+// PrepareLane will prepare a partial proposal for the default lane. It will select and include
 // all valid transactions in the mempool that are not already in the partial proposal.
 // The default lane orders transactions by the sdk.Context priority.
 func (l *DefaultLane) PrepareLane(

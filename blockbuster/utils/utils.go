@@ -9,7 +9,7 @@ import (
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
 
-// LaneUtils defines the interfaces required by the util functions.
+// BlockProposal defines the block proposal interface required by the util functions.
 type BlockProposal interface {
 	// GetMaxTxBytes returns the maximum number of bytes that can be included in the proposal.
 	GetMaxTxBytes() int64

@@ -104,7 +104,7 @@ selectBidTxLoop:
 		l.Cfg.Logger.Info(
 			"failed to select auction bid tx; tx size is too large",
 			"tx_size", bidTxSize,
-			"max_size", proposal.GetMaxTxBytes(),
+			"max_size", maxTxBytes,
 		)
 	}
 

@@ -150,10 +150,6 @@ func (h *ProposalHandler) buildTOB(ctx sdk.Context, bidTx sdk.Tx, maxBytes int64
 		return proposal, fmt.Errorf("bid transaction is too large; got %d, max %d", len(txBz), maxBytes)
 	}
 
-	// store the bytes of each ref tx as sdk.Tx bytes in order to build a valid proposal
-	txs := make([][]byte, 0)
-	txs = append(txs, txBz)
-
 	// Ensure that the bid transaction is valid
 	if err := h.tobLane.VerifyTx(ctx, bidTx); err != nil {
 		return proposal, err
@@ -163,6 +159,9 @@ func (h *ProposalHandler) buildTOB(ctx sdk.Context, bidTx sdk.Tx, maxBytes int64
 	if err != nil {
 		return proposal, err
 	}
+
+	// store the bytes of each ref tx as sdk.Tx bytes in order to build a valid proposal
+	txs := [][]byte{txBz}
 
 	// Ensure that the bundled transactions are valid
 	for _, rawRefTx := range bidInfo.Transactions {
