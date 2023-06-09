@@ -35,7 +35,7 @@ selectBidTxLoop:
 		bidTxBz, _, err := utils.GetTxHashStr(l.Cfg.TxEncoder, tmpBidTx)
 		if err != nil {
 			txsToRemove[tmpBidTx] = struct{}{}
-			continue
+			continue selectBidTxLoop
 		}
 
 		// if the transaction is already in the (partial) block proposal, we skip it.
