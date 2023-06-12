@@ -1140,11 +1140,6 @@ func (s *IntegrationTestSuite) TestFreeLane() {
 
 // TestLanes tests that the application correctly handles lanes. The biggest invarient that is
 // test here is making sure that transactions are ordered in blocks respecting the lane order.
-// TODO:
-// 1. Test for failing top of block transactions
-// 2. Test for top of block transactions that included transactions from the default lane
-// 3. Test for failing free transactions
-// 4. Test for failing normal transactions
 func (s *IntegrationTestSuite) TestLanes() {
 	// Create the accounts that will create transactions to be included in bundles
 	initBalance := sdk.NewInt64Coin(app.BondDenom, 10000000000)
