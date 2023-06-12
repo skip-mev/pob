@@ -1,10 +1,9 @@
 # BlockBuster
 
-
 > 📕 BlockBuster is an app-side mempool + set of proposal handlers that allows 
-developers to configure module lanes of transactions in their blocks with 
-distinct validation/ordering logic. **The ultimate highway system for 
-transactions.** 
+developers to configure modular lanes of transactions in their blocks with 
+distinct validation/ordering logic. **BlockBuster is the ultimate highway 
+system for transactions.**
 
 ## High Level Overview
 
@@ -22,7 +21,7 @@ Similarly, **BlockBuster** redefines block-space into **`lanes`** - where each
 where transaction ***validation***, ***ordering*** and ***prioritization*** for 
 contained transactions are shared.
 * Lanes implement a **standard interface** that allows each individual lane to 
-propose and validate a portion of the block
+propose and validate a portion of a block.
 * Lanes are ordered with each other, configurable by developers. All lanes 
 together define the desired block structure of a chain.
 
@@ -61,9 +60,9 @@ lanes together define the transaction highway system and BlockBuster mempool.
 When instantiating the BlockBuster mempool, developers will define all of the 
 desired lanes and their configurations (including lane ordering). 
 
-Utilizing blockbuster is a simple three step process:
+Utilizing BlockBuster is a simple three step process:
 
-1. Determine the lanes desired. Currently, POB supports three different 
+* Determine the lanes desired. Currently, POB supports three different 
 implementations of lanes: top of block lane, free lane, and a default lane.
     1. Top of block lane allows the top of every block to be auctioned off 
     and constructed using logic defined by the `x/builder` module. 
@@ -73,14 +72,14 @@ implementations of lanes: top of block lane, free lane, and a default lane.
      [here](https://github.com/skip-mev/pob/blob/main/blockbuster/lanes/free/factory.go).
     3. Default lane accepts all other transactions and is considered to be 
     analogous to how mempools and proposals are constructed today.
-2. Instantiate the mempool in base app. 
+* Instantiate the mempool in base app. 
 
 ```go
 mempool := blockbuster.NewMempool(lanes...)
 app.App.SetMempool(mempool)
 ```
 
-1. Instantiate the BlockBuster proposal handlers in base app.
+* Instantiate the BlockBuster proposal handlers in base app.
 
 ```go
 proposalHandlers := abci.NewProposalHandler(
@@ -109,7 +108,7 @@ three lanes:
 2. Free lane
 3. Default lane
 
-**************************************Preparing Proposals**************************************
+#### Preparing Proposals
 
 When the current proposer starts building a block, it will first populate the 
 proposal with transactions from the top of block lane, followed by free and 
@@ -123,7 +122,7 @@ In the case when any lane fails to propose its portion of the block, it will
 be skipped and the next lane in the set of lanes will propose its portion of 
 the block. Failures of partial block proposals are independent of one another. 
 
-****************************************Processing Proposals****************************************
+#### Processing Proposals
 
 Block proposals are validated iteratively following the exact ordering of lanes 
 defined on base app. Transactions included in block proposals must respect the 
@@ -143,7 +142,7 @@ in a greedy fashion. If a lane's portion of the proposal is invalid, we
 reject the proposal. After a lane's portion of the proposal is verified, we 
 pass the remaining transactions to the next lane in the chain.
 
-**********************Coming Soon**********************
+#### Coming Soon
 
 BlockBuster will have its own dedicated gRPC service for searchers, wallets, 
 and users that allows them to query what lane their transaction might belong 
@@ -163,55 +162,55 @@ The general interface that each lane must implement can be found [here](https://
 
 ```go
 // Lane defines an interface used for block construction
-	Lane interface {
-		sdkmempool.Mempool
+Lane interface {
+    sdkmempool.Mempool
 
-		// Name returns the name of the lane.
-		Name() string
+    // Name returns the name of the lane.
+    Name() string
 
-		// Match determines if a transaction belongs to this lane.
-		Match(tx sdk.Tx) bool
+    // Match determines if a transaction belongs to this lane.
+    Match(tx sdk.Tx) bool
 
-		// VerifyTx verifies the transaction belonging to this lane.
-		VerifyTx(ctx sdk.Context, tx sdk.Tx) error
+    // VerifyTx verifies the transaction belonging to this lane.
+    VerifyTx(ctx sdk.Context, tx sdk.Tx) error
 
-		// Contains returns true if the mempool contains the given transaction.
-		Contains(tx sdk.Tx) (bool, error)
+    // Contains returns true if the mempool contains the given transaction.
+    Contains(tx sdk.Tx) (bool, error)
 
-		// PrepareLane builds a portion of the block. It inputs the maxTxBytes that 
-        // can be included in the proposal for the given lane, the partial 
-        // proposal, and a function to call the next lane in the chain. The 
-        // next lane in the chain will be called with the updated proposal and context.
-		PrepareLane(
-            ctx sdk.Context, 
-            proposal BlockProposal, 
-            maxTxBytes int64, 
-            next PrepareLanesHandler,
-        ) (BlockProposal, error)
+    // PrepareLane builds a portion of the block. It inputs the maxTxBytes that 
+    // can be included in the proposal for the given lane, the partial 
+    // proposal, and a function to call the next lane in the chain. The 
+    // next lane in the chain will be called with the updated proposal and context.
+    PrepareLane(
+        ctx sdk.Context, 
+        proposal BlockProposal, 
+        maxTxBytes int64, 
+        next PrepareLanesHandler,
+    ) (BlockProposal, error)
 
-		// ProcessLaneBasic validates that transactions belonging to this lane are 
-        // not misplaced in the block proposal.
-		ProcessLaneBasic(txs []sdk.Tx) error
+    // ProcessLaneBasic validates that transactions belonging to this lane are 
+    // not misplaced in the block proposal.
+    ProcessLaneBasic(txs []sdk.Tx) error
 
-		// ProcessLane verifies this lane's portion of a proposed block. It inputs 
-        // the transactions that may belong to this lane and a function to call 
-        // the next lane in the chain. The next lane in the chain will be
-        // called with the updated context and filtered down transactions.
-		ProcessLane(
-            ctx sdk.Context, 
-            proposalTxs []sdk.Tx, 
-            next ProcessLanesHandler,
-        ) (sdk.Context, error)
+    // ProcessLane verifies this lane's portion of a proposed block. It inputs 
+    // the transactions that may belong to this lane and a function to call 
+    // the next lane in the chain. The next lane in the chain will be
+    // called with the updated context and filtered down transactions.
+    ProcessLane(
+        ctx sdk.Context, 
+        proposalTxs []sdk.Tx, 
+        next ProcessLanesHandler,
+    ) (sdk.Context, error)
 
-		// SetAnteHandler sets the lane's antehandler.
-		SetAnteHandler(antehander sdk.AnteHandler)
+    // SetAnteHandler sets the lane's antehandler.
+    SetAnteHandler(antehander sdk.AnteHandler)
 
-		// Logger returns the lane's logger.
-		Logger() log.Logger
+    // Logger returns the lane's logger.
+    Logger() log.Logger
 
-		// GetMaxBlockSpace returns the max block space for the lane as a relative percentage.
-		GetMaxBlockSpace() sdk.Dec
-	}
+    // GetMaxBlockSpace returns the max block space for the lane as a relative percentage.
+    GetMaxBlockSpace() sdk.Dec
+}
 ```
 
 ### 1. Intra-lane Transaction Ordering
