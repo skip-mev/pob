@@ -141,6 +141,15 @@ func (suite *KeeperTestSuite) TestValidateBidInfo() {
 			},
 			false,
 		},
+		{
+			"min bid increment is different from bid denom", // THIS SHOULD NEVER HAPPEN
+			func() {
+				highestBid = sdk.NewCoin("foo", sdk.NewInt(500))
+				bid = sdk.NewCoin("foo", sdk.NewInt(1500))
+				minBidIncrement = sdk.NewCoin("foo2", sdk.NewInt(1000))
+			},
+			false,
+		},
 	}
 
 	for _, tc := range cases {

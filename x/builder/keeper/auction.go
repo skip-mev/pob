@@ -69,9 +69,19 @@ func (k Keeper) ValidateAuctionBid(ctx sdk.Context, bidder sdk.AccAddress, bid, 
 			return err
 		}
 
+		if minBidIncrement.Denom != bid.Denom {
+			return fmt.Errorf("min bid increment denom (%s) does not match the bid denom (%s)", minBidIncrement, bid)
+		}
+
 		minBid := highestBid.Add(minBidIncrement)
 		if !bid.IsGTE(minBid) {
-			return fmt.Errorf("bid amount (%s) is less than the highest bid (%s) + min bid increment (%s)", bid, highestBid, minBidIncrement)
+			return fmt.Errorf(
+				"bid amount (%s) is less than the highest bid (%s) + min bid increment (%s); smallest acceptable bid is (%s)",
+				bid,
+				highestBid,
+				minBidIncrement,
+				minBid,
+			)
 		}
 	}
 
