@@ -14,24 +14,24 @@ import (
 var _ sdk.AnteDecorator = BuilderDecorator{}
 
 type (
+	// Mempool is an interface that defines the methods required to interact with the application-side mempool.
 	Mempool interface {
 		Contains(tx sdk.Tx) (bool, error)
 		GetAuctionBidInfo(tx sdk.Tx) (*mempool.AuctionBidInfo, error)
 		GetTopAuctionTx(ctx context.Context) sdk.Tx
 	}
 
+	// BuilderDecorator is an AnteDecorator that validates the auction bid and bundled transactions.
 	BuilderDecorator struct {
 		builderKeeper keeper.Keeper
-		txDecoder     sdk.TxDecoder
 		txEncoder     sdk.TxEncoder
 		mempool       Mempool
 	}
 )
 
-func NewBuilderDecorator(ak keeper.Keeper, txDecoder sdk.TxDecoder, txEncoder sdk.TxEncoder, mempool Mempool) BuilderDecorator {
+func NewBuilderDecorator(ak keeper.Keeper, txEncoder sdk.TxEncoder, mempool Mempool) BuilderDecorator {
 	return BuilderDecorator{
 		builderKeeper: ak,
-		txDecoder:     txDecoder,
 		txEncoder:     txEncoder,
 		mempool:       mempool,
 	}
@@ -48,7 +48,7 @@ func (bd BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 		}
 
 		if !contains {
-			return ctx, fmt.Errorf("transaction not found in application mempool")
+			return ctx, fmt.Errorf("transaction not found in application-side mempool")
 		}
 	}
 
