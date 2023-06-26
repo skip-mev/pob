@@ -69,9 +69,9 @@ func (suite *AnteTestSuite) SetupTest() {
 	suite.Require().NoError(err)
 }
 
-func (suite *AnteTestSuite) executeAnteHandler(tx sdk.Tx, balance sdk.Coins) (sdk.Context, error) {
+func (suite *AnteTestSuite) executeAnteHandler(tx sdk.Tx, balance sdk.Coin) (sdk.Context, error) {
 	signer := tx.GetMsgs()[0].GetSigners()[0]
-	suite.bankKeeper.EXPECT().GetAllBalances(suite.ctx, signer).AnyTimes().Return(balance)
+	suite.bankKeeper.EXPECT().GetBalance(suite.ctx, signer, balance.Denom).AnyTimes().Return(balance)
 
 	next := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
 		return ctx, nil
@@ -85,7 +85,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 		// Bid set up
 		bidder  = testutils.RandomAccounts(suite.random, 1)[0]
 		bid     = sdk.NewCoin("foo", sdk.NewInt(1000))
-		balance = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(10000)))
+		balance = sdk.NewCoin("foo", sdk.NewInt(10000))
 		signers = []testutils.Account{bidder}
 
 		// Top bidding auction tx set up
@@ -125,14 +125,14 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 			"bidder has insufficient balance, invalid auction tx",
 			func() {
 				insertTopBid = false
-				balance = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(10)))
+				balance = sdk.NewCoin("foo", sdk.NewInt(10))
 			},
 			false,
 		},
 		{
 			"bid is smaller than reserve fee, invalid auction tx",
 			func() {
-				balance = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(10000)))
+				balance = sdk.NewCoin("foo", sdk.NewInt(10000))
 				bid = sdk.NewCoin("foo", sdk.NewInt(101))
 				reserveFee = sdk.NewCoin("foo", sdk.NewInt(1000))
 			},
@@ -141,7 +141,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 		{
 			"valid auction bid tx",
 			func() {
-				balance = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(10000)))
+				balance = sdk.NewCoin("foo", sdk.NewInt(10000))
 				bid = sdk.NewCoin("foo", sdk.NewInt(1000))
 				reserveFee = sdk.NewCoin("foo", sdk.NewInt(100))
 			},
@@ -158,7 +158,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 			"auction tx is the top bidding tx",
 			func() {
 				timeout = 1000
-				balance = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(10000)))
+				balance = sdk.NewCoin("foo", sdk.NewInt(10000))
 				bid = sdk.NewCoin("foo", sdk.NewInt(1000))
 				reserveFee = sdk.NewCoin("foo", sdk.NewInt(100))
 
