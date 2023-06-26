@@ -86,8 +86,8 @@ func (k Keeper) ValidateAuctionBid(ctx sdk.Context, bidder sdk.AccAddress, bid, 
 	}
 
 	// ensure the bidder has enough funds to cover all the inclusion fees
-	balances := k.bankKeeper.GetAllBalances(ctx, bidder)
-	if !balances.IsAllGTE(sdk.NewCoins(bid)) {
+	balances := k.bankKeeper.GetBalance(ctx, bidder, bid.Denom)
+	if !balances.IsGTE(bid) {
 		return fmt.Errorf("insufficient funds to bid %s with balance %s", bid, balances)
 	}
 
