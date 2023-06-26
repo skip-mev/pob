@@ -11,8 +11,8 @@ import (
 var (
 	DefaultMaxBundleSize          uint32 = 2
 	DefaultEscrowAccountAddress   string = authtypes.NewModuleAddress(ModuleName).String()
-	DefaultReserveFee                    = sdk.Coin{Denom: "stake", Amount: sdk.NewInt(0)}
-	DefaultMinBidIncrement               = sdk.Coin{Denom: "stake", Amount: sdk.NewInt(1)}
+	DefaultReserveFee                    = sdk.NewCoin("stake", sdk.NewInt(1))
+	DefaultMinBidIncrement               = sdk.NewCoin("stake", sdk.NewInt(1))
 	DefaultFrontRunningProtection        = true
 	DefaultProposerFee                   = sdk.ZeroDec()
 )
