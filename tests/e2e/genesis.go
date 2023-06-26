@@ -39,7 +39,7 @@ func getGenDoc(path string) (*comettypes.GenesisDoc, error) {
 	return doc, nil
 }
 
-func initGenesisFile(path, moniker, amountStr string, accAddrs []sdk.AccAddress, params types.Params) error {
+func initGenesisFile(path, moniker, amountStr string, accAddr sdk.AccAddress, params types.Params) error {
 	serverCtx := server.NewDefaultContext()
 	config := serverCtx.Config
 
@@ -51,15 +51,8 @@ func initGenesisFile(path, moniker, amountStr string, accAddrs []sdk.AccAddress,
 		return fmt.Errorf("failed to parse coins: %w", err)
 	}
 
-	balances := make([]banktypes.Balance, len(accAddrs))
-	genAccounts := make([]authtypes.GenesisAccount, len(accAddrs))
-	for i, accAddr := range accAddrs {
-		accountBalances := banktypes.Balance{Address: accAddr.String(), Coins: coins.Sort()}
-		genAccount := authtypes.NewBaseAccount(accAddr, nil, 0, 0)
-
-		balances[i] = accountBalances
-		genAccounts[i] = genAccount
-	}
+	balances := banktypes.Balance{Address: accAddr.String(), Coins: coins.Sort()}
+	genAccount := authtypes.NewBaseAccount(accAddr, nil, 0, 0)
 
 	genFile := config.GenesisFile()
 	appState, genDoc, err := genutiltypes.GenesisStateFromGenFile(genFile)
@@ -74,9 +67,13 @@ func initGenesisFile(path, moniker, amountStr string, accAddrs []sdk.AccAddress,
 		return fmt.Errorf("failed to get accounts from any: %w", err)
 	}
 
+	if accs.Contains(accAddr) {
+		return fmt.Errorf("failed to add account to genesis state; account already exists: %s", accAddr)
+	}
+
 	// Add the new account to the set of genesis accounts and sanitize the
 	// accounts afterwards.
-	accs = append(accs, genAccounts...)
+	accs = append(accs, genAccount)
 	accs = authtypes.SanitizeGenesisAccounts(accs)
 
 	genAccs, err := authtypes.PackAccounts(accs)
@@ -94,7 +91,7 @@ func initGenesisFile(path, moniker, amountStr string, accAddrs []sdk.AccAddress,
 	appState[authtypes.ModuleName] = authGenStateBz
 
 	bankGenState := banktypes.GetGenesisStateFromAppState(cdc, appState)
-	bankGenState.Balances = append(bankGenState.Balances, balances...)
+	bankGenState.Balances = append(bankGenState.Balances, balances)
 	bankGenState.Balances = banktypes.SanitizeGenesisBalances(bankGenState.Balances)
 
 	bankGenStateBz, err := cdc.MarshalJSON(bankGenState)

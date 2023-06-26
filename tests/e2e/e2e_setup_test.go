@@ -125,21 +125,10 @@ func (s *IntegrationTestSuite) initNodes() {
 		FrontRunningProtection: true,
 	}
 
-	testAccounts := []string{
-		"cosmos19t9kghyu809cwjqxhsqv8lsfyvdntteaw5g6ah",
-	}
-
-	sdkAccounts := make([]sdk.AccAddress, len(testAccounts))
-	for i, acc := range testAccounts {
-		sdkAccounts[i] = sdk.MustAccAddressFromBech32(acc)
-	}
-
 	for _, val := range s.chain.validators {
 		valAddr, err := val.keyInfo.GetAddress()
 		s.Require().NoError(err)
-
-		accounts := append([]sdk.AccAddress{valAddr}, sdkAccounts...)
-		s.Require().NoError(initGenesisFile(val0ConfigDir, "", initBalanceStr, accounts, params))
+		s.Require().NoError(initGenesisFile(val0ConfigDir, "", initBalanceStr, valAddr, params))
 	}
 
 	// copy the genesis file to the remaining validators
