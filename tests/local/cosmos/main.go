@@ -14,6 +14,17 @@ package main
 //
 // NOTE: THIS SCRIPT IS NOT MEANT TO BE RUN IN PRODUCTION
 // AND IS NOT A REPLACEMENT FOR UNIT or E2E TESTS.
+//
+// TO USE THE SCRIPT:
+//  1. Create a wallet you can retrieve the private key from
+//  2. Add the wallet some balance in the genesis file (or
+//     send it some balance after spinning up the localnet)
+//  3. Update the CONFIG variable below with the appropriate
+//     values. In particular, update the private key to be your key.
+//     Since this is NOT a production script, it is okay to hardcode
+//     the private key into the DefaultConfig function below. Update
+//    	the CosmosRPCURL to be the URL of the Cosmos RPC endpoint and so forth.
+//  4. Run the script with `go run main.go`
 
 import (
 	"context"
