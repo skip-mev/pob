@@ -15,6 +15,8 @@ import (
 	"cosmossdk.io/x/upgrade"
 	upgradekeeper "cosmossdk.io/x/upgrade/keeper"
 
+	feegrantkeeper "cosmossdk.io/x/feegrant/keeper"
+	feegrantmodule "cosmossdk.io/x/feegrant/module"
 	cometabci "github.com/cometbft/cometbft/abci/types"
 	tmtypes "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/cosmos/cosmos-sdk/baseapp"
@@ -103,6 +105,7 @@ var (
 		vesting.AppModuleBasic{},
 		consensus.AppModuleBasic{},
 		buildermodule.AppModuleBasic{},
+		feegrantmodule.AppModuleBasic{},
 	)
 )
 
@@ -134,6 +137,7 @@ type TestApp struct {
 	ConsensusParamsKeeper consensuskeeper.Keeper
 	CircuitBreakerKeeper  circuitkeeper.Keeper
 	BuilderKeeper         builderkeeper.Keeper
+	FeeGrantKeeper        feegrantkeeper.Keeper
 
 	// custom checkTx handler
 	checkTxHandler abci.CheckTx
@@ -213,6 +217,7 @@ func New(
 		&app.GroupKeeper,
 		&app.BuilderKeeper,
 		&app.ConsensusParamsKeeper,
+		&app.FeeGrantKeeper,
 		&app.CircuitBreakerKeeper,
 	); err != nil {
 		panic(err)
@@ -300,9 +305,9 @@ func New(
 	// Create a global ante handler that will be called on each transaction when
 	// proposals are being built and verified.
 	handlerOptions := ante.HandlerOptions{
-		AccountKeeper: app.AccountKeeper,
-		BankKeeper:    app.BankKeeper,
-		// FeegrantKeeper:  app.FeeGrantKeeper,
+		AccountKeeper:   app.AccountKeeper,
+		BankKeeper:      app.BankKeeper,
+		FeegrantKeeper:  app.FeeGrantKeeper,
 		SigGasConsumer:  ante.DefaultSigVerificationGasConsumer,
 		SignModeHandler: app.txConfig.SignModeHandler(),
 	}

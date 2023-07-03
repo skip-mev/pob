@@ -14,6 +14,7 @@ import (
 	consensusmodulev1 "cosmossdk.io/api/cosmos/consensus/module/v1"
 	crisismodulev1 "cosmossdk.io/api/cosmos/crisis/module/v1"
 	distrmodulev1 "cosmossdk.io/api/cosmos/distribution/module/v1"
+	feegrantmodulev1 "cosmossdk.io/api/cosmos/feegrant/module/v1"
 	genutilmodulev1 "cosmossdk.io/api/cosmos/genutil/module/v1"
 	govmodulev1 "cosmossdk.io/api/cosmos/gov/module/v1"
 	groupmodulev1 "cosmossdk.io/api/cosmos/group/module/v1"
@@ -27,6 +28,7 @@ import (
 	"cosmossdk.io/depinject"
 
 	_ "cosmossdk.io/x/circuit"                        // import for side-effects
+	_ "cosmossdk.io/x/feegrant"                       // import for side-effects
 	_ "cosmossdk.io/x/upgrade"                        // import for side-effects
 	_ "github.com/cosmos/cosmos-sdk/x/auth/tx/config" // import for side-effects
 	_ "github.com/cosmos/cosmos-sdk/x/auth/vesting"   // import for side-effects
@@ -46,6 +48,7 @@ import (
 
 	"cosmossdk.io/core/appconfig"
 	circuittypes "cosmossdk.io/x/circuit/types"
+	feegranttypes "cosmossdk.io/x/feegrant"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
 	"github.com/cosmos/cosmos-sdk/types/module"
@@ -112,6 +115,7 @@ var (
 						genutiltypes.ModuleName,
 						authz.ModuleName,
 						buildertypes.ModuleName,
+						feegranttypes.ModuleName,
 					},
 					EndBlockers: []string{
 						crisistypes.ModuleName,
@@ -120,6 +124,7 @@ var (
 						genutiltypes.ModuleName,
 						group.ModuleName,
 						buildertypes.ModuleName,
+						feegranttypes.ModuleName,
 					},
 					OverrideStoreKeys: []*runtimev1alpha1.StoreKeyConfig{
 						{
@@ -148,6 +153,7 @@ var (
 						consensustypes.ModuleName,
 						circuittypes.ModuleName,
 						buildertypes.ModuleName,
+						feegranttypes.ModuleName,
 					},
 					// When ExportGenesis is not specified, the export genesis module order
 					// is equal to the init genesis order
@@ -169,6 +175,10 @@ var (
 			{
 				Name:   vestingtypes.ModuleName,
 				Config: appconfig.WrapAny(&vestingmodulev1.Module{}),
+			},
+			{
+				Name:   feegranttypes.ModuleName,
+				Config: appconfig.WrapAny(&feegrantmodulev1.Module{}),
 			},
 			{
 				Name: banktypes.ModuleName,

@@ -14,6 +14,7 @@ require (
 	cosmossdk.io/store v0.1.0-alpha.1.0.20230606190835-3e18f4088b2c
 	cosmossdk.io/tools/confix v0.0.0-20230703133305-f0aec3f30dd9
 	cosmossdk.io/x/circuit v0.0.0-20230703133305-f0aec3f30dd9
+	cosmossdk.io/x/feegrant v0.0.0-20230613133644-0a778132a60f
 	cosmossdk.io/x/upgrade v0.0.0-20230703133305-f0aec3f30dd9
 	github.com/cometbft/cometbft v0.38.0-rc2
 	github.com/cosmos/cosmos-db v1.0.0
@@ -44,7 +45,6 @@ require (
 	cloud.google.com/go/storage v1.30.0 // indirect
 	cosmossdk.io/collections v0.2.1-0.20230620134406-d4f1e88b6531 // indirect
 	cosmossdk.io/x/evidence v0.0.0-20230613133644-0a778132a60f // indirect
-	cosmossdk.io/x/feegrant v0.0.0-20230613133644-0a778132a60f // indirect
 	cosmossdk.io/x/nft v0.0.0-20230613133644-0a778132a60f // indirect
 	cosmossdk.io/x/tx v0.8.0 // indirect
 	filippo.io/edwards25519 v1.0.0 // indirect
