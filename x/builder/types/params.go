@@ -58,6 +58,11 @@ func (p Params) Validate() error {
 		return fmt.Errorf("invalid minimum bid increment (%s)", err)
 	}
 
+	// Minimum bid increment must always be greater than 0.
+	if p.MinBidIncrement.IsLTE(sdk.NewCoin(p.MinBidIncrement.Denom, sdk.ZeroInt())) {
+		return fmt.Errorf("minimum bid increment cannot be zero")
+	}
+
 	denoms := map[string]struct{}{
 		p.ReserveFee.Denom:      {},
 		p.MinBidIncrement.Denom: {},
