@@ -116,7 +116,7 @@ func TestMsgUpdateParams(t *testing.T) {
 			msg: types.MsgUpdateParams{
 				Authority: sdk.AccAddress([]byte("test")).String(),
 				Params: types.Params{
-					ProposerFee:          sdk.NewDec(1),
+					ProposerFee:          sdk.NewDecFromInt(sdk.NewInt(1)),
 					EscrowAccountAddress: sdk.AccAddress([]byte("test")).String(),
 					ReserveFee:           sdk.NewCoin("test", sdk.NewInt(100)),
 					MinBidIncrement:      sdk.NewCoin("test", sdk.NewInt(100)),
@@ -129,7 +129,7 @@ func TestMsgUpdateParams(t *testing.T) {
 			msg: types.MsgUpdateParams{
 				Authority: sdk.AccAddress([]byte("test")).String(),
 				Params: types.Params{
-					ProposerFee:          sdk.NewDec(1),
+					ProposerFee:          sdk.NewDecFromInt(sdk.NewInt(1)),
 					EscrowAccountAddress: sdk.AccAddress([]byte("test")).String(),
 					ReserveFee:           sdk.NewCoin("test", sdk.NewInt(100)),
 					MinBidIncrement:      sdk.NewCoin("test2", sdk.NewInt(100)),
@@ -142,7 +142,7 @@ func TestMsgUpdateParams(t *testing.T) {
 			msg: types.MsgUpdateParams{
 				Authority: sdk.AccAddress([]byte("test")).String(),
 				Params: types.Params{
-					ProposerFee:          sdk.NewDec(1),
+					ProposerFee:          sdk.NewDecFromInt(sdk.NewInt(1)),
 					EscrowAccountAddress: sdk.AccAddress([]byte("test")).String(),
 				},
 			},
@@ -153,7 +153,7 @@ func TestMsgUpdateParams(t *testing.T) {
 			msg: types.MsgUpdateParams{
 				Authority: sdk.AccAddress([]byte("test")).String(),
 				Params: types.Params{
-					ProposerFee:          sdk.NewDec(1),
+					ProposerFee:          sdk.NewDecFromInt(sdk.NewInt(1)),
 					EscrowAccountAddress: sdk.AccAddress([]byte("test")).String(),
 					ReserveFee:           sdk.NewCoin("test", sdk.NewInt(100)),
 					MinBidIncrement:      sdk.NewCoin("test", sdk.NewInt(0)),

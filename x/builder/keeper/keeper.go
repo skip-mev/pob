@@ -3,10 +3,8 @@ package keeper
 import (
 	"fmt"
 
-	"github.com/cometbft/cometbft/libs/log"
-
+	storetypes "cosmossdk.io/store/types"
 	"github.com/cosmos/cosmos-sdk/codec"
-	storetypes "github.com/cosmos/cosmos-sdk/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/x/builder/types"
 )
@@ -51,11 +49,6 @@ func NewKeeper(
 		stakingKeeper: stakingKeeper,
 		authority:     authority,
 	}
-}
-
-// Logger returns a builder module-specific logger.
-func (k Keeper) Logger(ctx sdk.Context) log.Logger {
-	return ctx.Logger().With("module", "x/"+types.ModuleName)
 }
 
 // GetAuthority returns the address that is capable of executing a MsgUpdateParams message.
@@ -145,7 +138,7 @@ func (k Keeper) GetMinBidIncrement(ctx sdk.Context) (sdk.Coin, error) {
 func (k Keeper) GetProposerFee(ctx sdk.Context) (sdk.Dec, error) {
 	params, err := k.GetParams(ctx)
 	if err != nil {
-		return sdk.ZeroDec(), err
+		return sdk.NewDecFromInt(sdk.ZeroInt()), err
 	}
 
 	return params.ProposerFee, nil

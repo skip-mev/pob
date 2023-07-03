@@ -1,7 +1,7 @@
 package base
 
 import (
-	"github.com/cometbft/cometbft/libs/log"
+	"cosmossdk.io/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/blockbuster"
 )

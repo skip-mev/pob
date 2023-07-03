@@ -3,7 +3,8 @@ package blockbuster
 import (
 	"fmt"
 
-	"github.com/cometbft/cometbft/libs/log"
+	"cosmossdk.io/log"
+	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 )
@@ -108,7 +109,7 @@ func (c *BaseLaneConfig) ValidateBasic() error {
 		return fmt.Errorf("tx decoder cannot be nil")
 	}
 
-	if c.MaxBlockSpace.IsNil() || c.MaxBlockSpace.IsNegative() || c.MaxBlockSpace.GT(sdk.OneDec()) {
+	if c.MaxBlockSpace.IsNil() || c.MaxBlockSpace.IsNegative() || c.MaxBlockSpace.GT(math.LegacyOneDec()) {
 		return fmt.Errorf("max block space must be set to a value between 0 and 1")
 	}
 

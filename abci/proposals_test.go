@@ -1,8 +1,8 @@
 package abci_test
 
 import (
+	"cosmossdk.io/log"
 	comettypes "github.com/cometbft/cometbft/abci/types"
-	"github.com/cometbft/cometbft/libs/log"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/abci"
 	"github.com/skip-mev/pob/blockbuster"
@@ -303,7 +303,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 			)
 			handler := suite.proposalHandler.PrepareProposalHandler()
 			req := suite.createPrepareProposalRequest(maxTxBytes)
-			res := handler(suite.ctx, req)
+			res, _ := handler(suite.ctx, &req)
 
 			// -------------------- Check Invariants -------------------- //
 			// The first slot in the proposal must be the auction info
@@ -772,7 +772,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			tc.createTxs()
 
 			handler := suite.proposalHandler.ProcessProposalHandler()
-			res := handler(suite.ctx, comettypes.RequestProcessProposal{
+			res, _ := handler(suite.ctx, &comettypes.RequestProcessProposal{
 				Txs: proposal,
 			})
 

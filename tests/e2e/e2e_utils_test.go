@@ -10,7 +10,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	tmclient "github.com/cosmos/cosmos-sdk/client/grpc/tmservice"
+	cmtclient "github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
@@ -335,9 +335,9 @@ func (s *IntegrationTestSuite) queryAccount(address sdk.AccAddress) *authtypes.B
 
 // queryCurrentHeight returns the current block height.
 func (s *IntegrationTestSuite) queryCurrentHeight() uint64 {
-	queryClient := tmclient.NewServiceClient(s.createClientContext())
+	queryClient := cmtclient.NewServiceClient(s.createClientContext())
 
-	req := &tmclient.GetLatestBlockRequest{}
+	req := &cmtclient.GetLatestBlockRequest{}
 	resp, err := queryClient.GetLatestBlock(context.Background(), req)
 	s.Require().NoError(err)
 
@@ -346,9 +346,9 @@ func (s *IntegrationTestSuite) queryCurrentHeight() uint64 {
 
 // queryBlockTxs returns the txs of the block at the given height.
 func (s *IntegrationTestSuite) queryBlockTxs(height uint64) [][]byte {
-	queryClient := tmclient.NewServiceClient(s.createClientContext())
+	queryClient := cmtclient.NewServiceClient(s.createClientContext())
 
-	req := &tmclient.GetBlockByHeightRequest{Height: int64(height)}
+	req := &cmtclient.GetBlockByHeightRequest{Height: int64(height)}
 	resp, err := queryClient.GetBlockByHeight(context.Background(), req)
 	s.Require().NoError(err)
 

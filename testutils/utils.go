@@ -82,7 +82,7 @@ func CreateTx(txCfg client.TxConfig, account Account, nonce, timeout uint64, msg
 	sigV2 := signing.SignatureV2{
 		PubKey: account.PrivKey.PubKey(),
 		Data: &signing.SingleSignatureData{
-			SignMode:  txCfg.SignModeHandler().DefaultMode(),
+			SignMode:  signing.SignMode_SIGN_MODE_DIRECT,
 			Signature: nil,
 		},
 		Sequence: nonce,
@@ -125,7 +125,7 @@ func CreateRandomTx(txCfg client.TxConfig, account Account, nonce, numberMsgs, t
 	sigV2 := signing.SignatureV2{
 		PubKey: account.PrivKey.PubKey(),
 		Data: &signing.SingleSignatureData{
-			SignMode:  txCfg.SignModeHandler().DefaultMode(),
+			SignMode:  signing.SignMode_SIGN_MODE_DIRECT,
 			Signature: nil,
 		},
 		Sequence: nonce,
@@ -163,7 +163,7 @@ func CreateTxWithSigners(txCfg client.TxConfig, nonce, timeout uint64, signers [
 	sigV2 := signing.SignatureV2{
 		PubKey: signers[0].PrivKey.PubKey(),
 		Data: &signing.SingleSignatureData{
-			SignMode:  txCfg.SignModeHandler().DefaultMode(),
+			SignMode:  signing.SignMode_SIGN_MODE_DIRECT,
 			Signature: nil,
 		},
 		Sequence: nonce,
@@ -208,7 +208,7 @@ func CreateAuctionTxWithSigners(txCfg client.TxConfig, bidder Account, bid sdk.C
 	sigV2 := signing.SignatureV2{
 		PubKey: bidder.PrivKey.PubKey(),
 		Data: &signing.SingleSignatureData{
-			SignMode:  txCfg.SignModeHandler().DefaultMode(),
+			SignMode:  signing.SignMode_SIGN_MODE_DIRECT,
 			Signature: nil,
 		},
 		Sequence: nonce,
@@ -271,7 +271,7 @@ func CreateMsgAuctionBid(txCfg client.TxConfig, bidder Account, bid sdk.Coin, no
 		sigV2 := signing.SignatureV2{
 			PubKey: bidder.PrivKey.PubKey(),
 			Data: &signing.SingleSignatureData{
-				SignMode:  txCfg.SignModeHandler().DefaultMode(),
+				SignMode:  signing.SignMode_SIGN_MODE_DIRECT,
 				Signature: nil,
 			},
 			Sequence: nonce + uint64(i),

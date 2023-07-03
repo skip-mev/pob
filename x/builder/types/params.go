@@ -14,7 +14,7 @@ var (
 	DefaultReserveFee                    = sdk.NewCoin("stake", sdk.NewInt(1))
 	DefaultMinBidIncrement               = sdk.NewCoin("stake", sdk.NewInt(1))
 	DefaultFrontRunningProtection        = true
-	DefaultProposerFee                   = sdk.ZeroDec()
+	DefaultProposerFee                   = sdk.NewDecFromInt(sdk.NewInt(0))
 )
 
 // NewParams returns a new Params instance with the provided values.

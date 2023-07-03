@@ -59,7 +59,7 @@ func (suite *KeeperTestSuite) TestMsgAuctionBid() {
 			},
 			malleate: func() {
 				params := types.DefaultParams()
-				params.ProposerFee = sdk.ZeroDec()
+				params.ProposerFee = sdk.NewDecFromInt(sdk.ZeroInt())
 				params.EscrowAccountAddress = escrow.Address.String()
 				suite.builderKeeper.SetParams(suite.ctx, params)
 

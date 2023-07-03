@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	clienttx "github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
@@ -127,41 +126,52 @@ func (s *IntegrationTestSuite) createTx(account TestAccount, msgs []sdk.Msg, seq
 	baseAccount := s.queryAccount(account.Address)
 	sequenceNumber := baseAccount.Sequence + sequenceOffset
 
-	// Set the messages, fees, and timeout.
-	txBuilder.SetMsgs(msgs...)
-	txBuilder.SetGasLimit(5000000)
-	txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(150000))))
-	txBuilder.SetTimeoutHeight(height)
+	s.Require().NoError(txBuilder.SetMsgs(msgs...))
+	txBuilder.SetFeeAmount(sdk.NewCoins())
+	txBuilder.SetGasLimit(200_000)
 
-	sigV2 := signing.SignatureV2{
+	signerData := authsigning.SignerData{
+		ChainID:       app.ChainID,
+		AccountNumber: baseAccount.AccountNumber,
+		Sequence:      sequenceNumber,
+		PubKey:        account.PrivateKey.PubKey(),
+	}
+
+	sig := signing.SignatureV2{
 		PubKey: account.PrivateKey.PubKey(),
 		Data: &signing.SingleSignatureData{
-			SignMode:  txConfig.SignModeHandler().DefaultMode(),
+			SignMode:  signing.SignMode_SIGN_MODE_DIRECT,
 			Signature: nil,
 		},
 		Sequence: sequenceNumber,
 	}
 
-	s.Require().NoError(txBuilder.SetSignatures(sigV2))
+	s.Require().NoError(txBuilder.SetSignatures(sig))
 
-	signerData := authsigning.SignerData{
-		ChainID:       s.chain.id,
-		AccountNumber: baseAccount.AccountNumber,
-		Sequence:      sequenceNumber,
-	}
-
-	sigV2, err := clienttx.SignWithPrivKey(
-		txConfig.SignModeHandler().DefaultMode(),
+	bytesToSign, err := authsigning.GetSignBytesAdapter(
+		context.Background(),
+		encodingConfig.TxConfig.SignModeHandler(),
+		signing.SignMode_SIGN_MODE_DIRECT,
 		signerData,
-		txBuilder,
-		account.PrivateKey,
-		txConfig,
-		sequenceNumber,
+		txBuilder.GetTx(),
 	)
 	s.Require().NoError(err)
-	s.Require().NoError(txBuilder.SetSignatures(sigV2))
 
-	bz, err := txConfig.TxEncoder()(txBuilder.GetTx())
+	sigBytes, err := account.PrivateKey.Sign(bytesToSign)
+	s.Require().NoError(err)
+
+	sig = signing.SignatureV2{
+		PubKey: account.PrivateKey.PubKey(),
+		Data: &signing.SingleSignatureData{
+			SignMode:  signing.SignMode_SIGN_MODE_DIRECT,
+			Signature: sigBytes,
+		},
+		Sequence: 0,
+	}
+	s.Require().NoError(txBuilder.SetSignatures(sig))
+
+	signedTx := txBuilder.GetTx()
+	bz, err := encodingConfig.TxConfig.TxEncoder()(signedTx)
 	s.Require().NoError(err)
 
 	return bz

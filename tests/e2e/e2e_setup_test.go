@@ -33,7 +33,7 @@ var (
 	numValidators   = 4
 	minGasPrice     = sdk.NewDecCoinFromDec(app.BondDenom, sdk.MustNewDecFromStr("0.02")).String()
 	initBalanceStr  = sdk.NewInt64Coin(app.BondDenom, 1000000000000000000).String()
-	stakeAmount, _  = sdk.NewIntFromString("100000000000")
+	stakeAmount     = sdk.NewInt(100000000000)
 	stakeAmountCoin = sdk.NewCoin(app.BondDenom, stakeAmount)
 )
 
@@ -220,6 +220,8 @@ func (s *IntegrationTestSuite) initValidatorConfigs() {
 		valConfig.RPC.ListenAddress = "tcp://0.0.0.0:26657"
 		valConfig.StateSync.Enable = false
 		valConfig.LogLevel = "info"
+		valConfig.BaseConfig.Genesis = filepath.Join("config", "genesis.json")
+		valConfig.RootDir = filepath.Join("root", ".simapp")
 
 		var peers []string
 

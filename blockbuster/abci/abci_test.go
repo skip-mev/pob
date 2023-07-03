@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cometbft/cometbft/libs/log"
-	storetypes "github.com/cosmos/cosmos-sdk/store/types"
+	"cosmossdk.io/log"
+	"cosmossdk.io/math"
+	storetypes "cosmossdk.io/store/types"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/golang/mock/gomock"
@@ -69,7 +70,7 @@ func (suite *ABCITestSuite) SetupTest() {
 	// General config for transactions and randomness for the test suite
 	suite.encodingConfig = testutils.CreateTestEncodingConfig()
 	suite.random = rand.New(rand.NewSource(time.Now().Unix()))
-	key := sdk.NewKVStoreKey(buildertypes.StoreKey)
+	key := storetypes.NewKVStoreKey(buildertypes.StoreKey)
 	testCtx := testutil.DefaultContextWithDB(suite.T(), key, storetypes.NewTransientStoreKey("transient_test"))
 	suite.ctx = testCtx.Ctx.WithBlockHeight(1)
 
@@ -79,7 +80,7 @@ func (suite *ABCITestSuite) SetupTest() {
 		TxEncoder:     suite.encodingConfig.TxConfig.TxEncoder(),
 		TxDecoder:     suite.encodingConfig.TxConfig.TxDecoder(),
 		AnteHandler:   suite.anteHandler,
-		MaxBlockSpace: sdk.ZeroDec(), // It can be as big as it wants (up to maxTxBytes)
+		MaxBlockSpace: math.LegacyZeroDec(), // It can be as big as it wants (up to maxTxBytes)
 	}
 
 	// Top of block lane set up
@@ -146,8 +147,7 @@ func (suite *ABCITestSuite) SetupTest() {
 }
 
 func (suite *ABCITestSuite) anteHandler(ctx sdk.Context, tx sdk.Tx, _ bool) (sdk.Context, error) {
-	signer := tx.GetMsgs()[0].GetSigners()[0]
-	suite.bankKeeper.EXPECT().GetBalance(ctx, signer, "foo").AnyTimes().Return(
+	suite.bankKeeper.EXPECT().GetBalance(ctx, gomock.Any(), "foo").AnyTimes().Return(
 		sdk.NewCoin("foo", sdk.NewInt(100000000000000)),
 	)
 
@@ -331,7 +331,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				freeSize := int64(len(freeTxBytes))
 
 				maxTxBytes = tobSize*2 + freeSize - 1
-				suite.tobConfig.MaxBlockSpace = sdk.ZeroDec()
+				suite.tobConfig.MaxBlockSpace = math.LegacyZeroDec()
 				suite.freeConfig.MaxBlockSpace = sdk.MustNewDecFromStr("0.1")
 
 				txs = []sdk.Tx{freeTx}
@@ -389,13 +389,13 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				maxTxBytes = tobSize*2 + freeSize + normalSize + 1
 
 				// Tob can take up as much space as it wants
-				suite.tobConfig.MaxBlockSpace = sdk.ZeroDec()
+				suite.tobConfig.MaxBlockSpace = math.LegacyZeroDec()
 
 				// Free can take up less space than the tx
 				suite.freeConfig.MaxBlockSpace = sdk.MustNewDecFromStr("0.01")
 
 				// Default can take up as much space as it wants
-				suite.baseConfig.MaxBlockSpace = sdk.ZeroDec()
+				suite.baseConfig.MaxBlockSpace = math.LegacyZeroDec()
 
 				txs = []sdk.Tx{freeTx, normalTx}
 				auctionTxs = []sdk.Tx{bidTx}
@@ -413,9 +413,9 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 			"single valid tob transaction in the mempool",
 			func() {
 				// reset the configs
-				suite.tobConfig.MaxBlockSpace = sdk.ZeroDec()
-				suite.freeConfig.MaxBlockSpace = sdk.ZeroDec()
-				suite.baseConfig.MaxBlockSpace = sdk.ZeroDec()
+				suite.tobConfig.MaxBlockSpace = math.LegacyZeroDec()
+				suite.freeConfig.MaxBlockSpace = math.LegacyZeroDec()
+				suite.baseConfig.MaxBlockSpace = math.LegacyZeroDec()
 
 				bidder := suite.accounts[0]
 				bid := sdk.NewCoin("foo", sdk.NewInt(1000))
@@ -693,7 +693,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 			// Create a new proposal handler
 			suite.proposalHandler = abci.NewProposalHandler(log.NewNopLogger(), suite.encodingConfig.TxConfig.TxDecoder(), suite.mempool)
 			handler := suite.proposalHandler.PrepareProposalHandler()
-			res := handler(suite.ctx, abcitypes.RequestPrepareProposal{
+			res, _ := handler(suite.ctx, &abcitypes.RequestPrepareProposal{
 				MaxTxBytes: maxTxBytes,
 			})
 
@@ -1042,7 +1042,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxEncoder(), suite.tobLane, suite.mempool)
 
 			handler := suite.proposalHandler.ProcessProposalHandler()
-			res := handler(suite.ctx, abcitypes.RequestProcessProposal{
+			res, _ := handler(suite.ctx, &abcitypes.RequestProcessProposal{
 				Txs: proposalTxs,
 			})
 

@@ -5,7 +5,8 @@ import (
 	"testing"
 	"time"
 
-	storetypes "github.com/cosmos/cosmos-sdk/store/types"
+	"cosmossdk.io/math"
+	storetypes "cosmossdk.io/store/types"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/golang/mock/gomock"
@@ -86,7 +87,7 @@ func (suite *AnteTestSuite) SetupTest() {
 		TxEncoder:     suite.encodingConfig.TxConfig.TxEncoder(),
 		TxDecoder:     suite.encodingConfig.TxConfig.TxDecoder(),
 		AnteHandler:   suite.anteHandler,
-		MaxBlockSpace: sdk.ZeroDec(),
+		MaxBlockSpace: math.LegacyZeroDec(),
 	}
 	suite.tobLane = auction.NewTOBLane(
 		config,
@@ -103,8 +104,7 @@ func (suite *AnteTestSuite) SetupTest() {
 }
 
 func (suite *AnteTestSuite) anteHandler(ctx sdk.Context, tx sdk.Tx, _ bool) (sdk.Context, error) {
-	signer := tx.GetMsgs()[0].GetSigners()[0]
-	suite.bankKeeper.EXPECT().GetBalance(ctx, signer, suite.balance.Denom).AnyTimes().Return(suite.balance)
+	suite.bankKeeper.EXPECT().GetBalance(ctx, gomock.Any(), suite.balance.Denom).AnyTimes().Return(suite.balance)
 
 	next := func(ctx sdk.Context, tx sdk.Tx, _ bool) (sdk.Context, error) {
 		return ctx, nil
