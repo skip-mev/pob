@@ -48,9 +48,10 @@ import (
 
 	"cosmossdk.io/core/appconfig"
 	circuittypes "cosmossdk.io/x/circuit/types"
-	feegranttypes "cosmossdk.io/x/feegrant"
+	"cosmossdk.io/x/feegrant"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
+
 	"github.com/cosmos/cosmos-sdk/types/module"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
@@ -115,7 +116,7 @@ var (
 						genutiltypes.ModuleName,
 						authz.ModuleName,
 						buildertypes.ModuleName,
-						feegranttypes.ModuleName,
+						feegrant.ModuleName,
 					},
 					EndBlockers: []string{
 						crisistypes.ModuleName,
@@ -124,7 +125,7 @@ var (
 						genutiltypes.ModuleName,
 						group.ModuleName,
 						buildertypes.ModuleName,
-						feegranttypes.ModuleName,
+						feegrant.ModuleName,
 					},
 					OverrideStoreKeys: []*runtimev1alpha1.StoreKeyConfig{
 						{
@@ -153,7 +154,7 @@ var (
 						consensustypes.ModuleName,
 						circuittypes.ModuleName,
 						buildertypes.ModuleName,
-						feegranttypes.ModuleName,
+						feegrant.ModuleName,
 					},
 					// When ExportGenesis is not specified, the export genesis module order
 					// is equal to the init genesis order
@@ -177,7 +178,7 @@ var (
 				Config: appconfig.WrapAny(&vestingmodulev1.Module{}),
 			},
 			{
-				Name:   feegranttypes.ModuleName,
+				Name:   feegrant.ModuleName,
 				Config: appconfig.WrapAny(&feegrantmodulev1.Module{}),
 			},
 			{
