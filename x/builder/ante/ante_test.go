@@ -34,18 +34,9 @@ type AnteTestSuite struct {
 	builderDecorator ante.BuilderDecorator
 	key              *storetypes.KVStoreKey
 	authorityAccount sdk.AccAddress
-<<<<<<< HEAD
-=======
-
-	// mempool and lane set up
-	mempool  blockbuster.Mempool
-	tobLane  *auction.TOBLane
-	baseLane *base.DefaultLane
-	lanes    []blockbuster.Lane
 
 	// Account set up
 	balance sdk.Coin
->>>>>>> e873dfd (fix(Audit): Audit issues (#190))
 }
 
 func TestAnteTestSuite(t *testing.T) {
@@ -81,19 +72,15 @@ func (suite *AnteTestSuite) SetupTest() {
 	suite.Require().NoError(err)
 }
 
-func (suite *AnteTestSuite) executeAnteHandler(tx sdk.Tx, balance sdk.Coins) (sdk.Context, error) {
+func (suite *AnteTestSuite) anteHandler(ctx sdk.Context, tx sdk.Tx, _ bool) (sdk.Context, error) {
 	signer := tx.GetMsgs()[0].GetSigners()[0]
-<<<<<<< HEAD
-	suite.bankKeeper.EXPECT().GetAllBalances(suite.ctx, signer).AnyTimes().Return(balance)
-=======
 	suite.bankKeeper.EXPECT().GetBalance(ctx, signer, suite.balance.Denom).AnyTimes().Return(suite.balance)
->>>>>>> e873dfd (fix(Audit): Audit issues (#190))
 
-	next := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
+	next := func(ctx sdk.Context, tx sdk.Tx, _ bool) (sdk.Context, error) {
 		return ctx, nil
 	}
 
-	return suite.builderDecorator.AnteHandle(suite.ctx, tx, false, next)
+	return suite.builderDecorator.AnteHandle(ctx, tx, false, next)
 }
 
 func (suite *AnteTestSuite) TestAnteHandler() {
@@ -265,7 +252,8 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 
 			// Execute the ante handler
 			suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxEncoder(), mempool)
-			_, err = suite.executeAnteHandler(auctionTx, balance)
+			suite.balance = balance
+			_, err = suite.anteHandler(suite.ctx, auctionTx, false)
 			if tc.pass {
 				suite.Require().NoError(err)
 			} else {
