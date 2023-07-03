@@ -124,7 +124,7 @@ func (k Keeper) ValidateAuctionBundle(bidder sdk.AccAddress, bundleSigners []map
 		// as long as all subsequent transactions are signed by the bidder.
 		if len(prevSigners) == 0 {
 			if seenBidder {
-				return fmt.Errorf("bundle contains transactions signed by multiple parties; possible front-running or sandwich attack")
+				return NewFrontRunningError()
 			}
 
 			seenBidder = true
@@ -132,7 +132,7 @@ func (k Keeper) ValidateAuctionBundle(bidder sdk.AccAddress, bundleSigners []map
 			filterSigners(prevSigners, txSigners)
 
 			if len(prevSigners) == 0 {
-				return fmt.Errorf("bundle contains transactions signed by multiple parties; possible front-running or sandwich attack")
+				return NewFrontRunningError()
 			}
 		}
 	}
