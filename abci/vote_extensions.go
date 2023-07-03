@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 
 	"cosmossdk.io/log"
+	cometabci "github.com/cometbft/cometbft/abci/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	"github.com/skip-mev/pob/blockbuster/lanes/auction"
@@ -66,8 +67,8 @@ func NewVoteExtensionHandler(logger log.Logger, lane TOBLaneVE, txDecoder sdk.Tx
 // ExtendVoteHandler returns the ExtendVoteHandler ABCI handler that extracts
 // the top bidding valid auction transaction from a validator's local mempool and
 // returns it in its vote extension.
-func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
-	return func(ctx sdk.Context, req *RequestExtendVote) (*ResponseExtendVote, error) {
+func (h *VoteExtensionHandler) ExtendVoteHandler() sdk.ExtendVoteHandler {
+	return func(ctx sdk.Context, req *cometabci.RequestExtendVote) (*cometabci.ResponseExtendVote, error) {
 		// Iterate through auction bids until we find a valid one
 		auctionIterator := h.tobLane.Select(ctx, nil)
 
@@ -89,7 +90,7 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 						"height", ctx.BlockHeight(),
 					)
 
-					return &ResponseExtendVote{VoteExtension: bidBz}, nil
+					return &cometabci.ResponseExtendVote{VoteExtension: bidBz}, nil
 				}
 			}
 		}
@@ -99,15 +100,15 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() ExtendVoteHandler {
 			"height", ctx.BlockHeight(),
 		)
 
-		return &ResponseExtendVote{VoteExtension: []byte{}}, nil
+		return &cometabci.ResponseExtendVote{VoteExtension: []byte{}}, nil
 	}
 }
 
 // VerifyVoteExtensionHandler returns the VerifyVoteExtensionHandler ABCI handler
 // that verifies the vote extension included in RequestVerifyVoteExtension.
 // In particular, it verifies that the vote extension is a valid auction transaction.
-func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionHandler {
-	return func(ctx sdk.Context, req *RequestVerifyVoteExtension) (*ResponseVerifyVoteExtension, error) {
+func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() sdk.VerifyVoteExtensionHandler {
+	return func(ctx sdk.Context, req *cometabci.RequestVerifyVoteExtension) (*cometabci.ResponseVerifyVoteExtension, error) {
 		txBz := req.VoteExtension
 		if len(txBz) == 0 {
 			h.logger.Info(
@@ -115,7 +116,7 @@ func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionH
 				"height", ctx.BlockHeight(),
 			)
 
-			return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_ACCEPT}, nil
+			return &cometabci.ResponseVerifyVoteExtension{Status: cometabci.ResponseVerifyVoteExtension_ACCEPT}, nil
 		}
 
 		// Reset the cache if necessary
@@ -133,7 +134,7 @@ func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionH
 					"height", ctx.BlockHeight(),
 				)
 
-				return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_REJECT}, err
+				return &cometabci.ResponseVerifyVoteExtension{Status: cometabci.ResponseVerifyVoteExtension_REJECT}, err
 			}
 
 			h.logger.Info(
@@ -142,7 +143,7 @@ func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionH
 				"height", ctx.BlockHeight(),
 			)
 
-			return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_ACCEPT}, nil
+			return &cometabci.ResponseVerifyVoteExtension{Status: cometabci.ResponseVerifyVoteExtension_ACCEPT}, nil
 		}
 
 		// Decode the vote extension which should be a valid auction transaction
@@ -156,7 +157,7 @@ func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionH
 			)
 
 			h.cache[hash] = err
-			return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_REJECT}, err
+			return &cometabci.ResponseVerifyVoteExtension{Status: cometabci.ResponseVerifyVoteExtension_REJECT}, err
 		}
 
 		// Verify the auction transaction and cache the result
@@ -169,7 +170,7 @@ func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionH
 			)
 
 			h.cache[hash] = err
-			return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_REJECT}, err
+			return &cometabci.ResponseVerifyVoteExtension{Status: cometabci.ResponseVerifyVoteExtension_REJECT}, err
 		}
 
 		h.cache[hash] = nil
@@ -180,7 +181,7 @@ func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() VerifyVoteExtensionH
 			"height", ctx.BlockHeight(),
 		)
 
-		return &ResponseVerifyVoteExtension{Status: ResponseVerifyVoteExtension_ACCEPT}, nil
+		return &cometabci.ResponseVerifyVoteExtension{Status: cometabci.ResponseVerifyVoteExtension_ACCEPT}, nil
 	}
 }
 
