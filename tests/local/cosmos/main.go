@@ -56,7 +56,7 @@ import (
 
 type (
 	Account struct {
-		Address    sdk.AccAddress
+		Address    string
 		PrivateKey *secp256k1.PrivKey
 	}
 
@@ -289,7 +289,7 @@ func createTx(privateKey *secp256k1.PrivKey, msgs []sdk.Msg, sequenceOffset uint
 
 	txBuilder.SetMsgs(msgs...)
 	txBuilder.SetGasLimit(5000000)
-	txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(75000))))
+	txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin(CONFIG.Denom, sdk.NewInt(75000))))
 
 	sequence := account.GetSequence() + sequenceOffset
 	sigV2 := signing.SignatureV2{
@@ -348,14 +348,14 @@ func createTx(privateKey *secp256k1.PrivKey, msgs []sdk.Msg, sequenceOffset uint
 // - sequenceOffset: the sequence offset (used to create transactions that are not in sequence)
 func createBundleTx(
 	privateKey *secp256k1.PrivKey,
-	bidder sdk.AccAddress,
+	bidder string,
 	bid sdk.Coin,
 	transactions [][]byte,
 	sequenceOffset uint64,
 ) []byte {
 	msgs := []sdk.Msg{
 		&buildertypes.MsgAuctionBid{
-			Bidder:       bidder.String(),
+			Bidder:       bidder,
 			Bid:          bid,
 			Transactions: transactions,
 		},
@@ -372,14 +372,14 @@ func createBundleTx(
 // - sequenceOffset: the sequence offset (used to create transactions that are not in sequence)
 func createMsgSendTx(
 	privateKey *secp256k1.PrivKey,
-	from, toAddress sdk.AccAddress,
+	from, toAddress string,
 	amount sdk.Coins,
 	sequenceOffset uint64,
 ) []byte {
 	msgs := []sdk.Msg{
 		&banktypes.MsgSend{
-			FromAddress: from.String(),
-			ToAddress:   toAddress.String(),
+			FromAddress: from,
+			ToAddress:   toAddress,
 			Amount:      amount,
 		},
 	}
@@ -416,7 +416,7 @@ func initAccounts() {
 		// Create a new account
 		account := createAccount()
 
-		fmt.Println("Creating account:", account.Address.String())
+		fmt.Println("Creating account:", account.Address)
 
 		// Seed the account with some balance
 		sendTx := createMsgSendTx(
@@ -453,14 +453,19 @@ func createAccount() Account {
 		panic(err)
 	}
 
-	sdkAddress, err := sdk.AccAddressFromBech32(address)
+	bz, err := sdk.GetFromBech32(address, CONFIG.ChainPrefix)
+	if err != nil {
+		panic(err)
+	}
+
+	err = sdk.VerifyAddressFormat(bz)
 	if err != nil {
 		panic(err)
 	}
 
 	return Account{
 		PrivateKey: key,
-		Address:    sdkAddress,
+		Address:    address,
 	}
 }
 
@@ -523,13 +528,13 @@ func createEncodingConfig() EncodingConfig {
 func DefaultConfig() ScriptConfig {
 	cfg := ScriptConfig{
 		CosmosRPCURL:   "localhost:9090",
-		ChainID:        "chain-id-0",
+		ChainID:        "local-1",
 		NumAccounts:    3,
 		InitBalance:    sdk.NewInt(10000000),
 		TestAccounts:   []Account{},
 		EncodingConfig: createEncodingConfig(),
-		ChainPrefix:    "cosmos",
-		Denom:          "stake",
+		ChainPrefix:    "juno",
+		Denom:          "ujuno",
 	}
 
 	privateKeys := []string{
@@ -549,14 +554,19 @@ func DefaultConfig() ScriptConfig {
 			panic(err)
 		}
 
-		sdkAddress, err := sdk.AccAddressFromBech32(address)
+		bz, err := sdk.GetFromBech32(address, cfg.ChainPrefix)
+		if err != nil {
+			panic(err)
+		}
+
+		err = sdk.VerifyAddressFormat(bz)
 		if err != nil {
 			panic(err)
 		}
 
 		accounts = append(accounts, Account{
 			PrivateKey: privKey,
-			Address:    sdkAddress,
+			Address:    address,
 		})
 	}
 
@@ -595,7 +605,7 @@ func getCosmosClient(rpc string) *grpc.ClientConn {
 
 // getSearcherAccount returns the address, private key, sequence number, and account number of the searcher account
 func getAccount(privateKey *secp256k1.PrivKey) *authtypes.BaseAccount {
-	signerAddress, err := sdk.Bech32ifyAddressBytes("cosmos", privateKey.PubKey().Address().Bytes())
+	signerAddress, err := sdk.Bech32ifyAddressBytes(CONFIG.ChainPrefix, privateKey.PubKey().Address().Bytes())
 	if err != nil {
 		panic(err)
 	}
@@ -637,7 +647,7 @@ func getAuctionParams() *buildertypes.Params {
 }
 
 // getBalanceOf returns the balance of the given address
-func getBalanceOf(address sdk.AccAddress) sdk.Coins {
+func getBalanceOf(address string) sdk.Coins {
 	// Get the grpc connection used to query account info and broadcast transactions
 	grpcConn := getCosmosClient(CONFIG.CosmosRPCURL)
 
@@ -645,7 +655,7 @@ func getBalanceOf(address sdk.AccAddress) sdk.Coins {
 	grpcRes, err := banktypes.NewQueryClient(grpcConn).AllBalances(
 		context.Background(),
 		&banktypes.QueryAllBalancesRequest{
-			Address: address.String(),
+			Address: address,
 		},
 	)
 	if err != nil {
