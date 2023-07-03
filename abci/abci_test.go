@@ -52,7 +52,7 @@ type ABCITestSuite struct {
 
 	// account set up
 	accounts []testutils.Account
-	balances sdk.Coins
+	balance  sdk.Coin
 	random   *rand.Rand
 	nonces   map[string]uint64
 }
@@ -100,8 +100,13 @@ func (suite *ABCITestSuite) SetupTest() {
 	suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxEncoder(), suite.mempool)
 
 	// Accounts set up
+<<<<<<< HEAD
 	suite.accounts = testutils.RandomAccounts(suite.random, 1)
 	suite.balances = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(1000000000000000000)))
+=======
+	suite.accounts = testutils.RandomAccounts(suite.random, 10)
+	suite.balance = sdk.NewCoin("foo", sdk.NewInt(1000000000000000000))
+>>>>>>> e873dfd (fix(Audit): Audit issues (#190))
 	suite.nonces = make(map[string]uint64)
 	for _, acc := range suite.accounts {
 		suite.nonces[acc.Address.String()] = 0
@@ -114,7 +119,7 @@ func (suite *ABCITestSuite) SetupTest() {
 
 func (suite *ABCITestSuite) anteHandler(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
 	signer := tx.GetMsgs()[0].GetSigners()[0]
-	suite.bankKeeper.EXPECT().GetAllBalances(ctx, signer).AnyTimes().Return(suite.balances)
+	suite.bankKeeper.EXPECT().GetBalance(ctx, signer, suite.balance.Denom).AnyTimes().Return(suite.balance)
 
 	next := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
 		return ctx, nil

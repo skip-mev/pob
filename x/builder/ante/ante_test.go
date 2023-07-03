@@ -34,6 +34,18 @@ type AnteTestSuite struct {
 	builderDecorator ante.BuilderDecorator
 	key              *storetypes.KVStoreKey
 	authorityAccount sdk.AccAddress
+<<<<<<< HEAD
+=======
+
+	// mempool and lane set up
+	mempool  blockbuster.Mempool
+	tobLane  *auction.TOBLane
+	baseLane *base.DefaultLane
+	lanes    []blockbuster.Lane
+
+	// Account set up
+	balance sdk.Coin
+>>>>>>> e873dfd (fix(Audit): Audit issues (#190))
 }
 
 func TestAnteTestSuite(t *testing.T) {
@@ -71,7 +83,11 @@ func (suite *AnteTestSuite) SetupTest() {
 
 func (suite *AnteTestSuite) executeAnteHandler(tx sdk.Tx, balance sdk.Coins) (sdk.Context, error) {
 	signer := tx.GetMsgs()[0].GetSigners()[0]
+<<<<<<< HEAD
 	suite.bankKeeper.EXPECT().GetAllBalances(suite.ctx, signer).AnyTimes().Return(balance)
+=======
+	suite.bankKeeper.EXPECT().GetBalance(ctx, signer, suite.balance.Denom).AnyTimes().Return(suite.balance)
+>>>>>>> e873dfd (fix(Audit): Audit issues (#190))
 
 	next := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
 		return ctx, nil
@@ -85,7 +101,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 		// Bid set up
 		bidder  = testutils.RandomAccounts(suite.random, 1)[0]
 		bid     = sdk.NewCoin("foo", sdk.NewInt(1000))
-		balance = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(10000)))
+		balance = sdk.NewCoin("foo", sdk.NewInt(10000))
 		signers = []testutils.Account{bidder}
 
 		// Top bidding auction tx set up
@@ -125,14 +141,14 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 			"bidder has insufficient balance, invalid auction tx",
 			func() {
 				insertTopBid = false
-				balance = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(10)))
+				balance = sdk.NewCoin("foo", sdk.NewInt(10))
 			},
 			false,
 		},
 		{
 			"bid is smaller than reserve fee, invalid auction tx",
 			func() {
-				balance = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(10000)))
+				balance = sdk.NewCoin("foo", sdk.NewInt(10000))
 				bid = sdk.NewCoin("foo", sdk.NewInt(101))
 				reserveFee = sdk.NewCoin("foo", sdk.NewInt(1000))
 			},
@@ -141,7 +157,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 		{
 			"valid auction bid tx",
 			func() {
-				balance = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(10000)))
+				balance = sdk.NewCoin("foo", sdk.NewInt(10000))
 				bid = sdk.NewCoin("foo", sdk.NewInt(1000))
 				reserveFee = sdk.NewCoin("foo", sdk.NewInt(100))
 			},
@@ -158,7 +174,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 			"auction tx is the top bidding tx",
 			func() {
 				timeout = 1000
-				balance = sdk.NewCoins(sdk.NewCoin("foo", sdk.NewInt(10000)))
+				balance = sdk.NewCoin("foo", sdk.NewInt(10000))
 				bid = sdk.NewCoin("foo", sdk.NewInt(1000))
 				reserveFee = sdk.NewCoin("foo", sdk.NewInt(100))
 
