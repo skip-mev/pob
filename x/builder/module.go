@@ -146,7 +146,7 @@ func init() {
 	appmodule.Register(
 		&modulev1.Module{},
 		appmodule.Provide(
-			rewards_address_provider.Provide,
+			rewards_address_provider.ProvideProposerRewards,
 			ProvideModule,
 		),
 	)

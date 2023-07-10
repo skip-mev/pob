@@ -32,24 +32,24 @@ func (p *ProposerRewardsAddressProvider) GetRewardsAddress(context sdk.Context) 
 
 // Dependency injection
 
-type DepInjectInput struct {
+type ProposerRewardsDepInjectInput struct {
 	depinject.In
 
 	types.DistributionKeeper
 	types.StakingKeeper
 }
 
-type DepInjectOutput struct {
+type ProposerRewardsDepInjectOutput struct {
 	depinject.Out
 
 	RewardsAddressProvider RewardsAddressProvider
 }
 
-func Provide(in DepInjectInput) DepInjectOutput {
+func ProvideProposerRewards(in ProposerRewardsDepInjectInput) ProposerRewardsDepInjectOutput {
 	rewardAddressProvider := NewProposerRewardsAddressProvider(
 		in.DistributionKeeper,
 		in.StakingKeeper,
 	)
 
-	return DepInjectOutput{RewardsAddressProvider: rewardAddressProvider}
+	return ProposerRewardsDepInjectOutput{RewardsAddressProvider: rewardAddressProvider}
 }
