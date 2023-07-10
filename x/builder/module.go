@@ -146,7 +146,7 @@ func init() {
 	appmodule.Register(
 		&modulev1.Module{},
 		appmodule.Provide(
-			rewards_address_provider.ProvideProposerRewards,
+			rewardsaddressprovider.ProvideProposerRewards,
 			ProvideModule,
 		),
 	)
@@ -161,7 +161,7 @@ type Inputs struct {
 
 	AccountKeeper          types.AccountKeeper
 	BankKeeper             types.BankKeeper
-	RewardsAddressProvider rewards_address_provider.RewardsAddressProvider
+	RewardsAddressProvider rewardsaddressprovider.RewardsAddressProvider
 }
 
 type Outputs struct {

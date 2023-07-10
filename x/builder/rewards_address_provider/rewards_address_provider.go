@@ -1,4 +1,4 @@
-package rewards_address_provider
+package rewardsaddressprovider
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"

@@ -1,4 +1,4 @@
-package rewards_address_provider
+package rewardsaddressprovider
 
 import (
 	"cosmossdk.io/depinject"

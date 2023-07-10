@@ -1,4 +1,4 @@
-package rewards_address_provider
+package rewardsaddressprovider
 
 import (
 	"cosmossdk.io/depinject"
@@ -19,7 +19,7 @@ func NewFixedAddressRewardsAddressProvider(
 	}
 }
 
-func (p *FixedAddressRewardsAddressProvider) GetRewardsAddress(context sdk.Context) sdk.AccAddress {
+func (p *FixedAddressRewardsAddressProvider) GetRewardsAddress(_ sdk.Context) sdk.AccAddress {
 	return p.rewardsAddress
 }
 
