@@ -18,6 +18,7 @@ import (
 	testutils "github.com/skip-mev/pob/testutils"
 	"github.com/skip-mev/pob/x/builder/ante"
 	"github.com/skip-mev/pob/x/builder/keeper"
+	"github.com/skip-mev/pob/x/builder/rewards_address_provider"
 	buildertypes "github.com/skip-mev/pob/x/builder/types"
 	"github.com/stretchr/testify/suite"
 
@@ -53,12 +54,13 @@ type ABCITestSuite struct {
 	nonces   map[string]uint64
 
 	// Keeper set up
-	builderKeeper    keeper.Keeper
-	bankKeeper       *testutils.MockBankKeeper
-	accountKeeper    *testutils.MockAccountKeeper
-	distrKeeper      *testutils.MockDistributionKeeper
-	stakingKeeper    *testutils.MockStakingKeeper
-	builderDecorator ante.BuilderDecorator
+	builderKeeper          keeper.Keeper
+	bankKeeper             *testutils.MockBankKeeper
+	accountKeeper          *testutils.MockAccountKeeper
+	distrKeeper            *testutils.MockDistributionKeeper
+	stakingKeeper          *testutils.MockStakingKeeper
+	rewardsAddressProvider rewards_address_provider.RewardsAddressProvider
+	builderDecorator       ante.BuilderDecorator
 }
 
 func TestBlockBusterTestSuite(t *testing.T) {
@@ -122,6 +124,10 @@ func (suite *ABCITestSuite) SetupTest() {
 	suite.bankKeeper = testutils.NewMockBankKeeper(ctrl)
 	suite.distrKeeper = testutils.NewMockDistributionKeeper(ctrl)
 	suite.stakingKeeper = testutils.NewMockStakingKeeper(ctrl)
+	suite.rewardsAddressProvider = rewards_address_provider.NewProposerRewardsAddressProvider(
+		suite.distrKeeper,
+		suite.stakingKeeper,
+	)
 
 	// Builder keeper / decorator set up
 	suite.builderKeeper = keeper.NewKeeper(
@@ -131,6 +137,7 @@ func (suite *ABCITestSuite) SetupTest() {
 		suite.bankKeeper,
 		suite.distrKeeper,
 		suite.stakingKeeper,
+		suite.rewardsAddressProvider,
 		sdk.AccAddress([]byte("authority")).String(),
 	)
 

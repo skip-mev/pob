@@ -168,6 +168,7 @@ func (suite *KeeperTestSuite) TestValidateBidInfo() {
 				suite.bankKeeper,
 				suite.distrKeeper,
 				suite.stakingKeeper,
+				suite.rewardsAddressProvider,
 				suite.authorityAccount.String(),
 			)
 			params := types.Params{

@@ -21,6 +21,7 @@ import (
 	modulev1 "github.com/skip-mev/pob/api/pob/builder/module/v1"
 	"github.com/skip-mev/pob/x/builder/client/cli"
 	"github.com/skip-mev/pob/x/builder/keeper"
+	"github.com/skip-mev/pob/x/builder/rewards_address_provider"
 	"github.com/skip-mev/pob/x/builder/types"
 	"github.com/spf13/cobra"
 )
@@ -144,7 +145,10 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 func init() {
 	appmodule.Register(
 		&modulev1.Module{},
-		appmodule.Provide(ProvideModule),
+		appmodule.Provide(
+			rewards_address_provider.Provide,
+			ProvideModule,
+		),
 	)
 }
 
@@ -155,10 +159,11 @@ type Inputs struct {
 	Cdc    codec.Codec
 	Key    *storetypes.KVStoreKey
 
-	AccountKeeper      types.AccountKeeper
-	BankKeeper         types.BankKeeper
-	DistributionKeeper types.DistributionKeeper
-	StakingKeeper      types.StakingKeeper
+	AccountKeeper          types.AccountKeeper
+	BankKeeper             types.BankKeeper
+	DistributionKeeper     types.DistributionKeeper
+	StakingKeeper          types.StakingKeeper
+	RewardsAddressProvider rewards_address_provider.RewardsAddressProvider
 }
 
 type Outputs struct {
@@ -182,6 +187,7 @@ func ProvideModule(in Inputs) Outputs {
 		in.BankKeeper,
 		in.DistributionKeeper,
 		in.StakingKeeper,
+		in.RewardsAddressProvider,
 		authority.String(),
 	)
 

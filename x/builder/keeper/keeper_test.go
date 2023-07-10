@@ -9,6 +9,7 @@ import (
 	"github.com/golang/mock/gomock"
 	testutils "github.com/skip-mev/pob/testutils"
 	"github.com/skip-mev/pob/x/builder/keeper"
+	"github.com/skip-mev/pob/x/builder/rewards_address_provider"
 	"github.com/skip-mev/pob/x/builder/types"
 
 	"github.com/stretchr/testify/suite"
@@ -17,16 +18,17 @@ import (
 type KeeperTestSuite struct {
 	suite.Suite
 
-	builderKeeper    keeper.Keeper
-	bankKeeper       *testutils.MockBankKeeper
-	accountKeeper    *testutils.MockAccountKeeper
-	distrKeeper      *testutils.MockDistributionKeeper
-	stakingKeeper    *testutils.MockStakingKeeper
-	encCfg           testutils.EncodingConfig
-	ctx              sdk.Context
-	msgServer        types.MsgServer
-	key              *storetypes.KVStoreKey
-	authorityAccount sdk.AccAddress
+	builderKeeper          keeper.Keeper
+	bankKeeper             *testutils.MockBankKeeper
+	accountKeeper          *testutils.MockAccountKeeper
+	distrKeeper            *testutils.MockDistributionKeeper
+	stakingKeeper          *testutils.MockStakingKeeper
+	rewardsAddressProvider rewards_address_provider.RewardsAddressProvider
+	encCfg                 testutils.EncodingConfig
+	ctx                    sdk.Context
+	msgServer              types.MsgServer
+	key                    *storetypes.KVStoreKey
+	authorityAccount       sdk.AccAddress
 }
 
 func TestKeeperTestSuite(t *testing.T) {
@@ -48,6 +50,11 @@ func (suite *KeeperTestSuite) SetupTest() {
 	suite.distrKeeper = testutils.NewMockDistributionKeeper(ctrl)
 	suite.stakingKeeper = testutils.NewMockStakingKeeper(ctrl)
 	suite.authorityAccount = sdk.AccAddress([]byte("authority"))
+	suite.rewardsAddressProvider = rewards_address_provider.NewProposerRewardsAddressProvider(
+		suite.distrKeeper,
+		suite.stakingKeeper,
+	)
+
 	suite.builderKeeper = keeper.NewKeeper(
 		suite.encCfg.Codec,
 		suite.key,
@@ -55,6 +62,7 @@ func (suite *KeeperTestSuite) SetupTest() {
 		suite.bankKeeper,
 		suite.distrKeeper,
 		suite.stakingKeeper,
+		suite.rewardsAddressProvider,
 		suite.authorityAccount.String(),
 	)
 

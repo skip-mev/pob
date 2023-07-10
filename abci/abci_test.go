@@ -18,6 +18,7 @@ import (
 	testutils "github.com/skip-mev/pob/testutils"
 	"github.com/skip-mev/pob/x/builder/ante"
 	"github.com/skip-mev/pob/x/builder/keeper"
+	"github.com/skip-mev/pob/x/builder/rewards_address_provider"
 	buildertypes "github.com/skip-mev/pob/x/builder/types"
 	"github.com/stretchr/testify/suite"
 )
@@ -37,14 +38,15 @@ type ABCITestSuite struct {
 	voteExtensionHandler *abci.VoteExtensionHandler
 
 	// builder setup
-	builderKeeper    keeper.Keeper
-	bankKeeper       *testutils.MockBankKeeper
-	accountKeeper    *testutils.MockAccountKeeper
-	distrKeeper      *testutils.MockDistributionKeeper
-	stakingKeeper    *testutils.MockStakingKeeper
-	builderDecorator ante.BuilderDecorator
-	key              *storetypes.KVStoreKey
-	authorityAccount sdk.AccAddress
+	builderKeeper          keeper.Keeper
+	bankKeeper             *testutils.MockBankKeeper
+	accountKeeper          *testutils.MockAccountKeeper
+	distrKeeper            *testutils.MockDistributionKeeper
+	stakingKeeper          *testutils.MockStakingKeeper
+	rewardsAddressProvider rewards_address_provider.RewardsAddressProvider
+	builderDecorator       ante.BuilderDecorator
+	key                    *storetypes.KVStoreKey
+	authorityAccount       sdk.AccAddress
 
 	// account set up
 	accounts []testutils.Account
@@ -101,6 +103,10 @@ func (suite *ABCITestSuite) SetupTest() {
 	suite.distrKeeper = testutils.NewMockDistributionKeeper(ctrl)
 	suite.stakingKeeper = testutils.NewMockStakingKeeper(ctrl)
 	suite.authorityAccount = sdk.AccAddress([]byte("authority"))
+	suite.rewardsAddressProvider = rewards_address_provider.NewProposerRewardsAddressProvider(
+		suite.distrKeeper,
+		suite.stakingKeeper,
+	)
 
 	// Builder keeper / decorator set up
 	suite.builderKeeper = keeper.NewKeeper(
@@ -110,6 +116,7 @@ func (suite *ABCITestSuite) SetupTest() {
 		suite.bankKeeper,
 		suite.distrKeeper,
 		suite.stakingKeeper,
+		suite.rewardsAddressProvider,
 		suite.authorityAccount.String(),
 	)
 	err := suite.builderKeeper.SetParams(suite.ctx, buildertypes.DefaultParams())
