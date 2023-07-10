@@ -16,7 +16,10 @@ import (
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+<<<<<<< HEAD
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+=======
+>>>>>>> tags/v1.0.1
 	buildertypes "github.com/skip-mev/pob/x/builder/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -145,8 +148,14 @@ func (s *IntegrationTestSuite) normalTxsToTxHashes(txs [][]byte) []string {
 	return hashes
 }
 
+<<<<<<< HEAD
 // verifyTopOfBlockAuction verifies that blocks that include a bid transaction execute as expected.
 func (s *IntegrationTestSuite) verifyTopOfBlockAuction(height uint64, bundle []string, expectedExecution map[string]bool) {
+=======
+// verifyBlock verifies that the transactions in the block at the given height were seen
+// and executed in the order they were submitted i.e. how they are broadcasted in the bundle.
+func (s *IntegrationTestSuite) verifyBlock(height uint64, bundle []string, expectedExecution map[string]bool) {
+>>>>>>> tags/v1.0.1
 	s.waitForABlock()
 	s.T().Logf("Verifying block %d", height)
 
@@ -179,6 +188,7 @@ func (s *IntegrationTestSuite) verifyTopOfBlockAuction(height uint64, bundle []s
 	}
 }
 
+<<<<<<< HEAD
 // verifyBlock verifies that the transactions in the block at the given height were seen
 // and executed in the order they were submitted.
 func (s *IntegrationTestSuite) verifyBlock(height uint64, txs []string, expectedExecution map[string]bool) {
@@ -213,6 +223,14 @@ func (s *IntegrationTestSuite) displayBlock(txs [][]byte, expectedTxs []string) 
 		expectedBlock := fmt.Sprintf("Expected block:\n\t(%d, %s)\n", 0, expectedTxs[0])
 		for index, expectedTx := range expectedTxs[1:] {
 			expectedBlock += fmt.Sprintf("\t(%d, %s)\n", index+1, expectedTx)
+=======
+// displayExpectedBlock displays the expected and actual blocks.
+func (s *IntegrationTestSuite) displayBlock(txs [][]byte, bundle []string) {
+	if len(bundle) != 0 {
+		expectedBlock := fmt.Sprintf("Expected block:\n\t(%d, %s)\n", 0, bundle[0])
+		for index, bundleTx := range bundle[1:] {
+			expectedBlock += fmt.Sprintf("\t(%d, %s)\n", index+1, bundleTx)
+>>>>>>> tags/v1.0.1
 		}
 
 		s.T().Logf(expectedBlock)
@@ -354,6 +372,7 @@ func (s *IntegrationTestSuite) queryBlockTxs(height uint64) [][]byte {
 
 	return resp.GetSdkBlock().Data.Txs
 }
+<<<<<<< HEAD
 
 // queryValidators returns the validators of the network.
 func (s *IntegrationTestSuite) queryValidators() []stakingtypes.Validator {
@@ -365,3 +384,5 @@ func (s *IntegrationTestSuite) queryValidators() []stakingtypes.Validator {
 
 	return resp.Validators
 }
+=======
+>>>>>>> tags/v1.0.1

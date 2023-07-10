@@ -18,7 +18,7 @@ import (
 	testutils "github.com/skip-mev/pob/testutils"
 	"github.com/skip-mev/pob/x/builder/ante"
 	"github.com/skip-mev/pob/x/builder/keeper"
-	rewardsaddressprovider "github.com/skip-mev/pob/x/builder/rewards_address_provider"
+	"github.com/skip-mev/pob/x/builder/rewards_address_provider"
 	buildertypes "github.com/skip-mev/pob/x/builder/types"
 	"github.com/stretchr/testify/suite"
 )
@@ -43,7 +43,7 @@ type ABCITestSuite struct {
 	accountKeeper          *testutils.MockAccountKeeper
 	distrKeeper            *testutils.MockDistributionKeeper
 	stakingKeeper          *testutils.MockStakingKeeper
-	rewardsAddressProvider rewardsaddressprovider.RewardsAddressProvider
+	rewardsAddressProvider rewards_address_provider.RewardsAddressProvider
 	builderDecorator       ante.BuilderDecorator
 	key                    *storetypes.KVStoreKey
 	authorityAccount       sdk.AccAddress
@@ -103,7 +103,7 @@ func (suite *ABCITestSuite) SetupTest() {
 	suite.distrKeeper = testutils.NewMockDistributionKeeper(ctrl)
 	suite.stakingKeeper = testutils.NewMockStakingKeeper(ctrl)
 	suite.authorityAccount = sdk.AccAddress([]byte("authority"))
-	suite.rewardsAddressProvider = rewardsaddressprovider.NewProposerRewardsAddressProvider(
+	suite.rewardsAddressProvider = rewards_address_provider.NewProposerRewardsAddressProvider(
 		suite.distrKeeper,
 		suite.stakingKeeper,
 	)

@@ -139,6 +139,7 @@ func CreateRandomTx(txCfg client.TxConfig, account Account, nonce, numberMsgs, t
 	return txBuilder.GetTx(), nil
 }
 
+<<<<<<< HEAD
 func CreateRandomTxBz(txCfg client.TxConfig, account Account, nonce, numberMsgs, timeout uint64) ([]byte, error) {
 	tx, err := CreateRandomTx(txCfg, account, nonce, numberMsgs, timeout)
 	if err != nil {
@@ -148,6 +149,8 @@ func CreateRandomTxBz(txCfg client.TxConfig, account Account, nonce, numberMsgs,
 	return txCfg.TxEncoder()(tx)
 }
 
+=======
+>>>>>>> tags/v1.0.1
 func CreateTxWithSigners(txCfg client.TxConfig, nonce, timeout uint64, signers []Account) (authsigning.Tx, error) {
 	msgs := []sdk.Msg{}
 	for _, signer := range signers {

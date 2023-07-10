@@ -14,28 +14,22 @@ import (
 var _ sdk.AnteDecorator = BuilderDecorator{}
 
 type (
-	// TOBLane is an interface that defines the methods required to interact with the top of block
-	// lane.
-	TOBLane interface {
-		GetAuctionBidInfo(tx sdk.Tx) (*types.BidInfo, error)
-		GetTopAuctionTx(ctx context.Context) sdk.Tx
-	}
-
 	// Mempool is an interface that defines the methods required to interact with the application-side mempool.
 	Mempool interface {
 		Contains(tx sdk.Tx) (bool, error)
+		GetAuctionBidInfo(tx sdk.Tx) (*mempool.AuctionBidInfo, error)
+		GetTopAuctionTx(ctx context.Context) sdk.Tx
 	}
 
 	// BuilderDecorator is an AnteDecorator that validates the auction bid and bundled transactions.
 	BuilderDecorator struct {
 		builderKeeper keeper.Keeper
 		txEncoder     sdk.TxEncoder
-		lane          TOBLane
 		mempool       Mempool
 	}
 )
 
-func NewBuilderDecorator(ak keeper.Keeper, txEncoder sdk.TxEncoder, lane TOBLane, mempool Mempool) BuilderDecorator {
+func NewBuilderDecorator(ak keeper.Keeper, txEncoder sdk.TxEncoder, mempool Mempool) BuilderDecorator {
 	return BuilderDecorator{
 		builderKeeper: ak,
 		txEncoder:     txEncoder,
@@ -59,7 +53,7 @@ func (bd BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 		}
 	}
 
-	bidInfo, err := bd.lane.GetAuctionBidInfo(tx)
+	bidInfo, err := bd.mempool.GetAuctionBidInfo(tx)
 	if err != nil {
 		return ctx, err
 	}
@@ -77,7 +71,7 @@ func (bd BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 		// poor liveness guarantees.
 		topBid := sdk.Coin{}
 		if ctx.IsCheckTx() || ctx.IsReCheckTx() {
-			if topBidTx := bd.lane.GetTopAuctionTx(ctx); topBidTx != nil {
+			if topBidTx := bd.mempool.GetTopAuctionTx(ctx); topBidTx != nil {
 				topBidBz, err := bd.txEncoder(topBidTx)
 				if err != nil {
 					return ctx, err
@@ -90,7 +84,11 @@ func (bd BuilderDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 
 				// Compare the bytes to see if the current transaction is the highest bidding transaction.
 				if !bytes.Equal(topBidBz, currentTxBz) {
+<<<<<<< HEAD
 					topBidInfo, err := bd.lane.GetAuctionBidInfo(topBidTx)
+=======
+					topBidInfo, err := bd.mempool.GetAuctionBidInfo(topBidTx)
+>>>>>>> tags/v1.0.1
 					if err != nil {
 						return ctx, err
 					}

@@ -28,21 +28,14 @@ type AnteTestSuite struct {
 	random         *rand.Rand
 
 	// builder setup
-	builderKeeper          keeper.Keeper
-	bankKeeper             *testutils.MockBankKeeper
-	accountKeeper          *testutils.MockAccountKeeper
-	distrKeeper            *testutils.MockDistributionKeeper
-	stakingKeeper          *testutils.MockStakingKeeper
-	rewardsAddressProvider rewardsaddressprovider.RewardsAddressProvider
-	builderDecorator       ante.BuilderDecorator
-	key                    *storetypes.KVStoreKey
-	authorityAccount       sdk.AccAddress
-
-	// mempool and lane set up
-	mempool  blockbuster.Mempool
-	tobLane  *auction.TOBLane
-	baseLane *base.DefaultLane
-	lanes    []blockbuster.Lane
+	builderKeeper    keeper.Keeper
+	bankKeeper       *testutils.MockBankKeeper
+	accountKeeper    *testutils.MockAccountKeeper
+	distrKeeper      *testutils.MockDistributionKeeper
+	stakingKeeper    *testutils.MockStakingKeeper
+	builderDecorator ante.BuilderDecorator
+	key              *storetypes.KVStoreKey
+	authorityAccount sdk.AccAddress
 
 	// Account set up
 	balance sdk.Coin
@@ -271,6 +264,11 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 			suite.Require().NoError(err)
 
 			// Insert the top bid into the mempool
+<<<<<<< HEAD
+=======
+			config := mempool.NewDefaultAuctionFactory(suite.encodingConfig.TxConfig.TxDecoder())
+			mempool := mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), 0, config)
+>>>>>>> tags/v1.0.1
 			if insertTopBid {
 				topAuctionTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, topBidder, topBid, 0, timeout, []testutils.Account{})
 				suite.Require().NoError(err)
@@ -291,8 +289,13 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 			suite.Require().NoError(err)
 
 			// Execute the ante handler
+<<<<<<< HEAD
 			suite.balance = balance
 			suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxEncoder(), suite.tobLane, suite.mempool)
+=======
+			suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxEncoder(), mempool)
+			suite.balance = balance
+>>>>>>> tags/v1.0.1
 			_, err = suite.anteHandler(suite.ctx, auctionTx, false)
 			if tc.pass {
 				suite.Require().NoError(err)

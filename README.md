@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 -->
 <h1 align="center">Protocol-Owned Builder</h1>
 
 <!-- markdownlint-disable MD013 -->

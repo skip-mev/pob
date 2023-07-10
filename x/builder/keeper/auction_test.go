@@ -5,6 +5,7 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/skip-mev/pob/mempool"
 	testutils "github.com/skip-mev/pob/testutils"
 	"github.com/skip-mev/pob/x/builder/keeper"
 	"github.com/skip-mev/pob/x/builder/types"
@@ -198,7 +199,7 @@ func (suite *KeeperTestSuite) TestValidateBidInfo() {
 				signers[index] = txSigners
 			}
 
-			bidInfo := &types.BidInfo{
+			bidInfo := &mempool.AuctionBidInfo{
 				Bidder:       bidder.Address,
 				Bid:          bid,
 				Transactions: bundle,

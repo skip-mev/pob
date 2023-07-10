@@ -22,6 +22,10 @@ import (
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	"github.com/cosmos/cosmos-sdk/store/streaming"
 	storetypes "github.com/cosmos/cosmos-sdk/store/types"
+<<<<<<< HEAD
+=======
+	"github.com/cosmos/cosmos-sdk/testutil/testdata_pulsar"
+>>>>>>> tags/v1.0.1
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/cosmos-sdk/x/auth"
@@ -66,11 +70,16 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/upgrade"
 	upgradeclient "github.com/cosmos/cosmos-sdk/x/upgrade/client"
 	upgradekeeper "github.com/cosmos/cosmos-sdk/x/upgrade/keeper"
+<<<<<<< HEAD
 	"github.com/skip-mev/pob/blockbuster"
 	"github.com/skip-mev/pob/blockbuster/abci"
 	"github.com/skip-mev/pob/blockbuster/lanes/auction"
 	"github.com/skip-mev/pob/blockbuster/lanes/base"
 	"github.com/skip-mev/pob/blockbuster/lanes/free"
+=======
+	"github.com/skip-mev/pob/abci"
+	"github.com/skip-mev/pob/mempool"
+>>>>>>> tags/v1.0.1
 	buildermodule "github.com/skip-mev/pob/x/builder"
 	builderkeeper "github.com/skip-mev/pob/x/builder/keeper"
 )
@@ -263,6 +272,7 @@ func New(
 
 	app.App = appBuilder.Build(logger, db, traceStore, baseAppOptions...)
 
+<<<<<<< HEAD
 	// ---------------------------------------------------------------------------- //
 	// ------------------------- Begin Custom Code -------------------------------- //
 	// ---------------------------------------------------------------------------- //
@@ -312,6 +322,10 @@ func New(
 	}
 
 	mempool := blockbuster.NewMempool(lanes...)
+=======
+	// Set POB's mempool into the app.
+	mempool := mempool.NewAuctionMempool(app.txConfig.TxDecoder(), app.txConfig.TxEncoder(), 0, mempool.NewDefaultAuctionFactory(app.txConfig.TxDecoder()))
+>>>>>>> tags/v1.0.1
 	app.App.SetMempool(mempool)
 
 	// Create a global ante handler that will be called on each transaction when
@@ -326,6 +340,7 @@ func New(
 	options := POBHandlerOptions{
 		BaseOptions:   handlerOptions,
 		BuilderKeeper: app.BuilderKeeper,
+<<<<<<< HEAD
 		TxDecoder:     app.txConfig.TxDecoder(),
 		TxEncoder:     app.txConfig.TxEncoder(),
 		FreeLane:      freeLane,
@@ -344,6 +359,21 @@ func New(
 		app.Logger(),
 		app.txConfig.TxDecoder(),
 		mempool,
+=======
+		Mempool:       mempool,
+		TxDecoder:     app.txConfig.TxDecoder(),
+		TxEncoder:     app.txConfig.TxEncoder(),
+	}
+	anteHandler := NewPOBAnteHandler(options)
+
+	// Set the proposal handlers on the BaseApp along with the custom antehandler.
+	proposalHandlers := abci.NewProposalHandler(
+		mempool,
+		app.App.Logger(),
+		anteHandler,
+		options.TxEncoder,
+		options.TxDecoder,
+>>>>>>> tags/v1.0.1
 	)
 	app.App.SetPrepareProposal(proposalHandlers.PrepareProposalHandler())
 	app.App.SetProcessProposal(proposalHandlers.ProcessProposalHandler())
@@ -353,16 +383,23 @@ func New(
 	checkTxHandler := abci.NewCheckTxHandler(
 		app.App,
 		app.txConfig.TxDecoder(),
+<<<<<<< HEAD
 		tobLane,
+=======
+		mempool,
+>>>>>>> tags/v1.0.1
 		anteHandler,
 		ChainID,
 	)
 	app.SetCheckTx(checkTxHandler.CheckTx())
 
+<<<<<<< HEAD
 	// ---------------------------------------------------------------------------- //
 	// ------------------------- End Custom Code ---------------------------------- //
 	// ---------------------------------------------------------------------------- //
 
+=======
+>>>>>>> tags/v1.0.1
 	// load state streaming if enabled
 	if _, _, err := streaming.LoadStreamingServices(app.App.BaseApp, appOpts, app.appCodec, logger, app.kvStoreKeys()); err != nil {
 		logger.Error("failed to load state streaming", "err", err)
@@ -377,7 +414,11 @@ func New(
 	// app.RegisterUpgradeHandlers()
 
 	// add test gRPC service for testing gRPC queries in isolation
+<<<<<<< HEAD
 	// testdata_pulsar.RegisterQueryServer(app.GRPCQueryRouter(), testdata_pulsar.QueryImpl{})
+=======
+	testdata_pulsar.RegisterQueryServer(app.GRPCQueryRouter(), testdata_pulsar.QueryImpl{})
+>>>>>>> tags/v1.0.1
 
 	// A custom InitChainer can be set if extra pre-init-genesis logic is required.
 	// By default, when using app wiring enabled module, this is not required.

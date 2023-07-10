@@ -13,7 +13,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+<<<<<<< HEAD
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+=======
+>>>>>>> tags/v1.0.1
 	"github.com/ory/dockertest/v3/docker"
 	"github.com/skip-mev/pob/tests/app"
 	buildertypes "github.com/skip-mev/pob/x/builder/types"
@@ -78,7 +81,11 @@ func (s *IntegrationTestSuite) execMsgSendTx(valIdx int, to sdk.AccAddress, amou
 }
 
 // createAuctionBidTx creates a transaction that bids on an auction given the provided bidder, bid, and transactions.
+<<<<<<< HEAD
 func (s *IntegrationTestSuite) createAuctionBidTx(account TestAccount, bid sdk.Coin, transactions [][]byte, sequenceOffset, height, gasLimit uint64, fees sdk.Coins) []byte {
+=======
+func (s *IntegrationTestSuite) createAuctionBidTx(account TestAccount, bid sdk.Coin, transactions [][]byte, sequenceOffset, height uint64) []byte {
+>>>>>>> tags/v1.0.1
 	msgs := []sdk.Msg{
 		&buildertypes.MsgAuctionBid{
 			Bidder:       account.Address.String(),
@@ -87,12 +94,20 @@ func (s *IntegrationTestSuite) createAuctionBidTx(account TestAccount, bid sdk.C
 		},
 	}
 
+<<<<<<< HEAD
 	return s.createTx(account, msgs, sequenceOffset, height, gasLimit, fees)
+=======
+	return s.createTx(account, msgs, sequenceOffset, height)
+>>>>>>> tags/v1.0.1
 }
 
 // createMsgSendTx creates a send transaction given the provided signer, recipient, amount, sequence number offset, and block height timeout.
 // This function is primarily used to create bundles of transactions.
+<<<<<<< HEAD
 func (s *IntegrationTestSuite) createMsgSendTx(account TestAccount, toAddress string, amount sdk.Coins, sequenceOffset, height, gasLimit uint64, fees sdk.Coins) []byte {
+=======
+func (s *IntegrationTestSuite) createMsgSendTx(account TestAccount, toAddress string, amount sdk.Coins, sequenceOffset, height uint64) []byte {
+>>>>>>> tags/v1.0.1
 	msgs := []sdk.Msg{
 		&banktypes.MsgSend{
 			FromAddress: account.Address.String(),
@@ -101,6 +116,7 @@ func (s *IntegrationTestSuite) createMsgSendTx(account TestAccount, toAddress st
 		},
 	}
 
+<<<<<<< HEAD
 	return s.createTx(account, msgs, sequenceOffset, height, gasLimit, fees)
 }
 
@@ -120,6 +136,13 @@ func (s *IntegrationTestSuite) createMsgDelegateTx(account TestAccount, validato
 
 // createTx creates a transaction given the provided messages, sequence number offset, and block height timeout.
 func (s *IntegrationTestSuite) createTx(account TestAccount, msgs []sdk.Msg, sequenceOffset, height, gasLimit uint64, fees sdk.Coins) []byte {
+=======
+	return s.createTx(account, msgs, sequenceOffset, height)
+}
+
+// createTx creates a transaction given the provided messages, sequence number offset, and block height timeout.
+func (s *IntegrationTestSuite) createTx(account TestAccount, msgs []sdk.Msg, sequenceOffset, height uint64) []byte {
+>>>>>>> tags/v1.0.1
 	txConfig := encodingConfig.TxConfig
 	txBuilder := txConfig.NewTxBuilder()
 
