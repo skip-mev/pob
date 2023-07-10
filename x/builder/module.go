@@ -161,8 +161,6 @@ type Inputs struct {
 
 	AccountKeeper          types.AccountKeeper
 	BankKeeper             types.BankKeeper
-	DistributionKeeper     types.DistributionKeeper
-	StakingKeeper          types.StakingKeeper
 	RewardsAddressProvider rewards_address_provider.RewardsAddressProvider
 }
 
@@ -185,8 +183,6 @@ func ProvideModule(in Inputs) Outputs {
 		in.Key,
 		in.AccountKeeper,
 		in.BankKeeper,
-		in.DistributionKeeper,
-		in.StakingKeeper,
 		in.RewardsAddressProvider,
 		authority.String(),
 	)

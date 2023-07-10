@@ -166,8 +166,6 @@ func (suite *KeeperTestSuite) TestValidateBidInfo() {
 				suite.key,
 				suite.accountKeeper,
 				suite.bankKeeper,
-				suite.distrKeeper,
-				suite.stakingKeeper,
 				suite.rewardsAddressProvider,
 				suite.authorityAccount.String(),
 			)

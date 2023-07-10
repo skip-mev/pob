@@ -18,8 +18,6 @@ type Keeper struct {
 	storeKey storetypes.StoreKey
 
 	bankKeeper             types.BankKeeper
-	distrKeeper            types.DistributionKeeper
-	stakingKeeper          types.StakingKeeper
 	rewardsAddressProvider rewards_address_provider.RewardsAddressProvider
 
 	// The address that is capable of executing a MsgUpdateParams message.
@@ -32,8 +30,6 @@ func NewKeeper(
 	storeKey storetypes.StoreKey,
 	accountKeeper types.AccountKeeper,
 	bankKeeper types.BankKeeper,
-	distrKeeper types.DistributionKeeper,
-	stakingKeeper types.StakingKeeper,
 	rewardsAddressProvider rewards_address_provider.RewardsAddressProvider,
 	authority string,
 ) Keeper {
@@ -51,8 +47,6 @@ func NewKeeper(
 		cdc:                    cdc,
 		storeKey:               storeKey,
 		bankKeeper:             bankKeeper,
-		distrKeeper:            distrKeeper,
-		stakingKeeper:          stakingKeeper,
 		rewardsAddressProvider: rewardsAddressProvider,
 		authority:              authority,
 	}

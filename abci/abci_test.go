@@ -114,8 +114,6 @@ func (suite *ABCITestSuite) SetupTest() {
 		suite.key,
 		suite.accountKeeper,
 		suite.bankKeeper,
-		suite.distrKeeper,
-		suite.stakingKeeper,
 		suite.rewardsAddressProvider,
 		suite.authorityAccount.String(),
 	)
