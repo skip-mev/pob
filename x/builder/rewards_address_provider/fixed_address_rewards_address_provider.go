@@ -37,7 +37,7 @@ type FixedAddressDepInjectOutput struct {
 	RewardsAddressProvider RewardsAddressProvider
 }
 
-func ProvideFixedAddress(in FixedAddressDepInjectInput) FixedAddressDepInjectOutput {
+func ProvideModuleAddress(in FixedAddressDepInjectInput) FixedAddressDepInjectOutput {
 	rewardAddressProvider := NewFixedAddressRewardsAddressProvider(
 		in.AccountKeeper.GetModuleAddress(types.ModuleName),
 	)
