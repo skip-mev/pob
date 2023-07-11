@@ -61,7 +61,7 @@ func (suite *KeeperTestSuite) SetupTest() {
 		suite.authorityAccount.String(),
 	)
 
-	err := suite.builderKeeper.SetParams(suite.ctx, types.DefaultParams())
+	err := suite.builderKeeper.SetParams(suite.ctx, types.DefaultParamsWithAddressPrefix("cosmos"))
 	suite.Require().NoError(err)
 
 	config := mempool.NewDefaultAuctionFactory(suite.encCfg.TxConfig.TxDecoder())

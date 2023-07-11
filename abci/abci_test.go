@@ -95,7 +95,7 @@ func (suite *ABCITestSuite) SetupTest() {
 		suite.stakingKeeper,
 		suite.authorityAccount.String(),
 	)
-	err := suite.builderKeeper.SetParams(suite.ctx, buildertypes.DefaultParams())
+	err := suite.builderKeeper.SetParams(suite.ctx, buildertypes.DefaultParamsWithAddressPrefix("cosmos"))
 	suite.Require().NoError(err)
 	suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxEncoder(), suite.mempool)
 
