@@ -13,6 +13,7 @@ import (
 	testutils "github.com/skip-mev/pob/testutils"
 	"github.com/skip-mev/pob/x/builder/ante"
 	"github.com/skip-mev/pob/x/builder/keeper"
+	rewardsaddressprovider "github.com/skip-mev/pob/x/builder/rewards_address_provider"
 	buildertypes "github.com/skip-mev/pob/x/builder/types"
 	"github.com/stretchr/testify/suite"
 )
@@ -26,14 +27,15 @@ type AnteTestSuite struct {
 	random         *rand.Rand
 
 	// builder setup
-	builderKeeper    keeper.Keeper
-	bankKeeper       *testutils.MockBankKeeper
-	accountKeeper    *testutils.MockAccountKeeper
-	distrKeeper      *testutils.MockDistributionKeeper
-	stakingKeeper    *testutils.MockStakingKeeper
-	builderDecorator ante.BuilderDecorator
-	key              *storetypes.KVStoreKey
-	authorityAccount sdk.AccAddress
+	builderKeeper          keeper.Keeper
+	bankKeeper             *testutils.MockBankKeeper
+	accountKeeper          *testutils.MockAccountKeeper
+	distrKeeper            *testutils.MockDistributionKeeper
+	stakingKeeper          *testutils.MockStakingKeeper
+	rewardsAddressProvider rewardsaddressprovider.RewardsAddressProvider
+	builderDecorator       ante.BuilderDecorator
+	key                    *storetypes.KVStoreKey
+	authorityAccount       sdk.AccAddress
 
 	// Account set up
 	balance sdk.Coin
@@ -59,13 +61,17 @@ func (suite *AnteTestSuite) SetupTest() {
 	suite.distrKeeper = testutils.NewMockDistributionKeeper(ctrl)
 	suite.stakingKeeper = testutils.NewMockStakingKeeper(ctrl)
 	suite.authorityAccount = sdk.AccAddress([]byte("authority"))
+	suite.rewardsAddressProvider = rewardsaddressprovider.NewProposerRewardsAddressProvider(
+		suite.distrKeeper,
+		suite.stakingKeeper,
+	)
+
 	suite.builderKeeper = keeper.NewKeeper(
 		suite.encodingConfig.Codec,
 		suite.key,
 		suite.accountKeeper,
 		suite.bankKeeper,
-		suite.distrKeeper,
-		suite.stakingKeeper,
+		suite.rewardsAddressProvider,
 		suite.authorityAccount.String(),
 	)
 	err := suite.builderKeeper.SetParams(suite.ctx, buildertypes.DefaultParams())
