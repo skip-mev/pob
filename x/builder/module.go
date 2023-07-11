@@ -161,7 +161,7 @@ type Inputs struct {
 
 	AccountKeeper          types.AccountKeeper
 	BankKeeper             types.BankKeeper
-	RewardsAddressProvider rewardsaddressprovider.RewardsAddressProvider
+	RewardsAddressProvider types.RewardsAddressProvider
 }
 
 type Outputs struct {

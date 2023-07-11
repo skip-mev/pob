@@ -13,7 +13,7 @@ type FixedAddressRewardsAddressProvider struct {
 
 func NewFixedAddressRewardsAddressProvider(
 	rewardsAddress sdk.AccAddress,
-) RewardsAddressProvider {
+) types.RewardsAddressProvider {
 	return &FixedAddressRewardsAddressProvider{
 		rewardsAddress: rewardsAddress,
 	}
@@ -34,7 +34,7 @@ type FixedAddressDepInjectInput struct {
 type FixedAddressDepInjectOutput struct {
 	depinject.Out
 
-	RewardsAddressProvider RewardsAddressProvider
+	RewardsAddressProvider types.RewardsAddressProvider
 }
 
 func ProvideModuleAddress(in FixedAddressDepInjectInput) FixedAddressDepInjectOutput {

@@ -21,6 +21,7 @@ import (
 	"github.com/skip-mev/pob/x/builder/ante"
 	"github.com/skip-mev/pob/x/builder/keeper"
 	rewardsaddressprovider "github.com/skip-mev/pob/x/builder/rewards_address_provider"
+	"github.com/skip-mev/pob/x/builder/types"
 	buildertypes "github.com/skip-mev/pob/x/builder/types"
 	"github.com/stretchr/testify/suite"
 )
@@ -47,7 +48,7 @@ type ABCITestSuite struct {
 	accountKeeper          *testutils.MockAccountKeeper
 	distrKeeper            *testutils.MockDistributionKeeper
 	stakingKeeper          *testutils.MockStakingKeeper
-	rewardsAddressProvider rewardsaddressprovider.RewardsAddressProvider
+	rewardsAddressProvider types.RewardsAddressProvider
 	builderDecorator       ante.BuilderDecorator
 	key                    *storetypes.KVStoreKey
 	authorityAccount       sdk.AccAddress

@@ -16,7 +16,7 @@ type ProposerRewardsAddressProvider struct {
 func NewProposerRewardsAddressProvider(
 	distrKeeper types.DistributionKeeper,
 	stakingKeeper types.StakingKeeper,
-) RewardsAddressProvider {
+) types.RewardsAddressProvider {
 	return &ProposerRewardsAddressProvider{
 		distrKeeper:   distrKeeper,
 		stakingKeeper: stakingKeeper,
@@ -42,7 +42,7 @@ type ProposerRewardsDepInjectInput struct {
 type ProposerRewardsDepInjectOutput struct {
 	depinject.Out
 
-	RewardsAddressProvider RewardsAddressProvider
+	RewardsAddressProvider types.RewardsAddressProvider
 }
 
 func ProvideProposerRewards(in ProposerRewardsDepInjectInput) ProposerRewardsDepInjectOutput {

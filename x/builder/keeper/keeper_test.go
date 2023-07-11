@@ -24,7 +24,7 @@ type KeeperTestSuite struct {
 	accountKeeper          *testutils.MockAccountKeeper
 	distrKeeper            *testutils.MockDistributionKeeper
 	stakingKeeper          *testutils.MockStakingKeeper
-	rewardsAddressProvider rewardsaddressprovider.RewardsAddressProvider
+	rewardsAddressProvider types.RewardsAddressProvider
 	encCfg                 testutils.EncodingConfig
 	ctx                    sdk.Context
 	msgServer              types.MsgServer
