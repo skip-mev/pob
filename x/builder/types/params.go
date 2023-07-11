@@ -5,26 +5,33 @@ import (
 
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	"github.com/cosmos/cosmos-sdk/types/address"
+	"github.com/cosmos/cosmos-sdk/types/bech32"
 )
 
 var (
-	DefaultMaxBundleSize          uint32 = 2
-	DefaultEscrowAccountAddress   string = authtypes.NewModuleAddress(ModuleName).String()
-	DefaultReserveFee                    = sdk.NewCoin("stake", sdk.NewInt(1))
-	DefaultMinBidIncrement               = sdk.NewCoin("stake", sdk.NewInt(1))
-	DefaultFrontRunningProtection        = true
-	DefaultProposerFee                   = sdk.ZeroDec()
+	DefaultMaxBundleSize             uint32 = 2
+	DefaultEscrowAccountAddressBytes []byte = address.Module(ModuleName)
+	DefaultReserveFee                       = sdk.NewCoin("stake", sdk.NewInt(1))
+	DefaultMinBidIncrement                  = sdk.NewCoin("stake", sdk.NewInt(1))
+	DefaultFrontRunningProtection           = true
+	DefaultProposerFee                      = sdk.ZeroDec()
 )
 
 // NewParams returns a new Params instance with the provided values.
 func NewParams(
 	maxBundleSize uint32,
-	escrowAccountAddress string,
+	escrowAccountAddressBytes []byte,
 	reserveFee, minBidIncrement sdk.Coin,
 	frontRunningProtection bool,
 	proposerFee sdk.Dec,
+	bech32AddressPrefix string,
 ) Params {
+	escrowAccountAddress, err := bech32.ConvertAndEncode(bech32AddressPrefix, escrowAccountAddressBytes)
+	if err != nil {
+		panic("Could not encode escrow account address")
+	}
+
 	return Params{
 		MaxBundleSize:          maxBundleSize,
 		EscrowAccountAddress:   escrowAccountAddress,
@@ -36,14 +43,24 @@ func NewParams(
 }
 
 // DefaultParams returns the default x/builder parameters.
+//
+// Deprecated: Please use `DefaultParamsWithAddressPrefix` instead.
 func DefaultParams() Params {
+	return DefaultParamsWithAddressPrefix(
+		"cosmos",
+	)
+}
+
+// DefaultParamsWithAddressPrefix returns the default x/builder parameters with a custom address prefix.
+func DefaultParamsWithAddressPrefix(bech32AddressPrefix string) Params {
 	return NewParams(
 		DefaultMaxBundleSize,
-		DefaultEscrowAccountAddress,
+		DefaultEscrowAccountAddressBytes,
 		DefaultReserveFee,
 		DefaultMinBidIncrement,
 		DefaultFrontRunningProtection,
 		DefaultProposerFee,
+		bech32AddressPrefix,
 	)
 }
 

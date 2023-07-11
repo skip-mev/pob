@@ -68,7 +68,7 @@ func (suite *AnteTestSuite) SetupTest() {
 		suite.stakingKeeper,
 		suite.authorityAccount.String(),
 	)
-	err := suite.builderKeeper.SetParams(suite.ctx, buildertypes.DefaultParams())
+	err := suite.builderKeeper.SetParams(suite.ctx, buildertypes.DefaultParamsWithAddressPrefix("cosmos"))
 	suite.Require().NoError(err)
 }
 
