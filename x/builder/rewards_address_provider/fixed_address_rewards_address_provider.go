@@ -11,6 +11,7 @@ type FixedAddressRewardsAddressProvider struct {
 	rewardsAddress sdk.AccAddress
 }
 
+// NewFixedAddressRewardsAddressProvider creates a reward provider for a fixed address.
 func NewFixedAddressRewardsAddressProvider(
 	rewardsAddress sdk.AccAddress,
 ) types.RewardsAddressProvider {

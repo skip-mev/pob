@@ -13,6 +13,7 @@ type ProposerRewardsAddressProvider struct {
 	stakingKeeper types.StakingKeeper
 }
 
+// NewFixedAddressRewardsAddressProvider creates a reward provider for a fixed address.
 func NewProposerRewardsAddressProvider(
 	distrKeeper types.DistributionKeeper,
 	stakingKeeper types.StakingKeeper,
