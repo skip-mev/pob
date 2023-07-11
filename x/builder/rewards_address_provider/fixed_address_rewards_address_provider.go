@@ -6,7 +6,7 @@ import (
 	"github.com/skip-mev/pob/x/builder/types"
 )
 
-// Provides auction profits to a fixed address
+// FixedAddressRewardsAddressProvider provides auction profits to a fixed address
 type FixedAddressRewardsAddressProvider struct {
 	rewardsAddress sdk.AccAddress
 }

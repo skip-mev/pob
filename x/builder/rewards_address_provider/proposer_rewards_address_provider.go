@@ -7,7 +7,7 @@ import (
 	"github.com/skip-mev/pob/x/builder/types"
 )
 
-// Provides auction profits to the block proposer.
+// ProposerRewardsAddressProvider provides auction profits to the block proposer.
 type ProposerRewardsAddressProvider struct {
 	distrKeeper   types.DistributionKeeper
 	stakingKeeper types.StakingKeeper
