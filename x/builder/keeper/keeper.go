@@ -8,6 +8,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	storetypes "github.com/cosmos/cosmos-sdk/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	rewardsaddressprovider "github.com/skip-mev/pob/x/builder/rewards_address_provider"
 	"github.com/skip-mev/pob/x/builder/types"
 )
 
@@ -15,9 +17,8 @@ type Keeper struct {
 	cdc      codec.BinaryCodec
 	storeKey storetypes.StoreKey
 
-	bankKeeper    types.BankKeeper
-	distrKeeper   types.DistributionKeeper
-	stakingKeeper types.StakingKeeper
+	bankKeeper             types.BankKeeper
+	rewardsAddressProvider rewardsaddressprovider.RewardsAddressProvider
 
 	// The address that is capable of executing a MsgUpdateParams message.
 	// Typically this will be the governance module's address.
@@ -29,8 +30,7 @@ func NewKeeper(
 	storeKey storetypes.StoreKey,
 	accountKeeper types.AccountKeeper,
 	bankKeeper types.BankKeeper,
-	distrKeeper types.DistributionKeeper,
-	stakingKeeper types.StakingKeeper,
+	rewardsAddressProvider rewardsaddressprovider.RewardsAddressProvider,
 	authority string,
 ) Keeper {
 	// Ensure that the authority address is valid.
@@ -44,12 +44,11 @@ func NewKeeper(
 	}
 
 	return Keeper{
-		cdc:           cdc,
-		storeKey:      storeKey,
-		bankKeeper:    bankKeeper,
-		distrKeeper:   distrKeeper,
-		stakingKeeper: stakingKeeper,
-		authority:     authority,
+		cdc:                    cdc,
+		storeKey:               storeKey,
+		bankKeeper:             bankKeeper,
+		rewardsAddressProvider: rewardsAddressProvider,
+		authority:              authority,
 	}
 }
 
