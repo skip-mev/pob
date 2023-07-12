@@ -44,7 +44,7 @@ func (suite *KeeperTestSuite) TestMsgAuctionBid() {
 				Transactions: [][]byte{{0xFF}, {0xFF}, {0xFF}},
 			},
 			malleate: func() {
-				params := types.DefaultParamsWithAddressPrefix("cosmos")
+				params := types.DefaultParams()
 				params.MaxBundleSize = 2
 				suite.builderKeeper.SetParams(suite.ctx, params)
 			},
@@ -58,7 +58,7 @@ func (suite *KeeperTestSuite) TestMsgAuctionBid() {
 				Transactions: [][]byte{{0xFF}, {0xFF}},
 			},
 			malleate: func() {
-				params := types.DefaultParamsWithAddressPrefix("cosmos")
+				params := types.DefaultParams()
 				params.ProposerFee = sdk.ZeroDec()
 				params.EscrowAccountAddress = escrow.Address.String()
 				suite.builderKeeper.SetParams(suite.ctx, params)
@@ -83,7 +83,7 @@ func (suite *KeeperTestSuite) TestMsgAuctionBid() {
 				Transactions: [][]byte{{0xFF}, {0xFF}},
 			},
 			malleate: func() {
-				params := types.DefaultParamsWithAddressPrefix("cosmos")
+				params := types.DefaultParams()
 				params.ProposerFee = sdk.MustNewDecFromStr("0.30")
 				params.EscrowAccountAddress = escrow.Address.String()
 				suite.builderKeeper.SetParams(suite.ctx, params)
