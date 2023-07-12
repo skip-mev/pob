@@ -14,18 +14,9 @@ func NewGenesisState(params Params) *GenesisState {
 }
 
 // DefaultGenesisState returns the default GenesisState instance.
-//
-// Deprecated: Please use `DefaultGenesisStateWithAddressPrefix` instead.
 func DefaultGenesisState() *GenesisState {
 	return &GenesisState{
 		Params: DefaultParams(),
-	}
-}
-
-// DefaultGenesisStateWithAddressPrefix returns the default GenesisState instance with a custom address prefix.
-func DefaultGenesisStateWithAddressPrefix(bech32AddressPrefix string) *GenesisState {
-	return &GenesisState{
-		Params: DefaultParamsWithAddressPrefix(bech32AddressPrefix),
 	}
 }
 

@@ -54,15 +54,8 @@ func (AppModuleBasic) RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
 }
 
 // DefaultGenesis returns default genesis state as raw bytes for the builder module.
-//
-// Deprecated: Please use `DefaultGenesisWithAddressPrefix` instead.
 func (AppModuleBasic) DefaultGenesis(cdc codec.JSONCodec) json.RawMessage {
 	return cdc.MustMarshalJSON(types.DefaultGenesisState())
-}
-
-// DefaultGenesisWithAddressPrefix returns default genesis state as raw bytes for the builder module with a custom address prefix.
-func (AppModuleBasic) DefaultGenesisWithAddressPrefix(cdc codec.JSONCodec, bech32AddressPrefix string) json.RawMessage {
-	return cdc.MustMarshalJSON(types.DefaultGenesisStateWithAddressPrefix(bech32AddressPrefix))
 }
 
 // ValidateGenesis performs genesis state validation for the builder module.
