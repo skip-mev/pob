@@ -42,10 +42,7 @@ func (m MsgServer) AuctionBid(goCtx context.Context, msg *types.MsgAuctionBid) (
 		return nil, fmt.Errorf("the number of transactions in the bid is greater than the maximum allowed; expected <= %d, got %d", params.MaxBundleSize, len(msg.Transactions))
 	}
 
-	escrowAddress, err := sdk.AccAddressFromBech32(params.EscrowAccountAddress)
-	if err != nil {
-		return nil, err
-	}
+	escrowAddress := params.EscrowAccountAddress
 
 	var proposerReward sdk.Coins
 	if params.ProposerFee.IsZero() {

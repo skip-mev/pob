@@ -20,7 +20,7 @@ message Params {
 
   // escrow_account_address is the address of the account that will receive a
   // portion of the bid proceeds.
-  string escrow_account_address = 2;
+  bytes escrow_account_address = 2;
 
   // reserve_fee specifies the bid floor for the auction.
   cosmos.base.v1beta1.Coin reserve_fee = 3

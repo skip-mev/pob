@@ -542,8 +542,8 @@ func (x *fastReflection_Params) Range(f func(protoreflect.FieldDescriptor, proto
 			return
 		}
 	}
-	if x.EscrowAccountAddress != "" {
-		value := protoreflect.ValueOfString(x.EscrowAccountAddress)
+	if len(x.EscrowAccountAddress) != 0 {
+		value := protoreflect.ValueOfBytes(x.EscrowAccountAddress)
 		if !f(fd_Params_escrow_account_address, value) {
 			return
 		}
@@ -590,7 +590,7 @@ func (x *fastReflection_Params) Has(fd protoreflect.FieldDescriptor) bool {
 	case "pob.builder.v1.Params.max_bundle_size":
 		return x.MaxBundleSize != uint32(0)
 	case "pob.builder.v1.Params.escrow_account_address":
-		return x.EscrowAccountAddress != ""
+		return len(x.EscrowAccountAddress) != 0
 	case "pob.builder.v1.Params.reserve_fee":
 		return x.ReserveFee != nil
 	case "pob.builder.v1.Params.min_bid_increment":
@@ -618,7 +618,7 @@ func (x *fastReflection_Params) Clear(fd protoreflect.FieldDescriptor) {
 	case "pob.builder.v1.Params.max_bundle_size":
 		x.MaxBundleSize = uint32(0)
 	case "pob.builder.v1.Params.escrow_account_address":
-		x.EscrowAccountAddress = ""
+		x.EscrowAccountAddress = nil
 	case "pob.builder.v1.Params.reserve_fee":
 		x.ReserveFee = nil
 	case "pob.builder.v1.Params.min_bid_increment":
@@ -648,7 +648,7 @@ func (x *fastReflection_Params) Get(descriptor protoreflect.FieldDescriptor) pro
 		return protoreflect.ValueOfUint32(value)
 	case "pob.builder.v1.Params.escrow_account_address":
 		value := x.EscrowAccountAddress
-		return protoreflect.ValueOfString(value)
+		return protoreflect.ValueOfBytes(value)
 	case "pob.builder.v1.Params.reserve_fee":
 		value := x.ReserveFee
 		return protoreflect.ValueOfMessage(value.ProtoReflect())
@@ -684,7 +684,7 @@ func (x *fastReflection_Params) Set(fd protoreflect.FieldDescriptor, value proto
 	case "pob.builder.v1.Params.max_bundle_size":
 		x.MaxBundleSize = uint32(value.Uint())
 	case "pob.builder.v1.Params.escrow_account_address":
-		x.EscrowAccountAddress = value.Interface().(string)
+		x.EscrowAccountAddress = value.Bytes()
 	case "pob.builder.v1.Params.reserve_fee":
 		x.ReserveFee = value.Message().Interface().(*v1beta1.Coin)
 	case "pob.builder.v1.Params.min_bid_increment":
@@ -747,7 +747,7 @@ func (x *fastReflection_Params) NewField(fd protoreflect.FieldDescriptor) protor
 	case "pob.builder.v1.Params.max_bundle_size":
 		return protoreflect.ValueOfUint32(uint32(0))
 	case "pob.builder.v1.Params.escrow_account_address":
-		return protoreflect.ValueOfString("")
+		return protoreflect.ValueOfBytes(nil)
 	case "pob.builder.v1.Params.reserve_fee":
 		m := new(v1beta1.Coin)
 		return protoreflect.ValueOfMessage(m.ProtoReflect())
@@ -1007,7 +1007,7 @@ func (x *fastReflection_Params) ProtoMethods() *protoiface.Methods {
 				if wireType != 2 {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field EscrowAccountAddress", wireType)
 				}
-				var stringLen uint64
+				var byteLen int
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
@@ -1017,23 +1017,25 @@ func (x *fastReflection_Params) ProtoMethods() *protoiface.Methods {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					stringLen |= uint64(b&0x7F) << shift
+					byteLen |= int(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				intStringLen := int(stringLen)
-				if intStringLen < 0 {
+				if byteLen < 0 {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
 				}
-				postIndex := iNdEx + intStringLen
+				postIndex := iNdEx + byteLen
 				if postIndex < 0 {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
 				}
 				if postIndex > l {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
 				}
-				x.EscrowAccountAddress = string(dAtA[iNdEx:postIndex])
+				x.EscrowAccountAddress = append(x.EscrowAccountAddress[:0], dAtA[iNdEx:postIndex]...)
+				if x.EscrowAccountAddress == nil {
+					x.EscrowAccountAddress = []byte{}
+				}
 				iNdEx = postIndex
 			case 3:
 				if wireType != 2 {
@@ -1254,7 +1256,7 @@ type Params struct {
 	MaxBundleSize uint32 `protobuf:"varint,1,opt,name=max_bundle_size,json=maxBundleSize,proto3" json:"max_bundle_size,omitempty"`
 	// escrow_account_address is the address of the account that will receive a
 	// portion of the bid proceeds.
-	EscrowAccountAddress string `protobuf:"bytes,2,opt,name=escrow_account_address,json=escrowAccountAddress,proto3" json:"escrow_account_address,omitempty"`
+	EscrowAccountAddress []byte `protobuf:"bytes,2,opt,name=escrow_account_address,json=escrowAccountAddress,proto3" json:"escrow_account_address,omitempty"`
 	// reserve_fee specifies the bid floor for the auction.
 	ReserveFee *v1beta1.Coin `protobuf:"bytes,3,opt,name=reserve_fee,json=reserveFee,proto3" json:"reserve_fee,omitempty"`
 	// min_bid_increment specifies the minimum amount that the next bid must be
@@ -1295,11 +1297,11 @@ func (x *Params) GetMaxBundleSize() uint32 {
 	return 0
 }
 
-func (x *Params) GetEscrowAccountAddress() string {
+func (x *Params) GetEscrowAccountAddress() []byte {
 	if x != nil {
 		return x.EscrowAccountAddress
 	}
-	return ""
+	return nil
 }
 
 func (x *Params) GetReserveFee() *v1beta1.Coin {
@@ -1349,7 +1351,7 @@ var file_pob_builder_v1_genesis_proto_rawDesc = []byte{
 	0x62, 0x75, 0x6e, 0x64, 0x6c, 0x65, 0x5f, 0x73, 0x69, 0x7a, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28,
 	0x0d, 0x52, 0x0d, 0x6d, 0x61, 0x78, 0x42, 0x75, 0x6e, 0x64, 0x6c, 0x65, 0x53, 0x69, 0x7a, 0x65,
 	0x12, 0x34, 0x0a, 0x16, 0x65, 0x73, 0x63, 0x72, 0x6f, 0x77, 0x5f, 0x61, 0x63, 0x63, 0x6f, 0x75,
-	0x6e, 0x74, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09,
+	0x6e, 0x74, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c,
 	0x52, 0x14, 0x65, 0x73, 0x63, 0x72, 0x6f, 0x77, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x41,
 	0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x12, 0x45, 0x0a, 0x0b, 0x72, 0x65, 0x73, 0x65, 0x72, 0x76,
 	0x65, 0x5f, 0x66, 0x65, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x19, 0x2e, 0x63, 0x6f,
