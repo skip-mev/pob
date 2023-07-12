@@ -174,7 +174,7 @@ func (suite *KeeperTestSuite) TestValidateBidInfo() {
 			params := buildertypes.Params{
 				MaxBundleSize:          maxBundleSize,
 				ReserveFee:             reserveFee,
-				EscrowAccountAddress:   escrowAddress.String(),
+				EscrowAccountAddress:   escrowAddress,
 				FrontRunningProtection: frontRunningProtection,
 				MinBidIncrement:        minBidIncrement,
 			}

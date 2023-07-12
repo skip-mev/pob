@@ -137,12 +137,7 @@ func (k Keeper) GetEscrowAccount(ctx sdk.Context) (sdk.AccAddress, error) {
 		return nil, err
 	}
 
-	account, err := sdk.AccAddressFromBech32(params.EscrowAccountAddress)
-	if err != nil {
-		return nil, err
-	}
-
-	return account, nil
+	return params.EscrowAccountAddress, nil
 }
 
 // GetReserveFee returns the reserve fee of the builder module.
