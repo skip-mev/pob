@@ -45,7 +45,7 @@ func (s *IntegrationTestSuite) TestValidBids() {
 			name: "Valid auction bid",
 			test: func() {
 				// Get escrow account balance to ensure that it is updated correctly
-				escrowBalance := s.queryBalanceOf(escrowAddress, app.BondDenom)
+				escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
 
 				// Create a bundle with a single transaction
 				bundle := [][]byte{
@@ -72,14 +72,14 @@ func (s *IntegrationTestSuite) TestValidBids() {
 
 				// Ensure that the escrow account has the correct balance
 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid)
-				s.Require().Equal(escrowBalance.Add(expectedEscrowFee), s.queryBalanceOf(escrowAddress, app.BondDenom))
+				s.Require().Equal(escrowBalance.Add(expectedEscrowFee), s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
 			},
 		},
 		{
 			name: "Valid bid with multiple other transactions",
 			test: func() {
 				// Get escrow account balance to ensure that it is updated correctly
-				escrowBalance := s.queryBalanceOf(escrowAddress, app.BondDenom)
+				escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
 
 				// Create a bundle with a multiple transaction that is valid
 				bundle := make([][]byte, maxBundleSize)
@@ -128,14 +128,14 @@ func (s *IntegrationTestSuite) TestValidBids() {
 
 				// Ensure that the escrow account has the correct balance
 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid)
-				s.Require().Equal(escrowBalance.Add(expectedEscrowFee), s.queryBalanceOf(escrowAddress, app.BondDenom))
+				s.Require().Equal(escrowBalance.Add(expectedEscrowFee), s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
 			},
 		},
 		{
 			name: "iterative bidding from the same account",
 			test: func() {
 				// Get escrow account balance to ensure that it is updated correctly
-				escrowBalance := s.queryBalanceOf(escrowAddress, app.BondDenom)
+				escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
 
 				// Create a bundle with a multiple transaction that is valid
 				bundle := make([][]byte, maxBundleSize)
@@ -187,14 +187,14 @@ func (s *IntegrationTestSuite) TestValidBids() {
 
 				// Ensure that the escrow account has the correct balance
 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid3)
-				s.Require().Equal(escrowBalance.Add(expectedEscrowFee), s.queryBalanceOf(escrowAddress, app.BondDenom))
+				s.Require().Equal(escrowBalance.Add(expectedEscrowFee), s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
 			},
 		},
 		{
 			name: "bid with a bundle with transactions that are already in the mempool",
 			test: func() {
 				// Get escrow account balance to ensure that it is updated correctly
-				escrowBalance := s.queryBalanceOf(escrowAddress, app.BondDenom)
+				escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
 
 				// Create a bundle with a multiple transaction that is valid
 				bundle := make([][]byte, maxBundleSize)
@@ -247,14 +247,14 @@ func (s *IntegrationTestSuite) TestValidBids() {
 
 				// Ensure that the escrow account has the correct balance
 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid)
-				s.Require().Equal(escrowBalance.Add(expectedEscrowFee), s.queryBalanceOf(escrowAddress, app.BondDenom))
+				s.Require().Equal(escrowBalance.Add(expectedEscrowFee), s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
 			},
 		},
 		{
 			name: "searcher attempts to include several txs in the same block to invalidate auction (we extract bid regardless)",
 			test: func() {
 				// Get escrow account balance to ensure that it is updated correctly
-				escrowBalance := s.queryBalanceOf(escrowAddress, app.BondDenom)
+				escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
 
 				// Create a bundle with a multiple transaction that is valid
 				bundle := make([][]byte, maxBundleSize)
@@ -306,7 +306,7 @@ func (s *IntegrationTestSuite) TestValidBids() {
 
 				// Ensure that the escrow account has the correct balance
 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid)
-				s.Require().Equal(escrowBalance.Add(expectedEscrowFee), s.queryBalanceOf(escrowAddress, app.BondDenom))
+				s.Require().Equal(escrowBalance.Add(expectedEscrowFee), s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
 			},
 		},
 	}
@@ -351,7 +351,7 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 			name: "broadcasting bids to two different validators (both should execute over several blocks) with same bid",
 			test: func() {
 				// Get escrow account balance to ensure that it is updated correctly
-				escrowBalance := s.queryBalanceOf(escrowAddress, app.BondDenom)
+				escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
 
 				// Create a bundle with a multiple transaction that is valid
 				bundle := make([][]byte, maxBundleSize)
@@ -409,14 +409,14 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 
 				// Ensure that the escrow account has the correct balance (both bids should have been extracted by this point)
 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid).Add(s.calculateProposerEscrowSplit(bid2))
-				s.Require().Equal(escrowBalance.Add(expectedEscrowFee), s.queryBalanceOf(escrowAddress, app.BondDenom))
+				s.Require().Equal(escrowBalance.Add(expectedEscrowFee), s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
 			},
 		},
 		{
 			name: "multi-block auction bids with different bids",
 			test: func() {
 				// Get escrow account balance to ensure that it is updated correctly
-				escrowBalance := s.queryBalanceOf(escrowAddress, app.BondDenom)
+				escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
 
 				// Create a bundle with a multiple transaction that is valid
 				bundle := make([][]byte, maxBundleSize)
@@ -477,14 +477,14 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 
 				// Ensure that the escrow account has the correct balance (both bids should have been extracted by this point)
 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid).Add(s.calculateProposerEscrowSplit(bid2))
-				s.Require().Equal(escrowBalance.Add(expectedEscrowFee), s.queryBalanceOf(escrowAddress, app.BondDenom))
+				s.Require().Equal(escrowBalance.Add(expectedEscrowFee), s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
 			},
 		},
 		{
 			name: "Multiple bid transactions with second bid being smaller than min bid increment (same account)",
 			test: func() {
 				// Get escrow account balance
-				escrowBalance := s.queryBalanceOf(escrowAddress, app.BondDenom)
+				escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
 
 				// Create a bundle with a single transaction
 				bundle := [][]byte{
@@ -519,7 +519,7 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 
 				// Ensure that the escrow account has the correct balance
 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid)
-				s.Require().Equal(expectedEscrowFee.Add(escrowBalance), s.queryBalanceOf(escrowAddress, app.BondDenom))
+				s.Require().Equal(expectedEscrowFee.Add(escrowBalance), s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
 
 				// Wait another block to make sure the second bid is not executed
 				s.waitForABlock()
@@ -530,7 +530,7 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 			name: "Multiple transactions with second bid being smaller than min bid increment (different account)",
 			test: func() {
 				// Get escrow account balance
-				escrowBalance := s.queryBalanceOf(escrowAddress, app.BondDenom)
+				escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
 
 				// Create a bundle with a single transaction
 				bundle := [][]byte{
@@ -565,7 +565,7 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 
 				// Ensure that the escrow account has the correct balance
 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid)
-				s.Require().Equal(expectedEscrowFee.Add(escrowBalance), s.queryBalanceOf(escrowAddress, app.BondDenom))
+				s.Require().Equal(expectedEscrowFee.Add(escrowBalance), s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
 
 				// Wait another block to make sure the second bid is not executed
 				s.waitForABlock()
@@ -576,7 +576,7 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 			name: "Multiple transactions with increasing bids but first bid has same bundle so it should fail in later block (same account)",
 			test: func() {
 				// Get escrow account balance
-				escrowBalance := s.queryBalanceOf(escrowAddress, app.BondDenom)
+				escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
 
 				// Create a bundle with a single transaction
 				bundle := [][]byte{
@@ -611,7 +611,7 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 
 				// Ensure that the escrow account has the correct balance
 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid2)
-				s.Require().Equal(expectedEscrowFee.Add(escrowBalance), s.queryBalanceOf(escrowAddress, app.BondDenom))
+				s.Require().Equal(expectedEscrowFee.Add(escrowBalance), s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
 
 				// Wait for a block to be created and ensure that the first bid was not executed
 				s.waitForABlock()
@@ -622,7 +622,7 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 			name: "Multiple transactions with increasing bids but first bid has same bundle so it should fail in later block (different account)",
 			test: func() {
 				// Get escrow account balance
-				escrowBalance := s.queryBalanceOf(escrowAddress, app.BondDenom)
+				escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
 
 				// Create a bundle with a single transaction
 				bundle := [][]byte{
@@ -657,7 +657,7 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 
 				// Ensure that the escrow account has the correct balance
 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid2)
-				s.Require().Equal(expectedEscrowFee.Add(escrowBalance), s.queryBalanceOf(escrowAddress, app.BondDenom))
+				s.Require().Equal(expectedEscrowFee.Add(escrowBalance), s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
 
 				// Wait for a block to be created and ensure that the first bid was not executed
 				s.waitForABlock()
@@ -668,7 +668,7 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 			name: "Multiple transactions with increasing bids and different bundles (one should execute)",
 			test: func() {
 				// Get escrow account balance
-				escrowBalance := s.queryBalanceOf(escrowAddress, app.BondDenom)
+				escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
 
 				// Create a bundle with a single transaction
 				firstBundle := [][]byte{
@@ -709,7 +709,7 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 
 				// Ensure that the escrow account has the correct balance
 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid2)
-				s.Require().Equal(expectedEscrowFee.Add(escrowBalance), s.queryBalanceOf(escrowAddress, app.BondDenom))
+				s.Require().Equal(expectedEscrowFee.Add(escrowBalance), s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
 
 				// Wait for a block to be created and ensure that the second bid is executed
 				s.waitForABlock()
@@ -992,13 +992,13 @@ func (s *IntegrationTestSuite) TestInvalidBids() {
 	}
 
 	for _, tc := range testCases {
-		escrowBalance := s.queryBalanceOf(escrowAddress, app.BondDenom)
+		escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
 
 		// Wait for a block to be created and run the test
 		s.waitForABlock()
 		s.Run(tc.name, tc.test)
 
 		// Get escrow account balance to ensure that it is not changed
-		s.Require().Equal(escrowBalance, s.queryBalanceOf(escrowAddress, app.BondDenom))
+		s.Require().Equal(escrowBalance, s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
 	}
 }
