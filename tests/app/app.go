@@ -22,7 +22,6 @@ import (
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	"github.com/cosmos/cosmos-sdk/store/streaming"
 	storetypes "github.com/cosmos/cosmos-sdk/store/types"
-	"github.com/cosmos/cosmos-sdk/testutil/testdata_pulsar"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/cosmos-sdk/x/auth"
@@ -295,7 +294,17 @@ func New(
 	)
 
 	// Default lane accepts all other transactions.
-	defaultLane := base.NewDefaultLane(config)
+	defaultConfig := blockbuster.BaseLaneConfig{
+		Logger:        app.Logger(),
+		TxEncoder:     app.txConfig.TxEncoder(),
+		TxDecoder:     app.txConfig.TxDecoder(),
+		MaxBlockSpace: sdk.ZeroDec(),
+		IgnoreList: []blockbuster.Lane{
+			tobLane,
+			freeLane,
+		},
+	}
+	defaultLane := base.NewDefaultLane(defaultConfig)
 	lanes := []blockbuster.Lane{
 		tobLane,
 		freeLane,
@@ -333,6 +342,7 @@ func New(
 	// Set the proposal handlers on the BaseApp along with the custom antehandler.
 	proposalHandlers := abci.NewProposalHandler(
 		app.Logger(),
+		app.txConfig.TxDecoder(),
 		mempool,
 	)
 	app.App.SetPrepareProposal(proposalHandlers.PrepareProposalHandler())
@@ -367,7 +377,7 @@ func New(
 	// app.RegisterUpgradeHandlers()
 
 	// add test gRPC service for testing gRPC queries in isolation
-	testdata_pulsar.RegisterQueryServer(app.GRPCQueryRouter(), testdata_pulsar.QueryImpl{})
+	// testdata_pulsar.RegisterQueryServer(app.GRPCQueryRouter(), testdata_pulsar.QueryImpl{})
 
 	// A custom InitChainer can be set if extra pre-init-genesis logic is required.
 	// By default, when using app wiring enabled module, this is not required.

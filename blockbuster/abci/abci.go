@@ -14,15 +14,17 @@ type (
 	// handlers.
 	ProposalHandler struct {
 		logger              log.Logger
+		txDecoder           sdk.TxDecoder
 		prepareLanesHandler blockbuster.PrepareLanesHandler
 		processLanesHandler blockbuster.ProcessLanesHandler
 	}
 )
 
 // NewProposalHandler returns a new abci++ proposal handler.
-func NewProposalHandler(logger log.Logger, mempool blockbuster.Mempool) *ProposalHandler {
+func NewProposalHandler(logger log.Logger, txDecoder sdk.TxDecoder, mempool blockbuster.Mempool) *ProposalHandler {
 	return &ProposalHandler{
 		logger:              logger,
+		txDecoder:           txDecoder,
 		prepareLanesHandler: ChainPrepareLanes(mempool.Registry()...),
 		processLanesHandler: ChainProcessLanes(mempool.Registry()...),
 	}
@@ -43,13 +45,21 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 			}
 		}()
 
-		proposal := h.prepareLanesHandler(ctx, blockbuster.NewProposal(req.MaxTxBytes))
-
-		resp = abci.ResponsePrepareProposal{
-			Txs: proposal.Txs,
+		proposal, err := h.prepareLanesHandler(ctx, blockbuster.NewProposal(req.MaxTxBytes))
+		if err != nil {
+			h.logger.Error("failed to prepare proposal", "err", err)
+			return abci.ResponsePrepareProposal{Txs: make([][]byte, 0)}
 		}
 
-		return
+		h.logger.Info(
+			"prepared proposal",
+			"num_txs", proposal.GetNumTxs(),
+			"total_tx_bytes", proposal.GetTotalTxBytes(),
+		)
+
+		return abci.ResponsePrepareProposal{
+			Txs: proposal.GetProposal(),
+		}
 	}
 }
 
@@ -67,11 +77,26 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 			}
 		}()
 
+		txs := req.Txs
+		if len(txs) == 0 {
+			h.logger.Info("accepted empty proposal")
+			return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_ACCEPT}
+		}
+
+		// Decode the transactions from the proposal.
+		decodedTxs, err := utils.GetDecodedTxs(h.txDecoder, txs)
+		if err != nil {
+			h.logger.Error("failed to decode transactions", "err", err)
+			return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
+		}
+
 		// Verify the proposal using the verification logic from each lane.
-		if _, err := h.processLanesHandler(ctx, req.Txs); err != nil {
+		if _, err := h.processLanesHandler(ctx, decodedTxs); err != nil {
 			h.logger.Error("failed to validate the proposal", "err", err)
 			return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 		}
+
+		h.logger.Info("validated proposal", "num_txs", len(txs))
 
 		return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_ACCEPT}
 	}
@@ -93,7 +118,7 @@ func ChainPrepareLanes(chain ...blockbuster.Lane) blockbuster.PrepareLanesHandle
 		chain = append(chain, terminator.Terminator{})
 	}
 
-	return func(ctx sdk.Context, partialProposal *blockbuster.Proposal) (finalProposal *blockbuster.Proposal) {
+	return func(ctx sdk.Context, partialProposal blockbuster.BlockProposal) (finalProposal blockbuster.BlockProposal, err error) {
 		lane := chain[0]
 		lane.Logger().Info("preparing lane", "lane", lane.Name())
 
@@ -101,8 +126,8 @@ func ChainPrepareLanes(chain ...blockbuster.Lane) blockbuster.PrepareLanesHandle
 		cacheCtx, write := ctx.CacheContext()
 
 		defer func() {
-			if err := recover(); err != nil {
-				lane.Logger().Error("failed to prepare lane", "lane", lane.Name(), "err", err)
+			if rec := recover(); rec != nil || err != nil {
+				lane.Logger().Error("failed to prepare lane", "lane", lane.Name(), "err", err, "recover_error", rec)
 
 				lanesRemaining := len(chain)
 				switch {
@@ -110,18 +135,19 @@ func ChainPrepareLanes(chain ...blockbuster.Lane) blockbuster.PrepareLanesHandle
 					// If there are only two lanes remaining, then the first lane in the chain
 					// is the lane that failed to prepare the partial proposal and the second lane in the
 					// chain is the terminator lane. We return the proposal as is.
-					finalProposal = partialProposal
+					finalProposal, err = partialProposal, nil
 				default:
 					// If there are more than two lanes remaining, then the first lane in the chain
 					// is the lane that failed to prepare the proposal but the second lane in the
 					// chain is not the terminator lane so there could potentially be more transactions
 					// added to the proposal
 					maxTxBytesForLane := utils.GetMaxTxBytesForLane(
-						partialProposal,
+						partialProposal.GetMaxTxBytes(),
+						partialProposal.GetTotalTxBytes(),
 						chain[1].GetMaxBlockSpace(),
 					)
 
-					finalProposal = chain[1].PrepareLane(
+					finalProposal, err = chain[1].PrepareLane(
 						ctx,
 						partialProposal,
 						maxTxBytesForLane,
@@ -132,14 +158,13 @@ func ChainPrepareLanes(chain ...blockbuster.Lane) blockbuster.PrepareLanesHandle
 				// Write the cache to the context since we know that the lane successfully prepared
 				// the partial proposal.
 				write()
-
-				lane.Logger().Info("prepared lane", "lane", lane.Name())
 			}
 		}()
 
 		// Get the maximum number of bytes that can be included in the proposal for this lane.
 		maxTxBytesForLane := utils.GetMaxTxBytesForLane(
-			partialProposal,
+			partialProposal.GetMaxTxBytes(),
+			partialProposal.GetTotalTxBytes(),
 			lane.GetMaxBlockSpace(),
 		)
 
@@ -165,7 +190,7 @@ func ChainProcessLanes(chain ...blockbuster.Lane) blockbuster.ProcessLanesHandle
 		chain = append(chain, terminator.Terminator{})
 	}
 
-	return func(ctx sdk.Context, proposalTxs [][]byte) (sdk.Context, error) {
+	return func(ctx sdk.Context, proposalTxs []sdk.Tx) (sdk.Context, error) {
 		// Short circuit if there are no transactions to process.
 		if len(proposalTxs) == 0 {
 			return ctx, nil

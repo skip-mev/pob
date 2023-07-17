@@ -13,8 +13,12 @@ const (
 
 var _ blockbuster.Lane = (*DefaultLane)(nil)
 
-// DefaultLane defines a default lane implementation. It contains a priority-nonce
-// index along with core lane functionality.
+// DefaultLane defines a default lane implementation. The default lane orders
+// transactions by the sdk.Context priority. The default lane will accept any
+// transaction that is not a part of the lane's IgnoreList. By default, the IgnoreList
+// is empty and the default lane will accept any transaction. The default lane on its
+// own implements the same functionality as the pre v0.47.0 tendermint mempool and proposal
+// handlers.
 type DefaultLane struct {
 	// Mempool defines the mempool for the lane.
 	Mempool
@@ -36,9 +40,15 @@ func NewDefaultLane(cfg blockbuster.BaseLaneConfig) *DefaultLane {
 }
 
 // Match returns true if the transaction belongs to this lane. Since
-// this is the default lane, it always returns true. This means that
-// any transaction can be included in this lane.
-func (l *DefaultLane) Match(sdk.Tx) bool {
+// this is the default lane, it always returns true except for transactions
+// that belong to lanes in the ignore list.
+func (l *DefaultLane) Match(tx sdk.Tx) bool {
+	for _, lane := range l.Cfg.IgnoreList {
+		if lane.Match(tx) {
+			return false
+		}
+	}
+
 	return true
 }
 
@@ -60,4 +70,9 @@ func (l *DefaultLane) SetAnteHandler(anteHandler sdk.AnteHandler) {
 // GetMaxBlockSpace returns the maximum block space for the lane as a relative percentage.
 func (l *DefaultLane) GetMaxBlockSpace() sdk.Dec {
 	return l.Cfg.MaxBlockSpace
+}
+
+// GetIgnoreList returns the lane's ignore list.
+func (l *DefaultLane) GetIgnoreList() []blockbuster.Lane {
+	return l.Cfg.IgnoreList
 }
