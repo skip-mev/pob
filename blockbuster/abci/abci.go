@@ -41,7 +41,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		defer func() {
 			if err := recover(); err != nil {
 				h.logger.Error("failed to prepare proposal", "err", err)
-				resp, err = &abci.ResponsePrepareProposal{Txs: make([][]byte, 0)}, err
+				resp = &abci.ResponsePrepareProposal{Txs: make([][]byte, 0)}
 			}
 		}()
 
@@ -73,7 +73,7 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 		defer func() {
 			if err := recover(); err != nil {
 				h.logger.Error("failed to process proposal", "err", err)
-				resp, err = &abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}, err
+				resp = &abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 			}
 		}()
 
