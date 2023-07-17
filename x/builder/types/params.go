@@ -5,21 +5,22 @@ import (
 
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
 var (
 	DefaultMaxBundleSize          uint32 = 2
-	DefaultEscrowAccountAddress   string
-	DefaultReserveFee             = sdk.Coin{}
-	DefaultMinBidIncrement        = sdk.Coin{}
-	DefaultFrontRunningProtection = true
-	DefaultProposerFee            = sdk.ZeroDec()
+	DefaultEscrowAccountAddress          = authtypes.NewModuleAddress(ModuleName)
+	DefaultReserveFee                    = sdk.NewCoin("stake", sdk.NewInt(1))
+	DefaultMinBidIncrement               = sdk.NewCoin("stake", sdk.NewInt(1))
+	DefaultFrontRunningProtection        = true
+	DefaultProposerFee                   = sdk.ZeroDec()
 )
 
 // NewParams returns a new Params instance with the provided values.
 func NewParams(
 	maxBundleSize uint32,
-	escrowAccountAddress string,
+	escrowAccountAddress []byte,
 	reserveFee, minBidIncrement sdk.Coin,
 	frontRunningProtection bool,
 	proposerFee sdk.Dec,
@@ -48,14 +49,16 @@ func DefaultParams() Params {
 
 // Validate performs basic validation on the parameters.
 func (p Params) Validate() error {
-	if err := validateEscrowAccountAddress(p.EscrowAccountAddress); err != nil {
-		return err
-	}
 	if err := validateFee(p.ReserveFee); err != nil {
 		return fmt.Errorf("invalid reserve fee (%s)", err)
 	}
 	if err := validateFee(p.MinBidIncrement); err != nil {
 		return fmt.Errorf("invalid minimum bid increment (%s)", err)
+	}
+
+	// Minimum bid increment must always be greater than 0.
+	if p.MinBidIncrement.IsLTE(sdk.NewCoin(p.MinBidIncrement.Denom, sdk.ZeroInt())) {
+		return fmt.Errorf("minimum bid increment cannot be zero")
 	}
 
 	denoms := map[string]struct{}{
@@ -87,14 +90,6 @@ func validateProposerFee(v sdk.Dec) error {
 	}
 	if v.GT(math.LegacyOneDec()) {
 		return fmt.Errorf("proposer fee too large: %s", v)
-	}
-
-	return nil
-}
-
-func validateEscrowAccountAddress(account string) error {
-	if _, err := sdk.AccAddressFromBech32(account); err != nil {
-		return fmt.Errorf("invalid escrow account address (%s)", err)
 	}
 
 	return nil

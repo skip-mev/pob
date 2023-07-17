@@ -33,42 +33,31 @@ func (m MsgServer) AuctionBid(goCtx context.Context, msg *types.MsgAuctionBid) (
 		return nil, err
 	}
 
-	// Ensure that the number of transactions is less than or equal to the maximum
-	// allowed.
-	maxBundleSize, err := m.GetMaxBundleSize(ctx)
+	params, err := m.GetParams(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	if uint32(len(msg.Transactions)) > maxBundleSize {
-		return nil, fmt.Errorf("the number of transactions in the bid is greater than the maximum allowed; expected <= %d, got %d", maxBundleSize, len(msg.Transactions))
+	if uint32(len(msg.Transactions)) > params.MaxBundleSize {
+		return nil, fmt.Errorf("the number of transactions in the bid is greater than the maximum allowed; expected <= %d, got %d", params.MaxBundleSize, len(msg.Transactions))
 	}
 
-	proposerFee, err := m.GetProposerFee(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	escrow, err := m.Keeper.GetEscrowAccount(ctx)
-	if err != nil {
-		return nil, err
-	}
+	escrowAddress := params.EscrowAccountAddress
 
 	var proposerReward sdk.Coins
-	if proposerFee.IsZero() {
+	if params.ProposerFee.IsZero() {
 		// send the entire bid to the escrow account when no proposer fee is set
-		if err := m.bankKeeper.SendCoins(ctx, bidder, escrow, sdk.NewCoins(msg.Bid)); err != nil {
+		if err := m.bankKeeper.SendCoins(ctx, bidder, escrowAddress, sdk.NewCoins(msg.Bid)); err != nil {
 			return nil, err
 		}
 	} else {
-		prevPropConsAddr := m.distrKeeper.GetPreviousProposerConsAddr(ctx)
-		prevProposer := m.stakingKeeper.ValidatorByConsAddr(ctx, prevPropConsAddr)
+		rewardsAddress := m.rewardsAddressProvider.GetRewardsAddress(ctx)
 
 		// determine the amount of the bid that goes to the (previous) proposer
 		bid := sdk.NewDecCoinsFromCoins(msg.Bid)
-		proposerReward, _ = bid.MulDecTruncate(proposerFee).TruncateDecimal()
+		proposerReward, _ = bid.MulDecTruncate(params.ProposerFee).TruncateDecimal()
 
-		if err := m.bankKeeper.SendCoins(ctx, bidder, sdk.AccAddress(prevProposer.GetOperator()), proposerReward); err != nil {
+		if err := m.bankKeeper.SendCoins(ctx, bidder, rewardsAddress, proposerReward); err != nil {
 			return nil, err
 		}
 
@@ -77,7 +66,7 @@ func (m MsgServer) AuctionBid(goCtx context.Context, msg *types.MsgAuctionBid) (
 		escrowTotal := bid.Sub(sdk.NewDecCoinsFromCoins(proposerReward...))
 		escrowReward, _ := escrowTotal.TruncateDecimal()
 
-		if err := m.bankKeeper.SendCoins(ctx, bidder, escrow, escrowReward); err != nil {
+		if err := m.bankKeeper.SendCoins(ctx, bidder, escrowAddress, escrowReward); err != nil {
 			return nil, err
 		}
 	}

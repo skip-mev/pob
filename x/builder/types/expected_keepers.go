@@ -13,7 +13,7 @@ type AccountKeeper interface {
 // BankKeeper defines the expected API contract for the x/bank module.
 type BankKeeper interface {
 	SendCoins(ctx sdk.Context, fromAddr sdk.AccAddress, toAddr sdk.AccAddress, amt sdk.Coins) error
-	GetAllBalances(ctx sdk.Context, addr sdk.AccAddress) sdk.Coins
+	GetBalance(ctx sdk.Context, addr sdk.AccAddress, denom string) sdk.Coin
 }
 
 // DistributionKeeper defines the expected API contract for the x/distribution
@@ -25,4 +25,9 @@ type DistributionKeeper interface {
 // StakingKeeper defines the expected API contract for the x/staking module.
 type StakingKeeper interface {
 	ValidatorByConsAddr(sdk.Context, sdk.ConsAddress) stakingtypes.ValidatorI
+}
+
+// RewardsAddressProvider is an interface that provides an address where auction profits are sent.
+type RewardsAddressProvider interface {
+	GetRewardsAddress(context sdk.Context) sdk.AccAddress
 }
