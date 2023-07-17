@@ -1,4 +1,4 @@
-package rewardsaddressprovider
+package rewards
 
 import (
 	"cosmossdk.io/depinject"
@@ -7,13 +7,14 @@ import (
 	"github.com/skip-mev/pob/x/builder/types"
 )
 
-// ProposerRewardsAddressProvider provides auction profits to the block proposer.
+// ProposerRewardsAddressProvider provides a portion of
+// auction profits to the block proposer.
 type ProposerRewardsAddressProvider struct {
 	distrKeeper   types.DistributionKeeper
 	stakingKeeper types.StakingKeeper
 }
 
-// NewFixedAddressRewardsAddressProvider creates a reward provider for a fixed address.
+// NewProposerRewardsAddressProvider creates a reward provider for block proposers.
 func NewProposerRewardsAddressProvider(
 	distrKeeper types.DistributionKeeper,
 	stakingKeeper types.StakingKeeper,
@@ -32,7 +33,6 @@ func (p *ProposerRewardsAddressProvider) GetRewardsAddress(context sdk.Context) 
 }
 
 // Dependency injection
-
 type ProposerRewardsDepInjectInput struct {
 	depinject.In
 

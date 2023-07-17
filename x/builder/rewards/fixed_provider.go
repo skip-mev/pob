@@ -1,4 +1,4 @@
-package rewardsaddressprovider
+package rewards
 
 import (
 	"cosmossdk.io/depinject"
@@ -6,7 +6,9 @@ import (
 	"github.com/skip-mev/pob/x/builder/types"
 )
 
-// FixedAddressRewardsAddressProvider provides auction profits to a fixed address
+// FixedAddressRewardsAddressProvider provides a portion of
+// auction profits to a fixed address (i.e. the proposer portion).
+// This is useful for chains that do not have a distribution module.
 type FixedAddressRewardsAddressProvider struct {
 	rewardsAddress sdk.AccAddress
 }
@@ -25,11 +27,10 @@ func (p *FixedAddressRewardsAddressProvider) GetRewardsAddress(_ sdk.Context) sd
 }
 
 // Dependency injection
-
 type FixedAddressDepInjectInput struct {
 	depinject.In
 
-	AccountKeeper types.AccountKeeper
+	rewardsAddress sdk.AccAddress
 }
 
 type FixedAddressDepInjectOutput struct {
@@ -40,7 +41,7 @@ type FixedAddressDepInjectOutput struct {
 
 func ProvideModuleAddress(in FixedAddressDepInjectInput) FixedAddressDepInjectOutput {
 	rewardAddressProvider := NewFixedAddressRewardsAddressProvider(
-		in.AccountKeeper.GetModuleAddress(types.ModuleName),
+		in.rewardsAddress,
 	)
 
 	return FixedAddressDepInjectOutput{RewardsAddressProvider: rewardAddressProvider}
