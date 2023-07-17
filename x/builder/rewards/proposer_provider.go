@@ -24,9 +24,9 @@ func NewProposerRewardsAddressProvider(
 	}
 }
 
-func (p *ProposerRewardsAddressProvider) GetRewardsAddress(context sdk.Context) sdk.AccAddress {
-	prevPropConsAddr := p.distrKeeper.GetPreviousProposerConsAddr(context)
-	prevProposer := p.stakingKeeper.ValidatorByConsAddr(context, prevPropConsAddr)
+func (p *ProposerRewardsAddressProvider) GetRewardsAddress(ctx sdk.Context) sdk.AccAddress {
+	prevPropConsAddr := p.distrKeeper.GetPreviousProposerConsAddr(ctx)
+	prevProposer := p.stakingKeeper.ValidatorByConsAddr(ctx, prevPropConsAddr)
 
 	return sdk.AccAddress(prevProposer.GetOperator())
 }
