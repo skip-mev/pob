@@ -190,6 +190,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				auctionTxs = []sdk.Tx{bidTx, bidTx2}
 				winningBidTx = bidTx
 				insertBundledTxs = false
+				frontRunningProtection = false
 			},
 			3,
 			map[string]int{
@@ -198,7 +199,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 			},
 		},
 		{
-			"multiple tob transactions where the first is valid and bundle is inserted into mempool",
+			"single tob transactions where the first is valid and bundle is inserted into mempool",
 			func() {
 				frontRunningProtection = false
 
@@ -269,7 +270,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				suite.Require().NoError(suite.mempool.Insert(suite.ctx, tx))
 			}
 
-			// Insert all of the bundled transactions into the TOB lane if desired
+			// Insert all of the bundled transactions into the mempool if desired
 			if insertBundledTxs {
 				for _, tx := range auctionTxs {
 					bidInfo, err := suite.tobLane.GetAuctionBidInfo(tx)

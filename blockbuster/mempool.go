@@ -158,10 +158,10 @@ func (m *BBMempool) ValidateBasic() error {
 	switch {
 	// Ensure that the sum of the lane max block space percentages is less than
 	// or equal to 1.
-	case sum.GT(math.LegacyZeroDec()):
+	case sum.GT(math.LegacyOneDec()):
 		return fmt.Errorf("sum of lane max block space percentages must be less than or equal to 1, got %s", sum)
 	// Ensure that there is no unused block space.
-	case sum.LT(math.LegacyZeroDec()) && !seenZeroMaxBlockSpace:
+	case sum.LT(math.LegacyOneDec()) && !seenZeroMaxBlockSpace:
 		return fmt.Errorf("sum of total block space percentages will be less than 1")
 	}
 

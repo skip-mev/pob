@@ -329,7 +329,6 @@ func New(
 	for _, lane := range lanes {
 		lane.SetAnteHandler(anteHandler)
 	}
-
 	app.App.SetAnteHandler(anteHandler)
 
 	proposalHandler := veabci.NewProposalHandler(

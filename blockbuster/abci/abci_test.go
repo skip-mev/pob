@@ -143,7 +143,7 @@ func (suite *ABCITestSuite) SetupTest() {
 	suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxEncoder(), suite.tobLane, suite.mempool)
 
 	// Proposal handler set up
-	suite.proposalHandler = abci.NewProposalHandler(log.NewNopLogger(), suite.encodingConfig.TxConfig.TxDecoder(), suite.mempool)
+	suite.proposalHandler = abci.NewProposalHandler(log.NewTestLogger(suite.T()), suite.encodingConfig.TxConfig.TxDecoder(), suite.mempool)
 }
 
 func (suite *ABCITestSuite) anteHandler(ctx sdk.Context, tx sdk.Tx, _ bool) (sdk.Context, error) {
@@ -197,7 +197,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 		maxBundleSize          uint32 = 10
 		reserveFee                    = sdk.NewCoin("foo", sdk.NewInt(1000))
 		minBidIncrement               = sdk.NewCoin("foo", sdk.NewInt(100))
-		frontRunningProtection        = true
+		frontRunningProtection        = false
 	)
 
 	cases := []struct {
@@ -517,6 +517,8 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 		{
 			"multiple tob transactions where the first is invalid",
 			func() {
+				frontRunningProtection = true
+
 				// Create an invalid tob transaction (frontrunning)
 				bidder := suite.accounts[0]
 				bid := sdk.NewCoin("foo", sdk.NewInt(1000000000))
@@ -550,6 +552,8 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 		{
 			"multiple tob transactions where the first is valid",
 			func() {
+				frontRunningProtection = false
+
 				// Create an valid tob transaction
 				bidder := suite.accounts[0]
 				bid := sdk.NewCoin("foo", sdk.NewInt(10000000))
@@ -691,7 +695,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 			}
 
 			// Create a new proposal handler
-			suite.proposalHandler = abci.NewProposalHandler(log.NewNopLogger(), suite.encodingConfig.TxConfig.TxDecoder(), suite.mempool)
+			suite.proposalHandler = abci.NewProposalHandler(log.NewTestLogger(suite.T()), suite.encodingConfig.TxConfig.TxDecoder(), suite.mempool)
 			handler := suite.proposalHandler.PrepareProposalHandler()
 			res, _ := handler(suite.ctx, &abcitypes.RequestPrepareProposal{
 				MaxTxBytes: maxTxBytes,
@@ -796,7 +800,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 		// auction configuration
 		maxBundleSize          uint32 = 10
 		reserveFee                    = sdk.NewCoin("foo", sdk.NewInt(1000))
-		frontRunningProtection        = true
+		frontRunningProtection        = false
 	)
 
 	cases := []struct {
@@ -863,6 +867,8 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 		{
 			"single invalid tob tx (front-running)",
 			func() {
+				frontRunningProtection = true
+
 				// Create an valid tob transaction
 				bidder := suite.accounts[0]
 				bid := sdk.NewCoin("foo", sdk.NewInt(10000000))
@@ -881,6 +887,8 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 		{
 			"multiple tob txs in the proposal",
 			func() {
+				frontRunningProtection = false
+
 				// Create an valid tob transaction
 				bidder := suite.accounts[0]
 				bid := sdk.NewCoin("foo", sdk.NewInt(10000000))

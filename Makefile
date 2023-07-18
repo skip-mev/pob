@@ -92,7 +92,7 @@ test-e2e: $(TEST_E2E_DEPS)
 	@go test ./tests/e2e/... -mod=readonly -timeout 30m -race -v -tags='$(TEST_E2E_TAGS)'
 
 test:
-	@go test -v ./...
+	@go test -v -race $(shell go list ./... | grep -v tests/)
 
 .PHONY: test test-e2e
 

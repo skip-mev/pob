@@ -10,7 +10,6 @@ require (
 	cosmossdk.io/errors v1.0.0-beta.7.0.20230524212735-6cabb6aa5741
 	cosmossdk.io/log v1.1.0
 	cosmossdk.io/math v1.0.1
-	cosmossdk.io/simapp v0.0.0-20230703133305-f0aec3f30dd9
 	cosmossdk.io/store v0.1.0-alpha.1.0.20230606190835-3e18f4088b2c
 	cosmossdk.io/tools/confix v0.0.0-20230703133305-f0aec3f30dd9
 	cosmossdk.io/x/circuit v0.0.0-20230703133305-f0aec3f30dd9
@@ -19,7 +18,7 @@ require (
 	github.com/cometbft/cometbft v0.38.0-rc2
 	github.com/cosmos/cosmos-db v1.0.0
 	github.com/cosmos/cosmos-proto v1.0.0-beta.3
-	github.com/cosmos/cosmos-sdk v0.51.0
+	github.com/cosmos/cosmos-sdk v0.50.0-alpha.1
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/cosmos/gogoproto v1.4.10
 	github.com/golang/mock v1.6.0
@@ -44,8 +43,6 @@ require (
 	cloud.google.com/go/iam v0.13.0 // indirect
 	cloud.google.com/go/storage v1.30.0 // indirect
 	cosmossdk.io/collections v0.2.1-0.20230620134406-d4f1e88b6531 // indirect
-	cosmossdk.io/x/evidence v0.0.0-20230613133644-0a778132a60f // indirect
-	cosmossdk.io/x/nft v0.0.0-20230613133644-0a778132a60f // indirect
 	cosmossdk.io/x/tx v0.8.0 // indirect
 	filippo.io/edwards25519 v1.0.0 // indirect
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
