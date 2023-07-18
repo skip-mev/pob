@@ -54,8 +54,15 @@ func (m MsgServer) AuctionBid(goCtx context.Context, msg *types.MsgAuctionBid) (
 			return nil, err
 		}
 	} else {
-		prevPropConsAddr := m.distrKeeper.GetPreviousProposerConsAddr(ctx)
-		prevProposer := m.stakingKeeper.ValidatorByConsAddr(ctx, prevPropConsAddr)
+		prevPropConsAddr, err := m.distrKeeper.GetPreviousProposerConsAddr(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		prevProposer, err := m.stakingKeeper.GetValidatorByConsAddr(ctx, prevPropConsAddr)
+		if err != nil {
+			return nil, err
+		}
 
 		// determine the amount of the bid that goes to the (previous) proposer
 		bid := sdk.NewDecCoinsFromCoins(msg.Bid)
