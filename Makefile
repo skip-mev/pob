@@ -81,7 +81,7 @@ build-and-start-app: build-test-app
 	./build/testappd genesis add-genesis-account cosmos1see0htr47uapjvcvh0hu6385rp8lw3em24hysg 10000000000000000000000000stake
 	./build/testappd genesis gentx validator1 1000000000stake --chain-id chain-id-0
 	./build/testappd genesis collect-gentxs
-	./build/testappd start --api.enable true --api.enabled-unsafe-cors true --log_level debug
+	./build/testappd start --api.enable true --api.enabled-unsafe-cors true --log_level info
 
 .PHONY: build-test-app build-and-start-app
 

@@ -421,6 +421,7 @@ func (app *TestApp) InitChain(req *cometabci.RequestInitChain) (*cometabci.Respo
 			VoteExtensionsEnableHeight: 2,
 		},
 	}
+
 	return resp, err
 }
 
