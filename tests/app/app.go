@@ -360,7 +360,6 @@ func New(
 		app.txConfig.TxDecoder(),
 		tobLane,
 		anteHandler,
-		ChainID,
 	)
 	app.SetCheckTx(checkTxHandler.CheckTx())
 

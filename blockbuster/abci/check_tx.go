@@ -32,9 +32,6 @@ type (
 		// anteHandler is utilized to verify the bid transaction against the latest
 		// committed state.
 		anteHandler sdk.AnteHandler
-
-		// chainID is the chain ID of the blockchain.
-		chainID string
 	}
 
 	// CheckTx is baseapp's CheckTx method that checks the validity of a
@@ -76,14 +73,12 @@ func NewCheckTxHandler(
 	txDecoder sdk.TxDecoder,
 	tobLane TOBLane,
 	anteHandler sdk.AnteHandler,
-	chainID string,
 ) *CheckTxHandler {
 	return &CheckTxHandler{
 		baseApp:     baseApp,
 		txDecoder:   txDecoder,
 		tobLane:     tobLane,
 		anteHandler: anteHandler,
-		chainID:     chainID,
 	}
 }
 
