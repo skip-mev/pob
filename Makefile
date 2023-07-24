@@ -113,7 +113,7 @@ test:
 ###                                Protobuf                                 ###
 ###############################################################################
 
-protoVer=0.11.6
+protoVer=0.13.5
 protoImageName=ghcr.io/cosmos/proto-builder:$(protoVer)
 protoImage=$(DOCKER) run --rm -v $(CURDIR):/workspace --workdir /workspace $(protoImageName)
 
@@ -121,6 +121,8 @@ proto-all: proto-format proto-lint proto-gen
 
 proto-gen:
 	@echo "Generating Protobuf files"
+	@echo $(protoImage)
+
 	@$(protoImage) sh ./scripts/protocgen.sh
 
 proto-pulsar-gen:
