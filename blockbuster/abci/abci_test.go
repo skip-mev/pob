@@ -392,7 +392,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				suite.tobConfig.MaxBlockSpace = math.LegacyZeroDec()
 
 				// Free can take up less space than the tx
-				suite.freeConfig.MaxBlockSpace = math.LegacyMustNewDecFromStr("0.1")
+				suite.freeConfig.MaxBlockSpace = math.LegacyMustNewDecFromStr("0.01")
 
 				// Default can take up as much space as it wants
 				suite.baseConfig.MaxBlockSpace = math.LegacyZeroDec()

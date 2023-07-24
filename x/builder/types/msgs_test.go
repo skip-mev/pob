@@ -1,7 +1,6 @@
 package types_test
 
 import (
-	fmt "fmt"
 	"testing"
 
 	"cosmossdk.io/math"
@@ -171,7 +170,6 @@ func TestMsgUpdateParams(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.description, func(t *testing.T) {
 			err := tc.msg.ValidateBasic()
-			fmt.Println(err)
 			if tc.expectPass {
 				if err != nil {
 					t.Errorf("expected no error on %s, got %s", tc.description, err)
