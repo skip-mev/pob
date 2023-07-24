@@ -474,17 +474,6 @@ func (app *TestApp) GetKey(storeKey string) *storetypes.KVStoreKey {
 	return kvStoreKey
 }
 
-func (app *TestApp) kvStoreKeys() map[string]*storetypes.KVStoreKey {
-	keys := make(map[string]*storetypes.KVStoreKey)
-	for _, k := range app.GetStoreKeys() {
-		if kv, ok := k.(*storetypes.KVStoreKey); ok {
-			keys[kv.Name()] = kv
-		}
-	}
-
-	return keys
-}
-
 // GetSubspace returns a param subspace for a given module name.
 //
 // NOTE: This is solely to be used for testing purposes.

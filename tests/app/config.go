@@ -28,7 +28,6 @@ import (
 	"cosmossdk.io/depinject"
 
 	_ "cosmossdk.io/x/circuit"                        // import for side-effects
-	_ "cosmossdk.io/x/feegrant"                       // import for side-effects
 	_ "cosmossdk.io/x/upgrade"                        // import for side-effects
 	_ "github.com/cosmos/cosmos-sdk/x/auth/tx/config" // import for side-effects
 	_ "github.com/cosmos/cosmos-sdk/x/auth/vesting"   // import for side-effects

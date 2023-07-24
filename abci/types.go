@@ -1,9 +1,3 @@
-/*
-NOTE: These types are TEMPORARY and will be removed once the Cosmos SDK v0.48
-alpha/RC tag is released. These types are simply used to prototype and develop
-against.
-*/
-//nolint
 package abci
 
 import (
