@@ -59,8 +59,8 @@ func (suite *KeeperTestSuite) TestMsgAuctionBid() {
 			},
 			malleate: func() {
 				params := types.DefaultParams()
-				params.ProposerFee = sdk.ZeroDec()
-				params.EscrowAccountAddress = escrow.Address
+				params.ProposerFee = sdk.NewDecFromInt(sdk.ZeroInt())
+				params.EscrowAccountAddress = escrow.Address.String()
 				suite.builderKeeper.SetParams(suite.ctx, params)
 
 				suite.bankKeeper.EXPECT().
@@ -85,16 +85,16 @@ func (suite *KeeperTestSuite) TestMsgAuctionBid() {
 			malleate: func() {
 				params := types.DefaultParams()
 				params.ProposerFee = sdk.MustNewDecFromStr("0.30")
-				params.EscrowAccountAddress = escrow.Address
+				params.EscrowAccountAddress = escrow.Address.String()
 				suite.builderKeeper.SetParams(suite.ctx, params)
 
 				suite.distrKeeper.EXPECT().
 					GetPreviousProposerConsAddr(suite.ctx).
-					Return(proposerCons.ConsKey.PubKey().Address().Bytes())
+					Return(proposerCons.ConsKey.PubKey().Address().Bytes(), nil)
 
 				suite.stakingKeeper.EXPECT().
-					ValidatorByConsAddr(suite.ctx, sdk.ConsAddress(proposerCons.ConsKey.PubKey().Address().Bytes())).
-					Return(proposer).
+					GetValidatorByConsAddr(suite.ctx, sdk.ConsAddress(proposerCons.ConsKey.PubKey().Address().Bytes())).
+					Return(proposer, nil).
 					AnyTimes()
 
 				suite.bankKeeper.EXPECT().
@@ -163,7 +163,7 @@ func (suite *KeeperTestSuite) TestMsgUpdateParams() {
 				Params: types.Params{
 					ProposerFee:          sdk.MustNewDecFromStr("0.1"),
 					MaxBundleSize:        2,
-					EscrowAccountAddress: suite.authorityAccount,
+					EscrowAccountAddress: suite.authorityAccount.String(),
 					MinBidIncrement:      sdk.NewInt64Coin("foo", 100),
 					ReserveFee:           sdk.NewInt64Coin("foo", 100),
 				},

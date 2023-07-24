@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cometbft/cometbft/libs/log"
-	storetypes "github.com/cosmos/cosmos-sdk/store/types"
+	"cosmossdk.io/log"
+	"cosmossdk.io/math"
+	storetypes "cosmossdk.io/store/types"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/blockbuster"
@@ -47,7 +48,7 @@ func (suite *BlockBusterTestSuite) SetupTest() {
 	// General config for transactions and randomness for the test suite
 	suite.encodingConfig = testutils.CreateTestEncodingConfig()
 	suite.random = rand.New(rand.NewSource(time.Now().Unix()))
-	key := sdk.NewKVStoreKey(buildertypes.StoreKey)
+	key := storetypes.NewKVStoreKey(buildertypes.StoreKey)
 	testCtx := testutil.DefaultContextWithDB(suite.T(), key, storetypes.NewTransientStoreKey("transient_test"))
 	suite.ctx = testCtx.Ctx.WithBlockHeight(1)
 
@@ -59,7 +60,7 @@ func (suite *BlockBusterTestSuite) SetupTest() {
 		TxEncoder:     suite.encodingConfig.TxConfig.TxEncoder(),
 		TxDecoder:     suite.encodingConfig.TxConfig.TxDecoder(),
 		AnteHandler:   nil,
-		MaxBlockSpace: sdk.ZeroDec(),
+		MaxBlockSpace: math.LegacyZeroDec(),
 	}
 
 	// Top of block lane set up

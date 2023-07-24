@@ -5,10 +5,11 @@ import (
 	"testing"
 	"time"
 
-	sdklogger "cosmossdk.io/log"
+	"cosmossdk.io/log"
+	"cosmossdk.io/math"
+	storetypes "cosmossdk.io/store/types"
 	comettypes "github.com/cometbft/cometbft/abci/types"
-	"github.com/cometbft/cometbft/libs/log"
-	storetypes "github.com/cosmos/cosmos-sdk/store/types"
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/golang/mock/gomock"
@@ -64,8 +65,14 @@ func (suite *ABCITestSuite) SetupTest() {
 	suite.random = rand.New(rand.NewSource(time.Now().Unix()))
 	suite.key = storetypes.NewKVStoreKey(buildertypes.StoreKey)
 	testCtx := testutil.DefaultContextWithDB(suite.T(), suite.key, storetypes.NewTransientStoreKey("transient_test"))
-	suite.ctx = testCtx.Ctx.WithBlockHeight(1)
+	suite.ctx = testCtx.Ctx.WithBlockHeight(10)
 	suite.logger = log.NewNopLogger()
+
+	suite.ctx = suite.ctx.WithConsensusParams(cmtproto.ConsensusParams{
+		Abci: &cmtproto.ABCIParams{
+			VoteExtensionsEnableHeight: 1,
+		},
+	})
 
 	// Lanes configuration
 	//
@@ -75,7 +82,7 @@ func (suite *ABCITestSuite) SetupTest() {
 		TxEncoder:     suite.encodingConfig.TxConfig.TxEncoder(),
 		TxDecoder:     suite.encodingConfig.TxConfig.TxDecoder(),
 		AnteHandler:   suite.anteHandler,
-		MaxBlockSpace: sdk.ZeroDec(),
+		MaxBlockSpace: math.LegacyZeroDec(),
 	}
 	suite.tobLane = auction.NewTOBLane(
 		config,
@@ -135,7 +142,7 @@ func (suite *ABCITestSuite) SetupTest() {
 		abci.NoOpValidateVoteExtensionsFn(),
 	)
 	suite.voteExtensionHandler = abci.NewVoteExtensionHandler(
-		sdklogger.NewTestLogger(suite.T()),
+		log.NewTestLogger(suite.T()),
 		suite.tobLane,
 		suite.encodingConfig.TxConfig.TxDecoder(),
 		suite.encodingConfig.TxConfig.TxEncoder(),
@@ -143,8 +150,7 @@ func (suite *ABCITestSuite) SetupTest() {
 }
 
 func (suite *ABCITestSuite) anteHandler(ctx sdk.Context, tx sdk.Tx, _ bool) (sdk.Context, error) {
-	signer := tx.GetMsgs()[0].GetSigners()[0]
-	suite.bankKeeper.EXPECT().GetBalance(ctx, signer, suite.balance.Denom).AnyTimes().Return(suite.balance)
+	suite.bankKeeper.EXPECT().GetBalance(ctx, gomock.Any(), suite.balance.Denom).AnyTimes().Return(suite.balance)
 
 	next := func(ctx sdk.Context, _ sdk.Tx, _ bool) (sdk.Context, error) {
 		return ctx, nil

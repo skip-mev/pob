@@ -42,7 +42,10 @@ func (m MsgServer) AuctionBid(goCtx context.Context, msg *types.MsgAuctionBid) (
 		return nil, fmt.Errorf("the number of transactions in the bid is greater than the maximum allowed; expected <= %d, got %d", params.MaxBundleSize, len(msg.Transactions))
 	}
 
-	escrowAddress := params.EscrowAccountAddress
+	escrowAddress, err := sdk.AccAddressFromBech32(params.EscrowAccountAddress)
+	if err != nil {
+		return nil, err
+	}
 
 	var proposerReward sdk.Coins
 	if params.ProposerFee.IsZero() {
@@ -51,13 +54,21 @@ func (m MsgServer) AuctionBid(goCtx context.Context, msg *types.MsgAuctionBid) (
 			return nil, err
 		}
 	} else {
-		rewardsAddress := m.rewardsAddressProvider.GetRewardsAddress(ctx)
+		prevPropConsAddr, err := m.distrKeeper.GetPreviousProposerConsAddr(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		prevProposer, err := m.stakingKeeper.GetValidatorByConsAddr(ctx, prevPropConsAddr)
+		if err != nil {
+			return nil, err
+		}
 
 		// determine the amount of the bid that goes to the (previous) proposer
 		bid := sdk.NewDecCoinsFromCoins(msg.Bid)
 		proposerReward, _ = bid.MulDecTruncate(params.ProposerFee).TruncateDecimal()
 
-		if err := m.bankKeeper.SendCoins(ctx, bidder, rewardsAddress, proposerReward); err != nil {
+		if err := m.bankKeeper.SendCoins(ctx, bidder, sdk.AccAddress(prevProposer.GetOperator()), proposerReward); err != nil {
 			return nil, err
 		}
 

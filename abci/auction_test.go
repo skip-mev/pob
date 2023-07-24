@@ -270,7 +270,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 					suite.accounts[0],
 					sdk.NewCoin("foo", sdk.NewInt(101)),
 					0,
-					1,
+					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{suite.accounts[0]},
 				)
 				suite.Require().NoError(err)
@@ -287,7 +287,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 					suite.accounts[0],
 					sdk.NewCoin("foo", sdk.NewInt(1)),
 					0,
-					1,
+					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{suite.accounts[0]},
 				)
 				suite.Require().NoError(err)
@@ -304,7 +304,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 					suite.accounts[0],
 					sdk.NewCoin("foo", sdk.NewInt(1000)),
 					0,
-					1,
+					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{suite.accounts[0], suite.accounts[1]},
 				)
 				suite.Require().NoError(err)
@@ -321,7 +321,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 					suite.accounts[0],
 					sdk.NewCoin("foo", sdk.NewInt(101)),
 					0,
-					1,
+					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{
 						suite.accounts[0],
 						suite.accounts[0],
@@ -345,7 +345,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 					suite.accounts[0],
 					sdk.NewCoin("foo", sdk.NewInt(101)),
 					0,
-					1,
+					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{suite.accounts[0]},
 				)
 				suite.Require().NoError(err)
@@ -362,7 +362,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 					suite.accounts[0],
 					sdk.NewCoin("foo", sdk.NewInt(101)),
 					0,
-					1,
+					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{suite.accounts[0]},
 				)
 				suite.Require().NoError(err)
@@ -372,7 +372,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 					suite.accounts[1],
 					sdk.NewCoin("foo", sdk.NewInt(102)),
 					0,
-					1,
+					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{suite.accounts[1]},
 				)
 				suite.Require().NoError(err)
@@ -389,7 +389,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 					suite.accounts[0],
 					sdk.NewCoin("foo", sdk.NewInt(1000)),
 					0,
-					1,
+					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{suite.accounts[0], suite.accounts[1]},
 				)
 				suite.Require().NoError(err)
@@ -399,7 +399,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 					suite.accounts[1],
 					sdk.NewCoin("foo", sdk.NewInt(200)),
 					0,
-					1,
+					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{suite.accounts[1]},
 				)
 				suite.Require().NoError(err)
@@ -416,7 +416,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 					suite.accounts[0],
 					sdk.NewCoin("foo", sdk.NewInt(101)),
 					0,
-					1,
+					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{
 						suite.accounts[0],
 						suite.accounts[0],
@@ -433,7 +433,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 					suite.accounts[1],
 					sdk.NewCoin("foo", sdk.NewInt(102)),
 					0,
-					1,
+					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{suite.accounts[1]},
 				)
 				suite.Require().NoError(err)
@@ -450,7 +450,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 					suite.accounts[0],
 					sdk.NewCoin("foo", sdk.NewInt(101)),
 					0,
-					1,
+					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{suite.accounts[0]},
 				)
 				suite.Require().NoError(err)
@@ -460,7 +460,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 					suite.accounts[1],
 					sdk.NewCoin("foo", sdk.NewInt(102)),
 					0,
-					1,
+					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{suite.accounts[1]},
 				)
 				suite.Require().NoError(err)

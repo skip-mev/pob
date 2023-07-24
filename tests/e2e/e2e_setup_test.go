@@ -33,7 +33,7 @@ var (
 	numValidators   = 4
 	minGasPrice     = sdk.NewDecCoinFromDec(app.BondDenom, sdk.MustNewDecFromStr("0.02")).String()
 	initBalanceStr  = sdk.NewInt64Coin(app.BondDenom, 1000000000000000000).String()
-	stakeAmount, _  = sdk.NewIntFromString("100000000000")
+	stakeAmount     = sdk.NewInt(100000000000)
 	stakeAmountCoin = sdk.NewCoin(app.BondDenom, stakeAmount)
 )
 
@@ -116,12 +116,9 @@ func (s *IntegrationTestSuite) initNodes() {
 	val0ConfigDir := s.chain.validators[0].configDir()
 
 	// Define the builder module parameters
-	escrowAddress, err := sdk.AccAddressFromBech32("cosmos14j5j2lsx7629590jvpk3vj0xe9w8203jf4yknk")
-	s.Require().Nil(err, "Unexpected error decoding escrow address")
-
 	params := types.Params{
 		MaxBundleSize:          5,
-		EscrowAccountAddress:   escrowAddress,
+		EscrowAccountAddress:   "cosmos14j5j2lsx7629590jvpk3vj0xe9w8203jf4yknk",
 		ReserveFee:             sdk.NewCoin(app.BondDenom, sdk.NewInt(1000000)),
 		MinBidIncrement:        sdk.NewCoin(app.BondDenom, sdk.NewInt(1000000)),
 		ProposerFee:            sdk.NewDecWithPrec(1, 2),
@@ -223,6 +220,8 @@ func (s *IntegrationTestSuite) initValidatorConfigs() {
 		valConfig.RPC.ListenAddress = "tcp://0.0.0.0:26657"
 		valConfig.StateSync.Enable = false
 		valConfig.LogLevel = "info"
+		valConfig.BaseConfig.Genesis = filepath.Join("config", "genesis.json")
+		valConfig.RootDir = filepath.Join("root", ".simapp")
 
 		var peers []string
 

@@ -102,12 +102,22 @@ func TestMsgUpdateParams(t *testing.T) {
 			expectPass: false,
 		},
 		{
+			description: "invalid message with invalid params (invalid escrow address)",
+			msg: types.MsgUpdateParams{
+				Authority: sdk.AccAddress([]byte("test")).String(),
+				Params: types.Params{
+					EscrowAccountAddress: "test",
+				},
+			},
+			expectPass: false,
+		},
+		{
 			description: "valid message",
 			msg: types.MsgUpdateParams{
 				Authority: sdk.AccAddress([]byte("test")).String(),
 				Params: types.Params{
-					ProposerFee:          sdk.NewDec(1),
-					EscrowAccountAddress: sdk.AccAddress([]byte("test")),
+					ProposerFee:          sdk.NewDecFromInt(sdk.NewInt(1)),
+					EscrowAccountAddress: sdk.AccAddress([]byte("test")).String(),
 					ReserveFee:           sdk.NewCoin("test", sdk.NewInt(100)),
 					MinBidIncrement:      sdk.NewCoin("test", sdk.NewInt(100)),
 				},
@@ -119,8 +129,8 @@ func TestMsgUpdateParams(t *testing.T) {
 			msg: types.MsgUpdateParams{
 				Authority: sdk.AccAddress([]byte("test")).String(),
 				Params: types.Params{
-					ProposerFee:          sdk.NewDec(1),
-					EscrowAccountAddress: sdk.AccAddress([]byte("test")),
+					ProposerFee:          sdk.NewDecFromInt(sdk.NewInt(1)),
+					EscrowAccountAddress: sdk.AccAddress([]byte("test")).String(),
 					ReserveFee:           sdk.NewCoin("test", sdk.NewInt(100)),
 					MinBidIncrement:      sdk.NewCoin("test2", sdk.NewInt(100)),
 				},
@@ -132,8 +142,8 @@ func TestMsgUpdateParams(t *testing.T) {
 			msg: types.MsgUpdateParams{
 				Authority: sdk.AccAddress([]byte("test")).String(),
 				Params: types.Params{
-					ProposerFee:          sdk.NewDec(1),
-					EscrowAccountAddress: sdk.AccAddress([]byte("test")),
+					ProposerFee:          sdk.NewDecFromInt(sdk.NewInt(1)),
+					EscrowAccountAddress: sdk.AccAddress([]byte("test")).String(),
 				},
 			},
 			expectPass: false,
@@ -143,8 +153,8 @@ func TestMsgUpdateParams(t *testing.T) {
 			msg: types.MsgUpdateParams{
 				Authority: sdk.AccAddress([]byte("test")).String(),
 				Params: types.Params{
-					ProposerFee:          sdk.NewDec(1),
-					EscrowAccountAddress: sdk.AccAddress([]byte("test")),
+					ProposerFee:          sdk.NewDecFromInt(sdk.NewInt(1)),
+					EscrowAccountAddress: sdk.AccAddress([]byte("test")).String(),
 					ReserveFee:           sdk.NewCoin("test", sdk.NewInt(100)),
 					MinBidIncrement:      sdk.NewCoin("test", sdk.NewInt(0)),
 				},
