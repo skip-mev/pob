@@ -76,7 +76,7 @@ func (suite *ABCITestSuite) SetupTest() {
 
 	// Lanes configuration
 	config := blockbuster.BaseLaneConfig{
-		Logger:        log.NewNopLogger(),
+		Logger:        log.NewTestLogger(suite.T()),
 		TxEncoder:     suite.encodingConfig.TxConfig.TxEncoder(),
 		TxDecoder:     suite.encodingConfig.TxConfig.TxDecoder(),
 		AnteHandler:   suite.anteHandler,
@@ -197,7 +197,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 		maxBundleSize          uint32 = 10
 		reserveFee                    = sdk.NewCoin("foo", math.NewInt(1000))
 		minBidIncrement               = sdk.NewCoin("foo", math.NewInt(100))
-		frontRunningProtection        = false
+		frontRunningProtection        = true
 	)
 
 	cases := []struct {

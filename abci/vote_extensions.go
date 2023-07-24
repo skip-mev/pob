@@ -112,7 +112,7 @@ func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() sdk.VerifyVoteExtens
 		txBz := req.VoteExtension
 		if len(txBz) == 0 {
 			h.logger.Info(
-				"verifyed vote extension with no auction transaction",
+				"verified vote extension with no auction transaction",
 				"height", ctx.BlockHeight(),
 			)
 

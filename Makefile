@@ -121,8 +121,6 @@ proto-all: proto-format proto-lint proto-gen
 
 proto-gen:
 	@echo "Generating Protobuf files"
-	@echo $(protoImage)
-
 	@$(protoImage) sh ./scripts/protocgen.sh
 
 proto-pulsar-gen:
