@@ -517,8 +517,6 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 		{
 			"multiple tob transactions where the first is invalid",
 			func() {
-				frontRunningProtection = true
-
 				// Create an invalid tob transaction (frontrunning)
 				bidder := suite.accounts[0]
 				bid := sdk.NewCoin("foo", math.NewInt(1000000000))
@@ -552,8 +550,6 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 		{
 			"multiple tob transactions where the first is valid",
 			func() {
-				frontRunningProtection = false
-
 				// Create an valid tob transaction
 				bidder := suite.accounts[0]
 				bid := sdk.NewCoin("foo", math.NewInt(10000000))
@@ -697,9 +693,10 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 			// Create a new proposal handler
 			suite.proposalHandler = abci.NewProposalHandler(log.NewTestLogger(suite.T()), suite.encodingConfig.TxConfig.TxDecoder(), suite.mempool)
 			handler := suite.proposalHandler.PrepareProposalHandler()
-			res, _ := handler(suite.ctx, &abcitypes.RequestPrepareProposal{
+			res, err := handler(suite.ctx, &abcitypes.RequestPrepareProposal{
 				MaxTxBytes: maxTxBytes,
 			})
+			suite.Require().NoError(err)
 
 			// -------------------- Check Invariants -------------------- //
 			// 1. the number of transactions in the response must be equal to the number of expected transactions
@@ -800,7 +797,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 		// auction configuration
 		maxBundleSize          uint32 = 10
 		reserveFee                    = sdk.NewCoin("foo", math.NewInt(1000))
-		frontRunningProtection        = false
+		frontRunningProtection        = true
 	)
 
 	cases := []struct {
@@ -867,8 +864,6 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 		{
 			"single invalid tob tx (front-running)",
 			func() {
-				frontRunningProtection = true
-
 				// Create an valid tob transaction
 				bidder := suite.accounts[0]
 				bid := sdk.NewCoin("foo", math.NewInt(10000000))
@@ -887,8 +882,6 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 		{
 			"multiple tob txs in the proposal",
 			func() {
-				frontRunningProtection = false
-
 				// Create an valid tob transaction
 				bidder := suite.accounts[0]
 				bid := sdk.NewCoin("foo", math.NewInt(10000000))
@@ -1050,12 +1043,18 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxEncoder(), suite.tobLane, suite.mempool)
 
 			handler := suite.proposalHandler.ProcessProposalHandler()
-			res, _ := handler(suite.ctx, &abcitypes.RequestProcessProposal{
+			res, err := handler(suite.ctx, &abcitypes.RequestProcessProposal{
 				Txs: proposalTxs,
 			})
 
 			// Check if the response is valid
 			suite.Require().Equal(tc.response, res.Status)
+
+			if res.Status == abcitypes.ResponseProcessProposal_ACCEPT {
+				suite.Require().NoError(err)
+			} else {
+				suite.Require().Error(err)
+			}
 		})
 	}
 }

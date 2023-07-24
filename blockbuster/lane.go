@@ -85,7 +85,13 @@ type (
 )
 
 // NewLaneConfig returns a new LaneConfig. This will be embedded in a lane.
-func NewBaseLaneConfig(logger log.Logger, txEncoder sdk.TxEncoder, txDecoder sdk.TxDecoder, anteHandler sdk.AnteHandler, maxBlockSpace math.LegacyDec) BaseLaneConfig {
+func NewBaseLaneConfig(
+	logger log.Logger,
+	txEncoder sdk.TxEncoder,
+	txDecoder sdk.TxDecoder,
+	anteHandler sdk.AnteHandler,
+	maxBlockSpace math.LegacyDec,
+) BaseLaneConfig {
 	return BaseLaneConfig{
 		Logger:        logger,
 		TxEncoder:     txEncoder,

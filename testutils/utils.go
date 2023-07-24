@@ -30,7 +30,6 @@ type EncodingConfig struct {
 }
 
 func CreateTestEncodingConfig() EncodingConfig {
-	cdc := codec.NewLegacyAmino()
 	interfaceRegistry, err := types.NewInterfaceRegistryWithOptions(types.InterfaceRegistryOptions{
 		ProtoFiles: proto.HybridResolver,
 		SigningOptions: txsigning.Options{
@@ -47,13 +46,13 @@ func CreateTestEncodingConfig() EncodingConfig {
 	buildertypes.RegisterInterfaces(interfaceRegistry)
 	stakingtypes.RegisterInterfaces(interfaceRegistry)
 
-	codec := codec.NewProtoCodec(interfaceRegistry)
+	protoCodec := codec.NewProtoCodec(interfaceRegistry)
 
 	return EncodingConfig{
 		InterfaceRegistry: interfaceRegistry,
-		Codec:             codec,
-		TxConfig:          tx.NewTxConfig(codec, tx.DefaultSignModes),
-		Amino:             cdc,
+		Codec:             protoCodec,
+		TxConfig:          tx.NewTxConfig(protoCodec, tx.DefaultSignModes),
+		Amino:             codec.NewLegacyAmino(),
 	}
 }
 

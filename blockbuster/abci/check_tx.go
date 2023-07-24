@@ -91,20 +91,39 @@ func NewCheckTxHandler(
 func (handler *CheckTxHandler) CheckTx() CheckTx {
 	return func(req *cometabci.RequestCheckTx) (resp *cometabci.ResponseCheckTx, err error) {
 		defer func() {
-			if err := recover(); err != nil {
-				resp = sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("panic in check tx handler: %s", err), 0, 0, nil, false)
+			if rec := recover(); rec != nil {
+				err := fmt.Errorf("panic in check tx handler: %s", rec)
+				resp = sdkerrors.ResponseCheckTxWithEvents(
+					err,
+					0,
+					0,
+					nil,
+					false,
+				)
 			}
 		}()
 
 		tx, err := handler.txDecoder(req.Tx)
 		if err != nil {
-			return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("failed to decode tx: %w", err), 0, 0, nil, false), err
+			return sdkerrors.ResponseCheckTxWithEvents(
+				fmt.Errorf("failed to decode tx: %w", err),
+				0,
+				0,
+				nil,
+				false,
+			), err
 		}
 
 		// Attempt to get the bid info of the transaction.
 		bidInfo, err := handler.tobLane.GetAuctionBidInfo(tx)
 		if err != nil {
-			return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("failed to get auction bid info: %w", err), 0, 0, nil, false), err
+			return sdkerrors.ResponseCheckTxWithEvents(
+				fmt.Errorf("failed to get auction bid info: %w", err),
+				0,
+				0,
+				nil,
+				false,
+			), err
 		}
 
 		// If this is not a bid transaction, we just execute it normally.
@@ -115,17 +134,29 @@ func (handler *CheckTxHandler) CheckTx() CheckTx {
 		// We attempt to get the latest committed state in order to verify transactions
 		// as if they were to be executed at the top of the block. After verification, this
 		// context will be discarded and will not apply any state changes.
-		ctx := handler.baseApp.GetContextForFinalizeBlock(req.Tx)
+		ctx, _ := handler.baseApp.GetContextForFinalizeBlock(req.Tx).CacheContext()
 
 		// Verify the bid transaction.
 		gasInfo, err := handler.ValidateBidTx(ctx, tx, bidInfo)
 		if err != nil {
-			return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("invalid bid tx: %w", err), gasInfo.GasWanted, gasInfo.GasUsed, nil, false), err
+			return sdkerrors.ResponseCheckTxWithEvents(
+				fmt.Errorf("invalid bid tx: %w", err),
+				gasInfo.GasWanted,
+				gasInfo.GasUsed,
+				nil,
+				false,
+			), err
 		}
 
 		// If the bid transaction is valid, we know we can insert it into the mempool for consideration in the next block.
 		if err := handler.tobLane.Insert(ctx, tx); err != nil {
-			return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("invalid bid tx; failed to insert bid transaction into mempool: %w", err), gasInfo.GasWanted, gasInfo.GasUsed, nil, false), err
+			return sdkerrors.ResponseCheckTxWithEvents(
+				fmt.Errorf("invalid bid tx; failed to insert bid transaction into mempool: %w", err),
+				gasInfo.GasWanted,
+				gasInfo.GasUsed,
+				nil,
+				false,
+			), err
 		}
 
 		return &cometabci.ResponseCheckTx{

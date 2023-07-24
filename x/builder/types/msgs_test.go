@@ -1,6 +1,7 @@
 package types_test
 
 import (
+	fmt "fmt"
 	"testing"
 
 	"cosmossdk.io/math"
@@ -107,7 +108,10 @@ func TestMsgUpdateParams(t *testing.T) {
 			msg: types.MsgUpdateParams{
 				Authority: sdk.AccAddress([]byte("test")).String(),
 				Params: types.Params{
-					EscrowAccountAddress: sdk.AccAddress([]byte("test")),
+					EscrowAccountAddress: nil,
+					ReserveFee:           sdk.NewCoin("test", math.NewInt(100)),
+					MinBidIncrement:      sdk.NewCoin("test", math.NewInt(100)),
+					ProposerFee:          math.LegacyNewDecFromInt(math.NewInt(1)),
 				},
 			},
 			expectPass: false,
@@ -167,6 +171,7 @@ func TestMsgUpdateParams(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.description, func(t *testing.T) {
 			err := tc.msg.ValidateBasic()
+			fmt.Println(err)
 			if tc.expectPass {
 				if err != nil {
 					t.Errorf("expected no error on %s, got %s", tc.description, err)
