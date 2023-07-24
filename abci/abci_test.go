@@ -9,6 +9,7 @@ import (
 	"cosmossdk.io/math"
 	storetypes "cosmossdk.io/store/types"
 	comettypes "github.com/cometbft/cometbft/abci/types"
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/golang/mock/gomock"
@@ -64,8 +65,14 @@ func (suite *ABCITestSuite) SetupTest() {
 	suite.random = rand.New(rand.NewSource(time.Now().Unix()))
 	suite.key = storetypes.NewKVStoreKey(buildertypes.StoreKey)
 	testCtx := testutil.DefaultContextWithDB(suite.T(), suite.key, storetypes.NewTransientStoreKey("transient_test"))
-	suite.ctx = testCtx.Ctx.WithBlockHeight(1)
+	suite.ctx = testCtx.Ctx.WithBlockHeight(10)
 	suite.logger = log.NewNopLogger()
+
+	suite.ctx = suite.ctx.WithConsensusParams(cmtproto.ConsensusParams{
+		Abci: &cmtproto.ABCIParams{
+			VoteExtensionsEnableHeight: 1,
+		},
+	})
 
 	// Lanes configuration
 	//

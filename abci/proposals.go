@@ -100,6 +100,7 @@ func NewProposalHandler(
 // top-of-block auctioning and general block proposal construction.
 func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 	return func(ctx sdk.Context, req *cometabci.RequestPrepareProposal) (*cometabci.ResponsePrepareProposal, error) {
+		partialProposal := blockbuster.NewProposal(req.MaxTxBytes)
 		voteExtensionsEnabled := h.VoteExtensionsEnabled(ctx)
 
 		h.logger.Info(
@@ -108,7 +109,6 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 			"vote_extensions_enabled", voteExtensionsEnabled,
 		)
 
-		partialProposal := blockbuster.NewProposal(req.MaxTxBytes)
 		if voteExtensionsEnabled {
 			// Build the top of block portion of the proposal given the vote extensions
 			// from the previous block.
