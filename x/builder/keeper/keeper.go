@@ -3,10 +3,13 @@ package keeper
 import (
 	"fmt"
 
+	"cosmossdk.io/log"
 	"cosmossdk.io/math"
+
 	storetypes "cosmossdk.io/store/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/skip-mev/pob/x/builder/rewards"
 	"github.com/skip-mev/pob/x/builder/types"
 )
 
@@ -14,15 +17,15 @@ type Keeper struct {
 	cdc      codec.BinaryCodec
 	storeKey storetypes.StoreKey
 
-	bankKeeper    types.BankKeeper
-	distrKeeper   types.DistributionKeeper
-	stakingKeeper types.StakingKeeper
+	bankKeeper             types.BankKeeper
+	rewardsAddressProvider types.RewardsAddressProvider
 
 	// The address that is capable of executing a MsgUpdateParams message.
 	// Typically this will be the governance module's address.
 	authority string
 }
 
+// NewKeeper is a wrapper around NewKeeperWithRewardsAddressProvider for backwards compatibility.
 func NewKeeper(
 	cdc codec.BinaryCodec,
 	storeKey storetypes.StoreKey,
@@ -30,6 +33,30 @@ func NewKeeper(
 	bankKeeper types.BankKeeper,
 	distrKeeper types.DistributionKeeper,
 	stakingKeeper types.StakingKeeper,
+	authority string,
+) Keeper {
+	// Build a rewards address provider
+	rewardsAddressProvider := rewards.NewProposerRewardsAddressProvider(
+		distrKeeper,
+		stakingKeeper,
+	)
+
+	return NewKeeperWithRewardsAddressProvider(
+		cdc,
+		storeKey,
+		accountKeeper,
+		bankKeeper,
+		rewardsAddressProvider,
+		authority,
+	)
+}
+
+func NewKeeperWithRewardsAddressProvider(
+	cdc codec.BinaryCodec,
+	storeKey storetypes.StoreKey,
+	accountKeeper types.AccountKeeper,
+	bankKeeper types.BankKeeper,
+	rewardsAddressProvider types.RewardsAddressProvider,
 	authority string,
 ) Keeper {
 	// Ensure that the authority address is valid.
@@ -43,13 +70,17 @@ func NewKeeper(
 	}
 
 	return Keeper{
-		cdc:           cdc,
-		storeKey:      storeKey,
-		bankKeeper:    bankKeeper,
-		distrKeeper:   distrKeeper,
-		stakingKeeper: stakingKeeper,
-		authority:     authority,
+		cdc:                    cdc,
+		storeKey:               storeKey,
+		bankKeeper:             bankKeeper,
+		rewardsAddressProvider: rewardsAddressProvider,
+		authority:              authority,
 	}
+}
+
+// Logger returns a builder module-specific logger.
+func (k Keeper) Logger(ctx sdk.Context) log.Logger {
+	return ctx.Logger().With("module", "x/"+types.ModuleName)
 }
 
 // GetAuthority returns the address that is capable of executing a MsgUpdateParams message.
@@ -107,7 +138,7 @@ func (k Keeper) GetEscrowAccount(ctx sdk.Context) (sdk.AccAddress, error) {
 		return nil, err
 	}
 
-	return sdk.AccAddress(params.EscrowAccountAddress), nil
+	return params.EscrowAccountAddress, nil
 }
 
 // GetReserveFee returns the reserve fee of the builder module.
@@ -134,7 +165,7 @@ func (k Keeper) GetMinBidIncrement(ctx sdk.Context) (sdk.Coin, error) {
 func (k Keeper) GetProposerFee(ctx sdk.Context) (math.LegacyDec, error) {
 	params, err := k.GetParams(ctx)
 	if err != nil {
-		return math.LegacyNewDecFromInt(math.ZeroInt()), err
+		return math.LegacyZeroDec(), err
 	}
 
 	return params.ProposerFee, nil

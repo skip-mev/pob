@@ -142,7 +142,7 @@ func (suite *ABCITestSuite) SetupTest() {
 		abci.NoOpValidateVoteExtensionsFn(),
 	)
 	suite.voteExtensionHandler = abci.NewVoteExtensionHandler(
-		sdklogger.NewTestLogger(suite.T()),
+		log.NewTestLogger(suite.T()),
 		suite.tobLane,
 		suite.encodingConfig.TxConfig.TxDecoder(),
 		suite.encodingConfig.TxConfig.TxEncoder(),
