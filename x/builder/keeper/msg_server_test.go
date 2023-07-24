@@ -91,7 +91,7 @@ func (suite *KeeperTestSuite) TestMsgAuctionBid() {
 
 				suite.distrKeeper.EXPECT().
 					GetPreviousProposerConsAddr(suite.ctx).
-					Return(proposerCons.ConsKey.PubKey().Address().Bytes())
+					Return(proposerCons.ConsKey.PubKey().Address().Bytes(), nil)
 
 				suite.stakingKeeper.EXPECT().
 					GetValidatorByConsAddr(suite.ctx, sdk.ConsAddress(proposerCons.ConsKey.PubKey().Address().Bytes())).
