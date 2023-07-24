@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 
+	"cosmossdk.io/math"
 	cometcfg "github.com/cometbft/cometbft/config"
 	"github.com/cometbft/cometbft/p2p"
 	"github.com/cometbft/cometbft/privval"
@@ -178,13 +179,13 @@ func (v *validator) createKey(name string) error {
 func (v *validator) buildCreateValidatorMsg(amount sdk.Coin) (sdk.Msg, error) {
 	description := stakingtypes.NewDescription(v.moniker, "", "", "", "")
 	commissionRates := stakingtypes.CommissionRates{
-		Rate:          sdk.MustNewDecFromStr("0.1"),
-		MaxRate:       sdk.MustNewDecFromStr("0.2"),
-		MaxChangeRate: sdk.MustNewDecFromStr("0.01"),
+		Rate:          math.LegacyMustNewDecFromStr("0.1"),
+		MaxRate:       math.LegacyMustNewDecFromStr("0.2"),
+		MaxChangeRate: math.LegacyMustNewDecFromStr("0.01"),
 	}
 
 	// get the initial validator min self delegation
-	minSelfDelegation := sdk.NewInt(1)
+	minSelfDelegation := math.NewInt(1)
 
 	valPubKey, err := cryptocodec.FromCmtPubKeyInterface(v.consensusKey.PubKey)
 	if err != nil {

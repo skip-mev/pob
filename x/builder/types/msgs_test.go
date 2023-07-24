@@ -3,6 +3,7 @@ package types_test
 import (
 	"testing"
 
+	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/x/builder/types"
 )
@@ -36,7 +37,7 @@ func TestMsgAuctionBid(t *testing.T) {
 			description: "invalid message with empty transactions",
 			msg: types.MsgAuctionBid{
 				Bidder:       sdk.AccAddress([]byte("test")).String(),
-				Bid:          sdk.NewCoin("test", sdk.NewInt(100)),
+				Bid:          sdk.NewCoin("test", math.NewInt(100)),
 				Transactions: [][]byte{},
 			},
 			expectPass: false,
@@ -45,7 +46,7 @@ func TestMsgAuctionBid(t *testing.T) {
 			description: "valid message",
 			msg: types.MsgAuctionBid{
 				Bidder:       sdk.AccAddress([]byte("test")).String(),
-				Bid:          sdk.NewCoin("test", sdk.NewInt(100)),
+				Bid:          sdk.NewCoin("test", math.NewInt(100)),
 				Transactions: [][]byte{[]byte("test")},
 			},
 			expectPass: true,
@@ -54,7 +55,7 @@ func TestMsgAuctionBid(t *testing.T) {
 			description: "valid message with multiple transactions",
 			msg: types.MsgAuctionBid{
 				Bidder:       sdk.AccAddress([]byte("test")).String(),
-				Bid:          sdk.NewCoin("test", sdk.NewInt(100)),
+				Bid:          sdk.NewCoin("test", math.NewInt(100)),
 				Transactions: [][]byte{[]byte("test"), []byte("test2")},
 			},
 			expectPass: true,
@@ -63,7 +64,7 @@ func TestMsgAuctionBid(t *testing.T) {
 			description: "invalid message with empty transaction in transactions",
 			msg: types.MsgAuctionBid{
 				Bidder:       sdk.AccAddress([]byte("test")).String(),
-				Bid:          sdk.NewCoin("test", sdk.NewInt(100)),
+				Bid:          sdk.NewCoin("test", math.NewInt(100)),
 				Transactions: [][]byte{[]byte("test"), []byte("")},
 			},
 			expectPass: false,
@@ -106,7 +107,7 @@ func TestMsgUpdateParams(t *testing.T) {
 			msg: types.MsgUpdateParams{
 				Authority: sdk.AccAddress([]byte("test")).String(),
 				Params: types.Params{
-					EscrowAccountAddress: "test",
+					EscrowAccountAddress: sdk.AccAddress([]byte("test")),
 				},
 			},
 			expectPass: false,
@@ -116,10 +117,10 @@ func TestMsgUpdateParams(t *testing.T) {
 			msg: types.MsgUpdateParams{
 				Authority: sdk.AccAddress([]byte("test")).String(),
 				Params: types.Params{
-					ProposerFee:          sdk.NewDecFromInt(sdk.NewInt(1)),
-					EscrowAccountAddress: sdk.AccAddress([]byte("test")).String(),
-					ReserveFee:           sdk.NewCoin("test", sdk.NewInt(100)),
-					MinBidIncrement:      sdk.NewCoin("test", sdk.NewInt(100)),
+					ProposerFee:          math.LegacyNewDecFromInt(math.NewInt(1)),
+					EscrowAccountAddress: sdk.AccAddress([]byte("test")),
+					ReserveFee:           sdk.NewCoin("test", math.NewInt(100)),
+					MinBidIncrement:      sdk.NewCoin("test", math.NewInt(100)),
 				},
 			},
 			expectPass: true,
@@ -129,10 +130,10 @@ func TestMsgUpdateParams(t *testing.T) {
 			msg: types.MsgUpdateParams{
 				Authority: sdk.AccAddress([]byte("test")).String(),
 				Params: types.Params{
-					ProposerFee:          sdk.NewDecFromInt(sdk.NewInt(1)),
-					EscrowAccountAddress: sdk.AccAddress([]byte("test")).String(),
-					ReserveFee:           sdk.NewCoin("test", sdk.NewInt(100)),
-					MinBidIncrement:      sdk.NewCoin("test2", sdk.NewInt(100)),
+					ProposerFee:          math.LegacyNewDecFromInt(math.NewInt(1)),
+					EscrowAccountAddress: sdk.AccAddress([]byte("test")),
+					ReserveFee:           sdk.NewCoin("test", math.NewInt(100)),
+					MinBidIncrement:      sdk.NewCoin("test2", math.NewInt(100)),
 				},
 			},
 			expectPass: false,
@@ -142,8 +143,8 @@ func TestMsgUpdateParams(t *testing.T) {
 			msg: types.MsgUpdateParams{
 				Authority: sdk.AccAddress([]byte("test")).String(),
 				Params: types.Params{
-					ProposerFee:          sdk.NewDecFromInt(sdk.NewInt(1)),
-					EscrowAccountAddress: sdk.AccAddress([]byte("test")).String(),
+					ProposerFee:          math.LegacyNewDecFromInt(math.NewInt(1)),
+					EscrowAccountAddress: sdk.AccAddress([]byte("test")),
 				},
 			},
 			expectPass: false,
@@ -153,10 +154,10 @@ func TestMsgUpdateParams(t *testing.T) {
 			msg: types.MsgUpdateParams{
 				Authority: sdk.AccAddress([]byte("test")).String(),
 				Params: types.Params{
-					ProposerFee:          sdk.NewDecFromInt(sdk.NewInt(1)),
-					EscrowAccountAddress: sdk.AccAddress([]byte("test")).String(),
-					ReserveFee:           sdk.NewCoin("test", sdk.NewInt(100)),
-					MinBidIncrement:      sdk.NewCoin("test", sdk.NewInt(0)),
+					ProposerFee:          math.LegacyNewDecFromInt(math.NewInt(1)),
+					EscrowAccountAddress: sdk.AccAddress([]byte("test")),
+					ReserveFee:           sdk.NewCoin("test", math.NewInt(100)),
+					MinBidIncrement:      sdk.NewCoin("test", math.NewInt(0)),
 				},
 			},
 			expectPass: false,

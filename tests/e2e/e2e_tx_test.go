@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
@@ -48,7 +49,7 @@ func (s *IntegrationTestSuite) execMsgSendTx(valIdx int, to sdk.AccAddress, amou
 			amount.String(),  // amount
 			fmt.Sprintf("--%s=%s", flags.FlagFrom, s.chain.validators[valIdx].keyInfo.Name),
 			fmt.Sprintf("--%s=%s", flags.FlagChainID, s.chain.id),
-			fmt.Sprintf("--%s=%s", flags.FlagFees, sdk.NewCoin(app.BondDenom, sdk.NewInt(1000000000)).String()),
+			fmt.Sprintf("--%s=%s", flags.FlagFees, sdk.NewCoin(app.BondDenom, math.NewInt(1000000000)).String()),
 			"--keyring-backend=test",
 			"--broadcast-mode=sync",
 			"-y",

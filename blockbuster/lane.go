@@ -31,7 +31,7 @@ type (
 		// used by this lane. NOTE: If this is set to zero, then there is no limit
 		// on the number of transactions that can be included in the block for this
 		// lane (up to maxTxBytes as provided by the request). This is useful for the default lane.
-		MaxBlockSpace sdk.Dec
+		MaxBlockSpace math.LegacyDec
 
 		// IgnoreList defines the list of lanes to ignore when processing transactions. This
 		// is useful for when you want lanes to exist after the default lane. For example,
@@ -80,12 +80,12 @@ type (
 		Logger() log.Logger
 
 		// GetMaxBlockSpace returns the max block space for the lane as a relative percentage.
-		GetMaxBlockSpace() sdk.Dec
+		GetMaxBlockSpace() math.LegacyDec
 	}
 )
 
 // NewLaneConfig returns a new LaneConfig. This will be embedded in a lane.
-func NewBaseLaneConfig(logger log.Logger, txEncoder sdk.TxEncoder, txDecoder sdk.TxDecoder, anteHandler sdk.AnteHandler, maxBlockSpace sdk.Dec) BaseLaneConfig {
+func NewBaseLaneConfig(logger log.Logger, txEncoder sdk.TxEncoder, txDecoder sdk.TxDecoder, anteHandler sdk.AnteHandler, maxBlockSpace math.LegacyDec) BaseLaneConfig {
 	return BaseLaneConfig{
 		Logger:        logger,
 		TxEncoder:     txEncoder,

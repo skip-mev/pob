@@ -1,7 +1,6 @@
 package rewardsaddressprovider
 
 import (
-	"cosmossdk.io/depinject"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/skip-mev/pob/x/builder/types"
@@ -24,33 +23,16 @@ func NewProposerRewardsAddressProvider(
 	}
 }
 
-func (p *ProposerRewardsAddressProvider) GetRewardsAddress(context sdk.Context) sdk.AccAddress {
-	prevPropConsAddr := p.distrKeeper.GetPreviousProposerConsAddr(context)
-	prevProposer := p.stakingKeeper.ValidatorByConsAddr(context, prevPropConsAddr)
+func (p *ProposerRewardsAddressProvider) GetRewardsAddress(context sdk.Context) (sdk.AccAddress, error) {
+	prevPropConsAddr, err := p.distrKeeper.GetPreviousProposerConsAddr(context)
+	if err != nil {
+		return nil, err
+	}
 
-	return sdk.AccAddress(prevProposer.GetOperator())
-}
+	prevProposer, err := p.stakingKeeper.GetValidatorByConsAddr(context, prevPropConsAddr)
+	if err != nil {
+		return nil, err
+	}
 
-// Dependency injection
-
-type ProposerRewardsDepInjectInput struct {
-	depinject.In
-
-	types.DistributionKeeper
-	types.StakingKeeper
-}
-
-type ProposerRewardsDepInjectOutput struct {
-	depinject.Out
-
-	RewardsAddressProvider types.RewardsAddressProvider
-}
-
-func ProvideProposerRewards(in ProposerRewardsDepInjectInput) ProposerRewardsDepInjectOutput {
-	rewardAddressProvider := NewProposerRewardsAddressProvider(
-		in.DistributionKeeper,
-		in.StakingKeeper,
-	)
-
-	return ProposerRewardsDepInjectOutput{RewardsAddressProvider: rewardAddressProvider}
+	return sdk.AccAddress(prevProposer.GetOperator()), nil
 }

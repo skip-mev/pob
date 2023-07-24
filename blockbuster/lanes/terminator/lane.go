@@ -99,6 +99,6 @@ func (t Terminator) Logger() log.Logger {
 }
 
 // GetMaxBlockSpace is a no-op
-func (t Terminator) GetMaxBlockSpace() sdk.Dec {
+func (t Terminator) GetMaxBlockSpace() math.LegacyDec {
 	return math.LegacyZeroDec()
 }

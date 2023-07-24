@@ -143,7 +143,7 @@ func (m *BBMempool) Registry() []Lane {
 
 // ValidateBasic validates the mempools configuration.
 func (m *BBMempool) ValidateBasic() error {
-	sum := sdk.NewDecFromInt(sdk.ZeroInt())
+	sum := math.LegacyZeroDec()
 	seenZeroMaxBlockSpace := false
 
 	for _, lane := range m.registry {

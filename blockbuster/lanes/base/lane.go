@@ -2,6 +2,7 @@ package base
 
 import (
 	"cosmossdk.io/log"
+	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/blockbuster"
 )
@@ -68,7 +69,7 @@ func (l *DefaultLane) SetAnteHandler(anteHandler sdk.AnteHandler) {
 }
 
 // GetMaxBlockSpace returns the maximum block space for the lane as a relative percentage.
-func (l *DefaultLane) GetMaxBlockSpace() sdk.Dec {
+func (l *DefaultLane) GetMaxBlockSpace() math.LegacyDec {
 	return l.Cfg.MaxBlockSpace
 }
 

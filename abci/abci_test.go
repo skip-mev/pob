@@ -126,7 +126,7 @@ func (suite *ABCITestSuite) SetupTest() {
 
 	// Accounts set up
 	suite.accounts = testutils.RandomAccounts(suite.random, 10)
-	suite.balance = sdk.NewCoin("foo", sdk.NewInt(1000000000000000000))
+	suite.balance = sdk.NewCoin("foo", math.NewInt(1000000000000000000))
 	suite.nonces = make(map[string]uint64)
 	for _, acc := range suite.accounts {
 		suite.nonces[acc.Address.String()] = 0
@@ -189,7 +189,7 @@ func (suite *ABCITestSuite) fillTOBLane(numTxs int, numBundledTxs int) {
 
 		// create a randomized auction transaction
 		nonce := suite.nonces[acc.Address.String()]
-		bidAmount := sdk.NewInt(int64(suite.random.Intn(1000) + 1))
+		bidAmount := math.NewInt(int64(suite.random.Intn(1000) + 1))
 		bid := sdk.NewCoin("foo", bidAmount)
 
 		signers := []testutils.Account{}

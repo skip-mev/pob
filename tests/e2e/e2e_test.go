@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/tests/app"
 )
@@ -28,7 +29,7 @@ func (s *IntegrationTestSuite) TestValidBids() {
 	accounts := s.createTestAccounts(numAccounts, initBalance)
 
 	// basic send amount
-	defaultSendAmount := sdk.NewCoins(sdk.NewCoin(app.BondDenom, sdk.NewInt(10)))
+	defaultSendAmount := sdk.NewCoins(sdk.NewCoin(app.BondDenom, math.NewInt(10)))
 
 	// auction parameters
 	params := s.queryBuilderParams()
@@ -39,7 +40,7 @@ func (s *IntegrationTestSuite) TestValidBids() {
 
 	// standard tx params
 	gasLimit := uint64(5000000)
-	fees := sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(150000)))
+	fees := sdk.NewCoins(sdk.NewCoin("stake", math.NewInt(150000)))
 
 	testCases := []struct {
 		name string
@@ -338,7 +339,7 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 	accounts := s.createTestAccounts(numAccounts, initBalance)
 
 	// basic send amount
-	defaultSendAmount := sdk.NewCoins(sdk.NewCoin(app.BondDenom, sdk.NewInt(10)))
+	defaultSendAmount := sdk.NewCoins(sdk.NewCoin(app.BondDenom, math.NewInt(10)))
 
 	// auction parameters
 	params := s.queryBuilderParams()
@@ -349,7 +350,7 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 
 	// standard tx params
 	gasLimit := uint64(5000000)
-	fees := sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(150000)))
+	fees := sdk.NewCoins(sdk.NewCoin("stake", math.NewInt(150000)))
 
 	testCases := []struct {
 		name string
@@ -378,7 +379,7 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 				bidTx := s.createAuctionBidTx(accounts[2], bid, bundle, 0, height+5, gasLimit, fees)
 
 				// Createa a second bid transaction that includes the bundle and is valid
-				bid2 := reserveFee.Add(sdk.NewCoin(app.BondDenom, sdk.NewInt(10)))
+				bid2 := reserveFee.Add(sdk.NewCoin(app.BondDenom, math.NewInt(10)))
 				bidTx2 := s.createAuctionBidTx(accounts[3], bid2, bundle2, 0, height+5, gasLimit, fees)
 
 				// Wait for a block to ensure all transactions are included in the same block
@@ -742,7 +743,7 @@ func (s *IntegrationTestSuite) TestInvalidBids() {
 	accounts := s.createTestAccounts(numAccounts, initBalance)
 
 	// basic send amount
-	defaultSendAmount := sdk.NewCoins(sdk.NewCoin(app.BondDenom, sdk.NewInt(10)))
+	defaultSendAmount := sdk.NewCoins(sdk.NewCoin(app.BondDenom, math.NewInt(10)))
 
 	// auction parameters
 	params := s.queryBuilderParams()
@@ -752,7 +753,7 @@ func (s *IntegrationTestSuite) TestInvalidBids() {
 
 	// standard tx params
 	gasLimit := uint64(5000000)
-	fees := sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(150000)))
+	fees := sdk.NewCoins(sdk.NewCoin("stake", math.NewInt(150000)))
 
 	testCases := []struct {
 		name string
@@ -795,7 +796,7 @@ func (s *IntegrationTestSuite) TestInvalidBids() {
 				}
 
 				// Create a bid transaction that includes the bundle that is attempting to bid more than their balance
-				bid := sdk.NewCoin(app.BondDenom, sdk.NewInt(999999999999999999))
+				bid := sdk.NewCoin(app.BondDenom, math.NewInt(999999999999999999))
 				height := s.queryCurrentHeight()
 				bidTx := s.createAuctionBidTx(accounts[1], bid, bundle, 0, height+1, gasLimit, fees)
 				s.broadcastTx(bidTx, 0)
@@ -1025,13 +1026,13 @@ func (s *IntegrationTestSuite) TestFreeLane() {
 	numAccounts := 4
 	accounts := s.createTestAccounts(numAccounts, initBalance)
 
-	defaultSendAmount := sdk.NewCoin(app.BondDenom, sdk.NewInt(10))
-	defaultStakeAmount := sdk.NewCoin(app.BondDenom, sdk.NewInt(10))
+	defaultSendAmount := sdk.NewCoin(app.BondDenom, math.NewInt(10))
+	defaultStakeAmount := sdk.NewCoin(app.BondDenom, math.NewInt(10))
 	defaultSendAmountCoins := sdk.NewCoins(defaultSendAmount)
 
 	// standard tx params
 	gasLimit := uint64(5000000)
-	fees := sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(150000)))
+	fees := sdk.NewCoins(sdk.NewCoin("stake", math.NewInt(150000)))
 
 	testCases := []struct {
 		name string
@@ -1146,8 +1147,8 @@ func (s *IntegrationTestSuite) TestLanes() {
 	numAccounts := 4
 	accounts := s.createTestAccounts(numAccounts, initBalance)
 
-	defaultSendAmount := sdk.NewCoin(app.BondDenom, sdk.NewInt(10))
-	defaultStakeAmount := sdk.NewCoin(app.BondDenom, sdk.NewInt(10))
+	defaultSendAmount := sdk.NewCoin(app.BondDenom, math.NewInt(10))
+	defaultStakeAmount := sdk.NewCoin(app.BondDenom, math.NewInt(10))
 	defaultSendAmountCoins := sdk.NewCoins(defaultSendAmount)
 
 	// auction parameters
@@ -1156,7 +1157,7 @@ func (s *IntegrationTestSuite) TestLanes() {
 
 	// standard tx params
 	gasLimit := uint64(5000000)
-	fees := sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(150000)))
+	fees := sdk.NewCoins(sdk.NewCoin("stake", math.NewInt(150000)))
 
 	testCases := []struct {
 		name string
@@ -1316,7 +1317,7 @@ func (s *IntegrationTestSuite) TestLanes() {
 				// basic free transaction
 				validators := s.queryValidators()
 				validator := validators[0]
-				freeTx := s.createMsgDelegateTx(accounts[0], validator.OperatorAddress, defaultStakeAmount, 0, 1000, gasLimit, sdk.NewCoins(sdk.NewCoin(app.BondDenom, sdk.NewInt(0)))) // Free transaction with no fees
+				freeTx := s.createMsgDelegateTx(accounts[0], validator.OperatorAddress, defaultStakeAmount, 0, 1000, gasLimit, sdk.NewCoins(sdk.NewCoin(app.BondDenom, math.NewInt(0)))) // Free transaction with no fees
 
 				// Create a bid transaction that includes the bundle and is invalid (out of sequence number)
 				bundle := [][]byte{
@@ -1359,10 +1360,10 @@ func (s *IntegrationTestSuite) TestLanes() {
 				// basic free transaction
 				validators := s.queryValidators()
 				validator := validators[0]
-				freeTx := s.createMsgDelegateTx(accounts[0], validator.OperatorAddress, defaultStakeAmount, 0, 1000, gasLimit, sdk.NewCoins(sdk.NewCoin(app.BondDenom, sdk.NewInt(0)))) // Free transaction with no fees
+				freeTx := s.createMsgDelegateTx(accounts[0], validator.OperatorAddress, defaultStakeAmount, 0, 1000, gasLimit, sdk.NewCoins(sdk.NewCoin(app.BondDenom, math.NewInt(0)))) // Free transaction with no fees
 
 				// Another free transaction that should be included in the block
-				freeTx2 := s.createMsgDelegateTx(accounts[0], validator.OperatorAddress, defaultStakeAmount, 1, 1000, gasLimit, sdk.NewCoins(sdk.NewCoin(app.BondDenom, sdk.NewInt(0)))) // Free transaction with no fees
+				freeTx2 := s.createMsgDelegateTx(accounts[0], validator.OperatorAddress, defaultStakeAmount, 1, 1000, gasLimit, sdk.NewCoins(sdk.NewCoin(app.BondDenom, math.NewInt(0)))) // Free transaction with no fees
 
 				// Create a bid transaction that includes the bundle and is invalid (out of sequence number)
 				bundle := [][]byte{

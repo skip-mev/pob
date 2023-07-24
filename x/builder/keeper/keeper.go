@@ -3,6 +3,7 @@ package keeper
 import (
 	"fmt"
 
+	"cosmossdk.io/math"
 	storetypes "cosmossdk.io/store/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -106,12 +107,7 @@ func (k Keeper) GetEscrowAccount(ctx sdk.Context) (sdk.AccAddress, error) {
 		return nil, err
 	}
 
-	account, err := sdk.AccAddressFromBech32(params.EscrowAccountAddress)
-	if err != nil {
-		return nil, err
-	}
-
-	return account, nil
+	return sdk.AccAddress(params.EscrowAccountAddress), nil
 }
 
 // GetReserveFee returns the reserve fee of the builder module.
@@ -135,10 +131,10 @@ func (k Keeper) GetMinBidIncrement(ctx sdk.Context) (sdk.Coin, error) {
 }
 
 // GetProposerFee returns the proposer fee for the builder module.
-func (k Keeper) GetProposerFee(ctx sdk.Context) (sdk.Dec, error) {
+func (k Keeper) GetProposerFee(ctx sdk.Context) (math.LegacyDec, error) {
 	params, err := k.GetParams(ctx)
 	if err != nil {
-		return sdk.NewDecFromInt(sdk.ZeroInt()), err
+		return math.LegacyNewDecFromInt(math.ZeroInt()), err
 	}
 
 	return params.ProposerFee, nil

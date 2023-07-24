@@ -58,7 +58,8 @@ type (
 	// BaseApp is an interface that allows us to call baseapp's CheckTx method
 	// as well as retrieve the latest committed state.
 	BaseApp interface {
-		GetFinalizeBlockStateCtx() sdk.Context
+		// GetContextForFinalizeBlock is utilized to retrieve the latest committed state.
+		GetContextForFinalizeBlock(tx []byte) sdk.Context
 
 		// CheckTx is baseapp's CheckTx method that checks the validity of a
 		// transaction.
@@ -119,7 +120,7 @@ func (handler *CheckTxHandler) CheckTx() CheckTx {
 		// We attempt to get the latest committed state in order to verify transactions
 		// as if they were to be executed at the top of the block. After verification, this
 		// context will be discarded and will not apply any state changes.
-		ctx := handler.baseApp.GetFinalizeBlockStateCtx()
+		ctx := handler.baseApp.GetContextForFinalizeBlock(req.Tx)
 
 		// Verify the bid transaction.
 		gasInfo, err := handler.ValidateBidTx(ctx, tx, bidInfo)
