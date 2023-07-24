@@ -62,7 +62,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/staking"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 
-	veabci "github.com/skip-mev/pob/abci"
 	"github.com/skip-mev/pob/blockbuster"
 	"github.com/skip-mev/pob/blockbuster/abci"
 	"github.com/skip-mev/pob/blockbuster/lanes/auction"
@@ -331,28 +330,13 @@ func New(
 	}
 	app.App.SetAnteHandler(anteHandler)
 
-	proposalHandler := veabci.NewProposalHandler(
-		[]blockbuster.Lane{
-			defaultLane,
-			freeLane,
-		},
-		tobLane,
+	proposalHandler := abci.NewProposalHandler(
 		app.Logger(),
-		app.txConfig.TxEncoder(),
 		app.txConfig.TxDecoder(),
-		veabci.NoOpValidateVoteExtensionsFn(),
+		mempool,
 	)
 	app.App.SetPrepareProposal(proposalHandler.PrepareProposalHandler())
 	app.App.SetProcessProposal(proposalHandler.ProcessProposalHandler())
-
-	voteExtensionHandler := veabci.NewVoteExtensionHandler(
-		app.Logger(),
-		tobLane,
-		app.txConfig.TxDecoder(),
-		app.txConfig.TxEncoder(),
-	)
-	app.App.SetExtendVoteHandler(voteExtensionHandler.ExtendVoteHandler())
-	app.App.SetVerifyVoteExtensionHandler(voteExtensionHandler.VerifyVoteExtensionHandler())
 
 	// Set the custom CheckTx handler on BaseApp.
 	checkTxHandler := abci.NewCheckTxHandler(
