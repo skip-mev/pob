@@ -64,3 +64,4 @@ jobs:
         if: env.GIT_DIFF
         run: |
           make test-e2e
+          make test-integration

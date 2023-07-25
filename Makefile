@@ -86,12 +86,28 @@ build-and-start-app: build-test-app
 .PHONY: build-test-app build-and-start-app
 
 ###############################################################################
+##                                Workspaces                                 ##
+###############################################################################
+
+use-main:
+	go work edit -use .
+
+use-integration:
+	go work edit -dropuse .
+	go work edit -use ./tests/integration
+
+.PHONY: docker-build docker-build-integration
+###############################################################################
 ##                                  Docker                                   ##
 ###############################################################################
 
-docker-build:
+docker-build: use-main
 	@echo "Building E2E Docker image..."
 	@DOCKER_BUILDKIT=1 docker build -t skip-mev/pob-e2e -f contrib/images/pob.e2e.Dockerfile .
+
+docker-build-integration: use-main
+	@echo "Building integration-test Docker image..."
+	@DOCKER_BUILDKIT=1 docker build -t pob-integration -f contrib/images/pob.integration.Dockerfile .
 
 ###############################################################################
 ###                                  Tests                                  ###
@@ -99,10 +115,16 @@ docker-build:
 
 TEST_E2E_TAGS = e2e
 TEST_E2E_DEPS = docker-build
+TEST_INTEGRATION_DEPS = docker-build-integration use-integration
+TEST_INTEGRATION_TAGS = integration
 
 test-e2e: $(TEST_E2E_DEPS)
 	@echo "Running E2E tests..."
 	@go test ./tests/e2e/... -mod=readonly -timeout 30m -race -v -tags='$(TEST_E2E_TAGS)'
+
+test-integration: $(TEST_INTEGRATION_DEPS)
+	@ echo "Running integration tests..."
+	@go test ./tests/integration/pob_integration_test.go -timeout 30m -race -v -tags='$(TEST_INTEGRATION_TAGS)'
 
 test:
 	@go test -v -race $(shell go list ./... | grep -v tests/)
