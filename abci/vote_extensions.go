@@ -84,7 +84,6 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() sdk.ExtendVoteHandler {
 					"err", err,
 				)
 
-				h.tobLane.Remove(bidTx)
 				continue
 			}
 
@@ -97,7 +96,6 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() sdk.ExtendVoteHandler {
 					"err", err,
 				)
 
-				h.tobLane.Remove(bidTx)
 				continue
 			}
 

@@ -57,6 +57,8 @@ func (s *IntegrationTestSuite) TestValidBids() {
 					s.createMsgSendTx(accounts[0], accounts[1].Address.String(), defaultSendAmount, 1, 1000, gasLimit, fees),
 				}
 
+				s.waitForABlock()
+
 				// Create a bid transaction that includes the bundle and is valid
 				bid := reserveFee
 				height := s.queryCurrentHeight()
@@ -91,6 +93,8 @@ func (s *IntegrationTestSuite) TestValidBids() {
 				for i := 0; i < int(maxBundleSize); i++ {
 					bundle[i] = s.createMsgSendTx(accounts[0], accounts[1].Address.String(), defaultSendAmount, uint64(i), 1000, gasLimit, fees)
 				}
+
+				s.waitForABlock()
 
 				// Create a bid transaction that includes the bundle and is valid
 				bid := reserveFee
