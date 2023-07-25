@@ -16,41 +16,41 @@ import (
 var (
 	// config params
 	numValidators = int(4)
-	denom = "stake"
+	denom         = "stake"
 
 	image = ibc.DockerImage{
 		Repository: "pob-integration",
-		Version: "latest",
-		UidGid: "1000:1000",
+		Version:    "latest",
+		UidGid:     "1000:1000",
 	}
 	encodingConfig = MakeEncodingConfig()
-	noHostMount = false
-	gasAdjustment = float64(2.0)
+	noHostMount    = false
+	gasAdjustment  = float64(2.0)
 
 	// interchain specification
 	spec = &interchaintest.ChainSpec{
-		ChainName: "pob",
-		Name: "pob",
+		ChainName:     "pob",
+		Name:          "pob",
 		NumValidators: &numValidators,
-		Version: "latest",
-		NoHostMount: &noHostMount,
+		Version:       "latest",
+		NoHostMount:   &noHostMount,
 		GasAdjustment: &gasAdjustment,
 		ChainConfig: ibc.ChainConfig{
 			EncodingConfig: encodingConfig,
 			Images: []ibc.DockerImage{
 				image,
 			},
-			Type: "cosmos",
-			Name: "pob",
-			Denom: denom,
-			ChainID: "pob-1",
-			Bin: "testappd",
-			Bech32Prefix: "cosmos",
-			CoinType: "118",
-			GasAdjustment: gasAdjustment,
-			GasPrices: fmt.Sprintf("0%s", denom),
-			TrustingPeriod: "48h",
-			NoHostMount: noHostMount,
+			Type:                   "cosmos",
+			Name:                   "pob",
+			Denom:                  denom,
+			ChainID:                "pob-1",
+			Bin:                    "testappd",
+			Bech32Prefix:           "cosmos",
+			CoinType:               "118",
+			GasAdjustment:          gasAdjustment,
+			GasPrices:              fmt.Sprintf("0%s", denom),
+			TrustingPeriod:         "48h",
+			NoHostMount:            noHostMount,
 			UsingNewGenesisCommand: true,
 		},
 	}
