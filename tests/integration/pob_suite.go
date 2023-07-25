@@ -52,3 +52,7 @@ func (s *POBIntegrationTestSuite) TearDownSuite() {
 	// close the interchain
 	s.ic.Close()
 }
+
+func (s *POBIntegrationTestSuite) TestTest() {
+	s.T().Log("testing test")
+}

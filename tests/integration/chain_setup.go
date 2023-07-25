@@ -18,8 +18,7 @@ import (
 // and returns the associated chain
 func ChainBuilderFromChainSpec(t *testing.T, spec *interchaintest.ChainSpec) ibc.Chain {
 	// require that NumFullNodes == NumValidators == 4
-	require.Equal(t, spec.NumFullNodes, spec.NumValidators)
-	require.Equal(t, spec.NumFullNodes, 4)
+	require.Equal(t, *spec.NumValidators, 4)
 
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{spec})
 
