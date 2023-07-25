@@ -116,6 +116,18 @@ func (s *IntegrationTestSuite) waitForABlock() {
 	)
 }
 
+// waitForNBlocks will wait until the current block height has increased by n blocks.
+func (s *IntegrationTestSuite) waitForNBlocks(n int) {
+	height := s.queryCurrentHeight()
+	s.Require().Eventually(
+		func() bool {
+			return s.queryCurrentHeight() >= height+uint64(n)
+		},
+		10*time.Second,
+		50*time.Millisecond,
+	)
+}
+
 // bundleToTxHashes converts a bundle to a slice of transaction hashes.
 func (s *IntegrationTestSuite) bundleToTxHashes(bidTx []byte, bundle [][]byte) []string {
 	hashes := make([]string, len(bundle)+1)
@@ -163,7 +175,7 @@ func (s *IntegrationTestSuite) verifyTopOfBlockAuction(height uint64, bundle []s
 
 	// Check that the block contains the expected transactions in the expected order
 	// iff the bid transaction was expected to execute.
-	if len(bundle) > 0 && expectedExecution[bundle[0]] {
+	if len(bundle) > 0 && len(expectedExecution) > 0 && expectedExecution[bundle[0]] {
 		if expectedExecution[bundle[0]] {
 			hashBz := sha256.Sum256(txs[0])
 			hash := hex.EncodeToString(hashBz[:])
@@ -259,14 +271,13 @@ func (s *IntegrationTestSuite) broadcastTx(tx []byte, valIdx int) {
 		gRPCURI,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
+	s.Require().NoError(err)
 
 	client := txtypes.NewServiceClient(grpcConn)
 
 	req := &txtypes.BroadcastTxRequest{TxBytes: tx, Mode: txtypes.BroadcastMode_BROADCAST_MODE_SYNC}
-	resp, err := client.BroadcastTx(context.Background(), req)
+	_, err = client.BroadcastTx(context.Background(), req)
 	s.Require().NoError(err)
-
-	fmt.Println(resp)
 }
 
 // queryTx queries a transaction by its hash and returns whether there was an

@@ -84,6 +84,7 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() sdk.ExtendVoteHandler {
 					"err", err,
 				)
 
+				h.tobLane.Remove(bidTx)
 				continue
 			}
 
@@ -96,10 +97,11 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() sdk.ExtendVoteHandler {
 					"err", err,
 				)
 
+				h.tobLane.Remove(bidTx)
 				continue
 			}
 
-			h.logger.Info("extended vote with auction transaction", "tx_hash", hash)
+			h.logger.Info("extending vote with auction transaction", "tx_hash", hash)
 			return &cometabci.ResponseExtendVote{VoteExtension: bidTxBz}, nil
 		}
 
@@ -177,6 +179,7 @@ func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() sdk.VerifyVoteExtens
 				"err", err,
 			)
 
+			h.tobLane.Remove(bidTx)
 			h.cache[hash] = err
 			return &cometabci.ResponseVerifyVoteExtension{Status: cometabci.ResponseVerifyVoteExtension_REJECT}, err
 		}

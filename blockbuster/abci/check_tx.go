@@ -5,7 +5,9 @@ import (
 	"fmt"
 
 	log "cosmossdk.io/log"
+	storetypes "cosmossdk.io/store/types"
 	cometabci "github.com/cometbft/cometbft/abci/types"
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/skip-mev/pob/x/builder/types"
@@ -55,8 +57,8 @@ type (
 	// BaseApp is an interface that allows us to call baseapp's CheckTx method
 	// as well as retrieve the latest committed state.
 	BaseApp interface {
-		// GetContextForFinalizeBlock is utilized to retrieve the latest committed state.
-		GetContextForFinalizeBlock(tx []byte) sdk.Context
+		// CommitMultiStore is utilized to retrieve the latest committed state.
+		CommitMultiStore() storetypes.CommitMultiStore
 
 		// CheckTx is baseapp's CheckTx method that checks the validity of a
 		// transaction.
@@ -64,6 +66,15 @@ type (
 
 		// Logger is utilized to log errors.
 		Logger() log.Logger
+
+		// LastBlockHeight is utilized to retrieve the latest block height.
+		LastBlockHeight() int64
+
+		// GetConsensusParams is utilized to retrieve the consensus params.
+		GetConsensusParams(ctx sdk.Context) cmtproto.ConsensusParams
+
+		// ChainID is utilized to retrieve the chain ID.
+		ChainID() string
 	}
 )
 
@@ -92,7 +103,12 @@ func (handler *CheckTxHandler) CheckTx() CheckTx {
 	return func(req *cometabci.RequestCheckTx) (resp *cometabci.ResponseCheckTx, err error) {
 		defer func() {
 			if rec := recover(); rec != nil {
-				err := fmt.Errorf("panic in check tx handler: %s", rec)
+				handler.baseApp.Logger().Error(
+					"panic in check tx handler",
+					"err", rec,
+				)
+
+				err = fmt.Errorf("panic in check tx handler: %s", rec)
 				resp = sdkerrors.ResponseCheckTxWithEvents(
 					err,
 					0,
@@ -146,14 +162,13 @@ func (handler *CheckTxHandler) CheckTx() CheckTx {
 				)
 			}
 
-			handler.baseApp.Logger().Info("executed check tx")
 			return resp, err
 		}
 
 		// We attempt to get the latest committed state in order to verify transactions
 		// as if they were to be executed at the top of the block. After verification, this
 		// context will be discarded and will not apply any state changes.
-		ctx, _ := handler.baseApp.GetContextForFinalizeBlock(req.Tx).CacheContext()
+		ctx := handler.GetContextForBidTx(req)
 
 		// Verify the bid transaction.
 		gasInfo, err := handler.ValidateBidTx(ctx, tx, bidInfo)
@@ -229,4 +244,36 @@ func (handler *CheckTxHandler) ValidateBidTx(ctx sdk.Context, bidTx sdk.Tx, bidI
 	}
 
 	return gasInfo, nil
+}
+
+// GetContextForBidTx is returns the latest committed state and sets the context given
+// the checkTx request.
+func (handler *CheckTxHandler) GetContextForBidTx(req *cometabci.RequestCheckTx) sdk.Context {
+	// Retrieve the commit multi-store which is used to retrieve the latest committed state.
+	ms := handler.baseApp.CommitMultiStore().CacheMultiStore()
+
+	// Create a new context based off of the latest committed state.
+	header := cmtproto.Header{
+		Height:  handler.baseApp.LastBlockHeight(),
+		ChainID: handler.baseApp.ChainID(),
+	}
+	ctx, _ := sdk.NewContext(ms, header, true, handler.baseApp.Logger()).CacheContext()
+
+	// Set the context to the correct checking mode.
+	switch req.Type {
+	case cometabci.CheckTxType_New:
+		ctx = ctx.WithIsCheckTx(true)
+	case cometabci.CheckTxType_Recheck:
+		ctx = ctx.WithIsReCheckTx(true)
+	default:
+		panic("unknown check tx type")
+	}
+
+	// Set the remaining important context values.
+	ctx = ctx.
+		WithTxBytes(req.Tx).
+		WithEventManager(sdk.NewEventManager()).
+		WithConsensusParams(handler.baseApp.GetConsensusParams(ctx))
+
+	return ctx
 }

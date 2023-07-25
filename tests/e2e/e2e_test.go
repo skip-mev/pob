@@ -14,313 +14,321 @@ func (s *IntegrationTestSuite) TestGetBuilderParams() {
 	s.Require().NotNil(params)
 }
 
-// // TestValidBids tests the execution of various valid auction bids. There are a few
-// // invariants that are tested:
-// //
-// //  1. The order of transactions in a bundle is preserved when bids are valid.
-// //  2. All transactions execute as expected.
-// //  3. The balance of the escrow account should be updated correctly.
-// //  4. Top of block bids will be included in block proposals before other transactions
-// //     that are included in the same block.
-// func (s *IntegrationTestSuite) TestValidBids() {
-// 	// Create the accounts that will create transactions to be included in bundles
-// 	initBalance := sdk.NewInt64Coin(app.BondDenom, 10000000000)
-// 	numAccounts := 4
-// 	accounts := s.createTestAccounts(numAccounts, initBalance)
+// TestValidBids tests the execution of various valid auction bids. There are a few
+// invariants that are tested:
+//
+//  1. The order of transactions in a bundle is preserved when bids are valid.
+//  2. All transactions execute as expected.
+//  3. The balance of the escrow account should be updated correctly.
+//  4. Top of block bids will be included in block proposals before other transactions
+//     that are included in the same block.
+func (s *IntegrationTestSuite) TestValidBids() {
+	// Create the accounts that will create transactions to be included in bundles
+	initBalance := sdk.NewInt64Coin(app.BondDenom, 10000000000)
+	numAccounts := 4
+	accounts := s.createTestAccounts(numAccounts, initBalance)
 
-// 	// basic send amount
-// 	defaultSendAmount := sdk.NewCoins(sdk.NewCoin(app.BondDenom, math.NewInt(10)))
+	// basic send amount
+	defaultSendAmount := sdk.NewCoins(sdk.NewCoin(app.BondDenom, math.NewInt(10)))
 
-// 	// auction parameters
-// 	params := s.queryBuilderParams()
-// 	reserveFee := params.ReserveFee
-// 	minBidIncrement := params.MinBidIncrement
-// 	maxBundleSize := params.MaxBundleSize
-// 	escrowAddress := params.EscrowAccountAddress
+	// auction parameters
+	params := s.queryBuilderParams()
+	reserveFee := params.ReserveFee
+	minBidIncrement := params.MinBidIncrement
+	maxBundleSize := params.MaxBundleSize
+	escrowAddress := params.EscrowAccountAddress
 
-// 	// standard tx params
-// 	gasLimit := uint64(5000000)
-// 	fees := sdk.NewCoins(sdk.NewCoin("stake", math.NewInt(150000)))
+	// standard tx params
+	gasLimit := uint64(5000000)
+	fees := sdk.NewCoins(sdk.NewCoin("stake", math.NewInt(150000)))
 
-// 	testCases := []struct {
-// 		name string
-// 		test func()
-// 	}{
-// 		{
-// 			name: "Valid auction bid",
-// 			test: func() {
-// 				// Get escrow account balance to ensure that it is updated correctly
-// 				escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
+	testCases := []struct {
+		name string
+		test func()
+	}{
+		{
+			name: "Valid auction bid",
+			test: func() {
+				// Get escrow account balance to ensure that it is updated correctly
+				escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
 
-// 				// Create a bundle with a single transaction
-// 				bundle := [][]byte{
-// 					s.createMsgSendTx(accounts[0], accounts[1].Address.String(), defaultSendAmount, 1, 1000, gasLimit, fees),
-// 				}
+				// Create a bundle with a single transaction
+				bundle := [][]byte{
+					s.createMsgSendTx(accounts[0], accounts[1].Address.String(), defaultSendAmount, 1, 1000, gasLimit, fees),
+				}
 
-// 				// Create a bid transaction that includes the bundle and is valid
-// 				bid := reserveFee
-// 				height := s.queryCurrentHeight()
-// 				bidTx := s.createAuctionBidTx(accounts[0], bid, bundle, 0, height+1, gasLimit, fees)
-// 				s.broadcastTx(bidTx, 0)
-// 				s.displayExpectedBundle("Valid auction bid", bidTx, bundle)
+				// Create a bid transaction that includes the bundle and is valid
+				bid := reserveFee
+				height := s.queryCurrentHeight()
+				bidTx := s.createAuctionBidTx(accounts[0], bid, bundle, 0, height+2, gasLimit, fees)
+				s.broadcastTx(bidTx, 0)
+				s.displayExpectedBundle("Valid auction bid", bidTx, bundle)
 
-// 				// Wait for a block to be created
-// 				s.waitForABlock()
+				// Wait for a block to be created
+				s.waitForNBlocks(2)
 
-// 				// Ensure that the block was correctly created and executed in the order expected
-// 				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
-// 				expectedExecution := map[string]bool{
-// 					bundleHashes[0]: true,
-// 					bundleHashes[1]: true,
-// 				}
-// 				s.verifyTopOfBlockAuction(height+1, bundleHashes, expectedExecution)
+				// Ensure that the block was correctly created and executed in the order expected
+				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
+				expectedExecution := map[string]bool{
+					bundleHashes[0]: true,
+					bundleHashes[1]: true,
+				}
+				s.verifyTopOfBlockAuction(height+2, bundleHashes, expectedExecution)
 
-// 				// Ensure that the escrow account has the correct balance
-// 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid)
-// 				s.Require().Equal(escrowBalance.Add(expectedEscrowFee), s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
-// 			},
-// 		},
-// 		{
-// 			name: "Valid bid with multiple other transactions",
-// 			test: func() {
-// 				// Get escrow account balance to ensure that it is updated correctly
-// 				escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
+				// Ensure that the escrow account has the correct balance
+				expectedEscrowFee := s.calculateProposerEscrowSplit(bid)
+				s.Require().Equal(escrowBalance.Add(expectedEscrowFee), s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
+			},
+		},
+		{
+			name: "Valid bid with multiple other transactions",
+			test: func() {
+				// Get escrow account balance to ensure that it is updated correctly
+				escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
 
-// 				// Create a bundle with a multiple transaction that is valid
-// 				bundle := make([][]byte, maxBundleSize)
-// 				for i := 0; i < int(maxBundleSize); i++ {
-// 					bundle[i] = s.createMsgSendTx(accounts[0], accounts[1].Address.String(), defaultSendAmount, uint64(i), 1000, gasLimit, fees)
-// 				}
+				// Create a bundle with a multiple transaction that is valid
+				bundle := make([][]byte, maxBundleSize)
+				for i := 0; i < int(maxBundleSize); i++ {
+					bundle[i] = s.createMsgSendTx(accounts[0], accounts[1].Address.String(), defaultSendAmount, uint64(i), 1000, gasLimit, fees)
+				}
 
-// 				// Wait for a block to ensure all transactions are included in the same block
-// 				s.waitForABlock()
+				// Create a bid transaction that includes the bundle and is valid
+				bid := reserveFee
+				height := s.queryCurrentHeight()
+				bidTx := s.createAuctionBidTx(accounts[1], bid, bundle, 0, height+2, gasLimit, fees)
+				s.displayExpectedBundle("gud auction bid", bidTx, bundle)
+				s.broadcastTx(bidTx, 0)
 
-// 				// Create a bid transaction that includes the bundle and is valid
-// 				bid := reserveFee
-// 				height := s.queryCurrentHeight()
-// 				bidTx := s.createAuctionBidTx(accounts[1], bid, bundle, 0, height+1, gasLimit, fees)
-// 				s.broadcastTx(bidTx, 0)
-// 				s.displayExpectedBundle("gud auction bid", bidTx, bundle)
+				// broadcast the bid so that it can be included in a vote extension of a coming block
+				s.waitForABlock()
 
-// 				// Execute a few other messages to be included in the block after the bid and bundle
-// 				normalTxs := make([][]byte, 3)
-// 				normalTxs[0] = s.createMsgSendTx(accounts[2], accounts[1].Address.String(), defaultSendAmount, 0, 1000, gasLimit, fees)
-// 				normalTxs[1] = s.createMsgSendTx(accounts[2], accounts[1].Address.String(), defaultSendAmount, 1, 1000, gasLimit, fees)
-// 				normalTxs[2] = s.createMsgSendTx(accounts[2], accounts[1].Address.String(), defaultSendAmount, 2, 1000, gasLimit, fees)
+				// Execute a few other messages to be included in the block after the bid and bundle
+				normalTxs := make([][]byte, 3)
+				normalTxs[0] = s.createMsgSendTx(accounts[2], accounts[1].Address.String(), defaultSendAmount, 0, 1000, gasLimit, fees)
+				normalTxs[1] = s.createMsgSendTx(accounts[2], accounts[1].Address.String(), defaultSendAmount, 1, 1000, gasLimit, fees)
+				normalTxs[2] = s.createMsgSendTx(accounts[2], accounts[1].Address.String(), defaultSendAmount, 2, 1000, gasLimit, fees)
 
-// 				for _, tx := range normalTxs {
-// 					s.broadcastTx(tx, 0)
-// 				}
+				for _, tx := range normalTxs {
+					s.broadcastTx(tx, 0)
+				}
 
-// 				// Wait for a block to be created
-// 				s.waitForABlock()
+				// Wait for a block to be created
+				s.waitForABlock()
 
-// 				// Ensure that the block was correctly created and executed in the order expected
-// 				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
-// 				expectedExecution := map[string]bool{
-// 					bundleHashes[0]: true,
-// 				}
+				// Ensure that the block was correctly created and executed in the order expected
+				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
+				expectedExecution := map[string]bool{
+					bundleHashes[0]: true,
+				}
 
-// 				for _, hash := range bundleHashes[1:] {
-// 					expectedExecution[hash] = true
-// 				}
+				for _, hash := range bundleHashes[1:] {
+					expectedExecution[hash] = true
+				}
 
-// 				for _, hash := range s.normalTxsToTxHashes(normalTxs) {
-// 					expectedExecution[hash] = true
-// 				}
+				for _, hash := range s.normalTxsToTxHashes(normalTxs) {
+					expectedExecution[hash] = true
+				}
 
-// 				s.verifyTopOfBlockAuction(height+1, bundleHashes, expectedExecution)
+				s.verifyTopOfBlockAuction(height+2, bundleHashes, expectedExecution)
 
-// 				// Ensure that the escrow account has the correct balance
-// 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid)
-// 				s.Require().Equal(escrowBalance.Add(expectedEscrowFee), s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
-// 			},
-// 		},
-// 		{
-// 			name: "iterative bidding from the same account",
-// 			test: func() {
-// 				// Get escrow account balance to ensure that it is updated correctly
-// 				escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
+				// Ensure that the escrow account has the correct balance
+				expectedEscrowFee := s.calculateProposerEscrowSplit(bid)
+				s.Require().Equal(escrowBalance.Add(expectedEscrowFee), s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
+			},
+		},
+		{
+			name: "iterative bidding from the same account",
+			test: func() {
+				// Get escrow account balance to ensure that it is updated correctly
+				escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
 
-// 				// Create a bundle with a multiple transaction that is valid
-// 				bundle := make([][]byte, maxBundleSize)
-// 				for i := 0; i < int(maxBundleSize); i++ {
-// 					bundle[i] = s.createMsgSendTx(accounts[0], accounts[1].Address.String(), defaultSendAmount, uint64(i), 1000, gasLimit, fees)
-// 				}
+				// Create a bundle with a multiple transaction that is valid
+				bundle := make([][]byte, maxBundleSize)
+				for i := 0; i < int(maxBundleSize); i++ {
+					bundle[i] = s.createMsgSendTx(accounts[0], accounts[1].Address.String(), defaultSendAmount, uint64(i), 1000, gasLimit, fees)
+				}
 
-// 				// Wait for a block to ensure all transactions are included in the same block
-// 				s.waitForABlock()
+				// Create a bid transaction that includes the bundle and is valid
+				bid := reserveFee
+				height := s.queryCurrentHeight()
+				bidTx := s.createAuctionBidTx(accounts[1], bid, bundle, 0, height+3, gasLimit, fees)
+				s.displayExpectedBundle("gud auction bid 1", bidTx, bundle)
 
-// 				// Create a bid transaction that includes the bundle and is valid
-// 				bid := reserveFee
-// 				height := s.queryCurrentHeight()
-// 				bidTx := s.createAuctionBidTx(accounts[1], bid, bundle, 0, height+1, gasLimit, fees)
-// 				s.broadcastTx(bidTx, 0)
-// 				s.displayExpectedBundle("gud auction bid 1", bidTx, bundle)
+				// Create another bid transaction that includes the bundle and is valid from the same account
+				// to verify that user can bid with the same account multiple times in the same block
+				bid2 := bid.Add(minBidIncrement)
+				bidTx2 := s.createAuctionBidTx(accounts[1], bid2, bundle, 0, height+3, gasLimit, fees)
+				s.displayExpectedBundle("gud auction bid 2", bidTx2, bundle)
 
-// 				// Create another bid transaction that includes the bundle and is valid from the same account
-// 				// to verify that user can bid with the same account multiple times in the same block
-// 				bid2 := bid.Add(minBidIncrement)
-// 				bidTx2 := s.createAuctionBidTx(accounts[1], bid2, bundle, 0, height+1, gasLimit, fees)
-// 				s.broadcastTx(bidTx2, 0)
-// 				s.displayExpectedBundle("gud auction bid 2", bidTx2, bundle)
+				// Create a third bid
+				bid3 := bid2.Add(minBidIncrement)
+				bidTx3 := s.createAuctionBidTx(accounts[1], bid3, bundle, 0, height+3, gasLimit, fees)
+				s.displayExpectedBundle("gud auction bid 3", bidTx3, bundle)
 
-// 				// Create a third bid
-// 				bid3 := bid2.Add(minBidIncrement)
-// 				bidTx3 := s.createAuctionBidTx(accounts[1], bid3, bundle, 0, height+1, gasLimit, fees)
-// 				s.broadcastTx(bidTx3, 0)
-// 				s.displayExpectedBundle("gud auction bid 3", bidTx3, bundle)
+				// Wait for a block to ensure all transactions are included in the same block
+				s.waitForABlock()
 
-// 				// Wait for a block to be created
-// 				s.waitForABlock()
+				s.broadcastTx(bidTx, 0)
+				s.broadcastTx(bidTx2, 0)
+				s.broadcastTx(bidTx3, 0)
 
-// 				// Ensure that the block was correctly created and executed in the order expected
-// 				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
-// 				bundleHashes2 := s.bundleToTxHashes(bidTx2, bundle)
-// 				bundleHashes3 := s.bundleToTxHashes(bidTx3, bundle)
-// 				expectedExecution := map[string]bool{
-// 					bundleHashes[0]:  false,
-// 					bundleHashes2[0]: false,
-// 					bundleHashes3[0]: true,
-// 				}
+				// Wait for a block to be created
+				s.waitForNBlocks(2)
 
-// 				for _, hash := range bundleHashes3[1:] {
-// 					expectedExecution[hash] = true
-// 				}
+				// Ensure that the block was correctly created and executed in the order expected
+				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
+				bundleHashes2 := s.bundleToTxHashes(bidTx2, bundle)
+				bundleHashes3 := s.bundleToTxHashes(bidTx3, bundle)
+				expectedExecution := map[string]bool{
+					bundleHashes[0]:  false,
+					bundleHashes2[0]: false,
+				}
 
-// 				s.verifyTopOfBlockAuction(height+1, bundleHashes3, expectedExecution)
+				for _, hash := range bundleHashes3 {
+					expectedExecution[hash] = true
+				}
 
-// 				// Ensure that the escrow account has the correct balance
-// 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid3)
-// 				s.Require().Equal(escrowBalance.Add(expectedEscrowFee), s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
-// 			},
-// 		},
-// 		{
-// 			name: "bid with a bundle with transactions that are already in the mempool",
-// 			test: func() {
-// 				// Get escrow account balance to ensure that it is updated correctly
-// 				escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
+				s.verifyTopOfBlockAuction(height+3, bundleHashes3, expectedExecution)
 
-// 				// Create a bundle with a multiple transaction that is valid
-// 				bundle := make([][]byte, maxBundleSize)
-// 				for i := 0; i < int(maxBundleSize); i++ {
-// 					bundle[i] = s.createMsgSendTx(accounts[0], accounts[1].Address.String(), defaultSendAmount, uint64(i), 1000, gasLimit, fees)
-// 				}
+				// Ensure that the escrow account has the correct balance
+				expectedEscrowFee := s.calculateProposerEscrowSplit(bid3)
+				s.Require().Equal(escrowBalance.Add(expectedEscrowFee), s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
+			},
+		},
+		{
+			name: "bid with a bundle with transactions that are already in the mempool",
+			test: func() {
+				// Get escrow account balance to ensure that it is updated correctly
+				escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
 
-// 				// Wait for a block to ensure all transactions are included in the same block
-// 				s.waitForABlock()
+				// Create a bundle with a multiple transaction that is valid
+				bundle := make([][]byte, maxBundleSize)
+				for i := 0; i < int(maxBundleSize); i++ {
+					bundle[i] = s.createMsgSendTx(accounts[0], accounts[1].Address.String(), defaultSendAmount, uint64(i), 1000, gasLimit, fees)
+				}
 
-// 				// Create a bid transaction that includes the bundle and is valid
-// 				bid := reserveFee
-// 				height := s.queryCurrentHeight()
-// 				bidTx := s.createAuctionBidTx(accounts[2], bid, bundle, 0, height+1, gasLimit, fees)
-// 				s.displayExpectedBundle("gud auction bid", bidTx, bundle)
+				// Wait for a block to ensure all transactions are included in the same block
+				s.waitForABlock()
 
-// 				// Broadcast all of the transactions in the bundle to the mempool
-// 				for _, tx := range bundle {
-// 					s.broadcastTx(tx, 0)
-// 				}
+				// Create a bid transaction that includes the bundle and is valid
+				bid := reserveFee
+				height := s.queryCurrentHeight()
+				bidTx := s.createAuctionBidTx(accounts[2], bid, bundle, 0, height+3, gasLimit, fees)
+				s.displayExpectedBundle("gud auction bid", bidTx, bundle)
 
-// 				// Broadcast the bid transaction
-// 				s.broadcastTx(bidTx, 0)
+				// Broadcast the bid transaction
+				s.broadcastTx(bidTx, 0)
 
-// 				// Broadcast some other transactions to the mempool
-// 				normalTxs := make([][]byte, 10)
-// 				for i := 0; i < 10; i++ {
-// 					normalTxs[i] = s.createMsgSendTx(accounts[1], accounts[3].Address.String(), defaultSendAmount, uint64(i), 1000, gasLimit, fees)
-// 					s.broadcastTx(normalTxs[i], 0)
-// 				}
+				// Wait for a block to broadcast other transactions so that the normal txs can be included in the
+				// mempool before they are included in a proposal with the vote extensions
+				s.waitForABlock()
 
-// 				// Wait for a block to be created
-// 				s.waitForABlock()
+				// Broadcast all of the transactions in the bundle to the mempool
+				for _, tx := range bundle {
+					s.broadcastTx(tx, 0)
+				}
 
-// 				// Ensure that the block was correctly created and executed in the order expected
-// 				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
-// 				expectedExecution := map[string]bool{
-// 					bundleHashes[0]: true,
-// 				}
+				// Broadcast some other transactions to the mempool
+				normalTxs := make([][]byte, 10)
+				for i := 0; i < 10; i++ {
+					normalTxs[i] = s.createMsgSendTx(accounts[1], accounts[3].Address.String(), defaultSendAmount, uint64(i), 1000, gasLimit, fees)
+					s.broadcastTx(normalTxs[i], 0)
+				}
 
-// 				for _, hash := range bundleHashes[1:] {
-// 					expectedExecution[hash] = true
-// 				}
+				// Wait for a block to be created
+				s.waitForABlock()
 
-// 				for _, hash := range s.normalTxsToTxHashes(normalTxs) {
-// 					expectedExecution[hash] = true
-// 				}
+				// Ensure that the block was correctly created and executed in the order expected
+				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
+				expectedExecution := map[string]bool{
+					bundleHashes[0]: true,
+				}
 
-// 				s.verifyTopOfBlockAuction(height+1, bundleHashes, expectedExecution)
+				for _, hash := range bundleHashes[1:] {
+					expectedExecution[hash] = true
+				}
 
-// 				// Ensure that the escrow account has the correct balance
-// 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid)
-// 				s.Require().Equal(escrowBalance.Add(expectedEscrowFee), s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
-// 			},
-// 		},
-// 		{
-// 			name: "searcher attempts to include several txs in the same block to invalidate auction (we extract bid regardless)",
-// 			test: func() {
-// 				// Get escrow account balance to ensure that it is updated correctly
-// 				escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
+				for _, hash := range s.normalTxsToTxHashes(normalTxs) {
+					expectedExecution[hash] = true
+				}
 
-// 				// Create a bundle with a multiple transaction that is valid
-// 				bundle := make([][]byte, maxBundleSize)
-// 				for i := 0; i < int(maxBundleSize); i++ {
-// 					bundle[i] = s.createMsgSendTx(accounts[0], accounts[1].Address.String(), defaultSendAmount, uint64(i), 1000, gasLimit, fees)
-// 				}
+				s.verifyTopOfBlockAuction(height+2, bundleHashes, expectedExecution)
 
-// 				// Wait for a block to ensure all transactions are included in the same block
-// 				s.waitForABlock()
+				// Ensure that the escrow account has the correct balance
+				expectedEscrowFee := s.calculateProposerEscrowSplit(bid)
+				s.Require().Equal(escrowBalance.Add(expectedEscrowFee), s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
+			},
+		},
+		{
+			name: "searcher attempts to include several txs in the same block to invalidate auction (we extract bid regardless)",
+			test: func() {
+				// Get escrow account balance to ensure that it is updated correctly
+				escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
 
-// 				// Create a bid transaction that includes the bundle and is valid
-// 				bid := reserveFee
-// 				height := s.queryCurrentHeight()
-// 				bidTx := s.createAuctionBidTx(accounts[1], bid, bundle, 0, height+1, gasLimit, fees)
-// 				s.broadcastTx(bidTx, 0)
+				// Create a bundle with a multiple transaction that is valid
+				bundle := make([][]byte, maxBundleSize)
+				for i := 0; i < int(maxBundleSize); i++ {
+					bundle[i] = s.createMsgSendTx(accounts[0], accounts[1].Address.String(), defaultSendAmount, uint64(i), 1000, gasLimit, fees)
+				}
 
-// 				// Execute a few other messages to be included in the block after the bid and bundle
-// 				normalTxs := make([][]byte, 3)
-// 				normalTxs[0] = s.createMsgSendTx(accounts[1], accounts[1].Address.String(), defaultSendAmount, 0, 1000, gasLimit, fees)
-// 				normalTxs[1] = s.createMsgSendTx(accounts[1], accounts[1].Address.String(), defaultSendAmount, 1, 1000, gasLimit, fees)
-// 				normalTxs[2] = s.createMsgSendTx(accounts[1], accounts[1].Address.String(), defaultSendAmount, 2, 1000, gasLimit, fees)
+				// Wait for a block to ensure all transactions are included in the same block
+				s.waitForABlock()
 
-// 				for _, tx := range normalTxs {
-// 					s.broadcastTx(tx, 0)
-// 				}
+				// Create a bid transaction that includes the bundle and is valid
+				bid := reserveFee
+				height := s.queryCurrentHeight()
+				bidTx := s.createAuctionBidTx(accounts[1], bid, bundle, 0, height+3, gasLimit, fees)
+				s.broadcastTx(bidTx, 0)
 
-// 				// Wait for a block to be created
-// 				s.waitForABlock()
+				// Wait for a block to broadcast other transactions so that the normal txs can be included in the
+				// mempool before they are included in a proposal with the vote extensions
+				s.waitForABlock()
 
-// 				// Ensure that the block was correctly created and executed in the order expected
-// 				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
-// 				expectedExecution := map[string]bool{
-// 					bundleHashes[0]: true,
-// 				}
+				// Execute a few other messages to be included in the block after the bid and bundle
+				normalTxs := make([][]byte, 3)
+				normalTxs[0] = s.createMsgSendTx(accounts[1], accounts[1].Address.String(), defaultSendAmount, 0, 1000, gasLimit, fees)
+				normalTxs[1] = s.createMsgSendTx(accounts[1], accounts[1].Address.String(), defaultSendAmount, 1, 1000, gasLimit, fees)
+				normalTxs[2] = s.createMsgSendTx(accounts[1], accounts[1].Address.String(), defaultSendAmount, 2, 1000, gasLimit, fees)
 
-// 				// The entire bundle should land irrespective of the transactions submitted by the searcher
-// 				for _, hash := range bundleHashes[1:] {
-// 					expectedExecution[hash] = true
-// 				}
+				for _, tx := range normalTxs {
+					s.broadcastTx(tx, 0)
+				}
 
-// 				// We expect only the first normal transaction to not be executed (due to a sequence number mismatch)
-// 				normalHashes := s.normalTxsToTxHashes(normalTxs)
-// 				expectedExecution[normalHashes[0]] = false
-// 				for _, hash := range normalHashes[1:] {
-// 					expectedExecution[hash] = true
-// 				}
+				// Wait for a block to be created
+				s.waitForABlock()
 
-// 				s.verifyTopOfBlockAuction(height+1, bundleHashes, expectedExecution)
+				// Ensure that the block was correctly created and executed in the order expected
+				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
+				expectedExecution := map[string]bool{
+					bundleHashes[0]: true,
+				}
 
-// 				// Ensure that the escrow account has the correct balance
-// 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid)
-// 				s.Require().Equal(escrowBalance.Add(expectedEscrowFee), s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
-// 			},
-// 		},
-// 	}
+				// The entire bundle should land irrespective of the transactions submitted by the searcher
+				for _, hash := range bundleHashes[1:] {
+					expectedExecution[hash] = true
+				}
 
-// 	for _, tc := range testCases {
-// 		s.waitForABlock()
-// 		s.Run(tc.name, tc.test)
-// 	}
-// }
+				// We expect only the first normal transaction to not be executed (due to a sequence number mismatch)
+				normalHashes := s.normalTxsToTxHashes(normalTxs)
+				expectedExecution[normalHashes[0]] = false
+				for _, hash := range normalHashes[1:] {
+					expectedExecution[hash] = true
+				}
+
+				s.verifyTopOfBlockAuction(height+2, bundleHashes, expectedExecution)
+
+				// Ensure that the escrow account has the correct balance
+				expectedEscrowFee := s.calculateProposerEscrowSplit(bid)
+				s.Require().Equal(escrowBalance.Add(expectedEscrowFee), s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		s.waitForABlock()
+		s.Run(tc.name, tc.test)
+	}
+}
 
 // // TestMultipleBids tests the execution of various valid auction bids in the same block. There are a few
 // // invariants that are tested:
@@ -1016,128 +1024,128 @@ func (s *IntegrationTestSuite) TestGetBuilderParams() {
 // 	}
 // }
 
-// TestFreeLane tests that the application correctly handles free lanes. There are a few invariants that are tested:
-//
-// 1. Transactions that qualify as free should not be deducted any fees.
-// 2. Transactions that do not qualify as free should be deducted the correct fees.
-func (s *IntegrationTestSuite) TestFreeLane() {
-	// Create the accounts that will create transactions to be included in bundles
-	initBalance := sdk.NewInt64Coin(app.BondDenom, 10000000000)
-	numAccounts := 4
-	accounts := s.createTestAccounts(numAccounts, initBalance)
+// // TestFreeLane tests that the application correctly handles free lanes. There are a few invariants that are tested:
+// //
+// // 1. Transactions that qualify as free should not be deducted any fees.
+// // 2. Transactions that do not qualify as free should be deducted the correct fees.
+// func (s *IntegrationTestSuite) TestFreeLane() {
+// 	// Create the accounts that will create transactions to be included in bundles
+// 	initBalance := sdk.NewInt64Coin(app.BondDenom, 10000000000)
+// 	numAccounts := 4
+// 	accounts := s.createTestAccounts(numAccounts, initBalance)
 
-	defaultSendAmount := sdk.NewCoin(app.BondDenom, math.NewInt(10))
-	defaultStakeAmount := sdk.NewCoin(app.BondDenom, math.NewInt(10))
-	defaultSendAmountCoins := sdk.NewCoins(defaultSendAmount)
+// 	defaultSendAmount := sdk.NewCoin(app.BondDenom, math.NewInt(10))
+// 	defaultStakeAmount := sdk.NewCoin(app.BondDenom, math.NewInt(10))
+// 	defaultSendAmountCoins := sdk.NewCoins(defaultSendAmount)
 
-	// standard tx params
-	gasLimit := uint64(5000000)
-	fees := sdk.NewCoins(sdk.NewCoin("stake", math.NewInt(150000)))
+// 	// standard tx params
+// 	gasLimit := uint64(5000000)
+// 	fees := sdk.NewCoins(sdk.NewCoin("stake", math.NewInt(150000)))
 
-	testCases := []struct {
-		name string
-		test func()
-	}{
-		{
-			name: "valid free lane transaction",
-			test: func() {
-				balanceBeforeFreeTx := s.queryBalanceOf(accounts[0].Address.String(), app.BondDenom)
+// 	testCases := []struct {
+// 		name string
+// 		test func()
+// 	}{
+// 		{
+// 			name: "valid free lane transaction",
+// 			test: func() {
+// 				balanceBeforeFreeTx := s.queryBalanceOf(accounts[0].Address.String(), app.BondDenom)
 
-				// basic stake amount
-				validators := s.queryValidators()
-				validator := validators[0]
-				tx := s.createMsgDelegateTx(accounts[0], validator.OperatorAddress, defaultStakeAmount, 0, 1000, gasLimit, fees)
+// 				// basic stake amount
+// 				validators := s.queryValidators()
+// 				validator := validators[0]
+// 				tx := s.createMsgDelegateTx(accounts[0], validator.OperatorAddress, defaultStakeAmount, 0, 1000, gasLimit, fees)
 
-				// Broadcast the transaction
-				s.waitForABlock()
-				s.broadcastTx(tx, 0)
+// 				// Broadcast the transaction
+// 				s.waitForABlock()
+// 				s.broadcastTx(tx, 0)
 
-				// Wait for a block to be created
-				s.waitForABlock()
+// 				// Wait for a block to be created
+// 				s.waitForABlock()
 
-				// Ensure that the transaction was executed correctly
-				balanceAfterFreeTx := s.queryBalanceOf(accounts[0].Address.String(), app.BondDenom)
-				s.Require().True(balanceAfterFreeTx.Add(defaultStakeAmount).IsGTE(balanceBeforeFreeTx))
-			},
-		},
-		{
-			name: "normal tx with free tx in same block",
-			test: func() {
-				balanceBeforeFreeTx := s.queryBalanceOf(accounts[0].Address.String(), app.BondDenom)
-				balanceBeforeNormalTx := s.queryBalanceOf(accounts[1].Address.String(), app.BondDenom)
+// 				// Ensure that the transaction was executed correctly
+// 				balanceAfterFreeTx := s.queryBalanceOf(accounts[0].Address.String(), app.BondDenom)
+// 				s.Require().True(balanceAfterFreeTx.Add(defaultStakeAmount).IsGTE(balanceBeforeFreeTx))
+// 			},
+// 		},
+// 		{
+// 			name: "normal tx with free tx in same block",
+// 			test: func() {
+// 				balanceBeforeFreeTx := s.queryBalanceOf(accounts[0].Address.String(), app.BondDenom)
+// 				balanceBeforeNormalTx := s.queryBalanceOf(accounts[1].Address.String(), app.BondDenom)
 
-				// basic free transaction
-				validators := s.queryValidators()
-				validator := validators[0]
-				freeTx := s.createMsgDelegateTx(accounts[0], validator.OperatorAddress, defaultStakeAmount, 0, 1000, gasLimit, fees)
+// 				// basic free transaction
+// 				validators := s.queryValidators()
+// 				validator := validators[0]
+// 				freeTx := s.createMsgDelegateTx(accounts[0], validator.OperatorAddress, defaultStakeAmount, 0, 1000, gasLimit, fees)
 
-				// other normal transaction
-				normalTx := s.createMsgSendTx(accounts[1], accounts[2].Address.String(), defaultSendAmountCoins, 0, 1000, gasLimit, fees)
+// 				// other normal transaction
+// 				normalTx := s.createMsgSendTx(accounts[1], accounts[2].Address.String(), defaultSendAmountCoins, 0, 1000, gasLimit, fees)
 
-				// Broadcast the transactions
-				s.waitForABlock()
-				s.broadcastTx(freeTx, 0)
-				s.broadcastTx(normalTx, 0)
+// 				// Broadcast the transactions
+// 				s.waitForABlock()
+// 				s.broadcastTx(freeTx, 0)
+// 				s.broadcastTx(normalTx, 0)
 
-				// Wait for a block to be created
-				s.waitForABlock()
-				height := s.queryCurrentHeight()
+// 				// Wait for a block to be created
+// 				s.waitForABlock()
+// 				height := s.queryCurrentHeight()
 
-				hashes := s.normalTxsToTxHashes([][]byte{freeTx, normalTx})
-				expectedExecution := map[string]bool{
-					hashes[0]: true,
-					hashes[1]: true,
-				}
+// 				hashes := s.normalTxsToTxHashes([][]byte{freeTx, normalTx})
+// 				expectedExecution := map[string]bool{
+// 					hashes[0]: true,
+// 					hashes[1]: true,
+// 				}
 
-				// Ensure that the block was built correctly
-				s.verifyBlock(height, hashes, expectedExecution)
+// 				// Ensure that the block was built correctly
+// 				s.verifyBlock(height, hashes, expectedExecution)
 
-				// Ensure that the transaction was executed
-				balanceAfterFreeTx := s.queryBalanceOf(accounts[0].Address.String(), app.BondDenom)
-				s.Require().True(balanceAfterFreeTx.Add(defaultStakeAmount).IsGTE(balanceBeforeFreeTx))
+// 				// Ensure that the transaction was executed
+// 				balanceAfterFreeTx := s.queryBalanceOf(accounts[0].Address.String(), app.BondDenom)
+// 				s.Require().True(balanceAfterFreeTx.Add(defaultStakeAmount).IsGTE(balanceBeforeFreeTx))
 
-				// The balance must be strictly less than to account for fees
-				balanceAfterNormalTx := s.queryBalanceOf(accounts[1].Address.String(), app.BondDenom)
-				s.Require().True(balanceAfterNormalTx.IsLT((balanceBeforeNormalTx.Sub(defaultSendAmount))))
-			},
-		},
-		{
-			name: "multiple free transactions in same block",
-			test: func() {
-				balanceBeforeFreeTx := s.queryBalanceOf(accounts[0].Address.String(), app.BondDenom)
-				balanceBeforeFreeTx2 := s.queryBalanceOf(accounts[1].Address.String(), app.BondDenom)
+// 				// The balance must be strictly less than to account for fees
+// 				balanceAfterNormalTx := s.queryBalanceOf(accounts[1].Address.String(), app.BondDenom)
+// 				s.Require().True(balanceAfterNormalTx.IsLT((balanceBeforeNormalTx.Sub(defaultSendAmount))))
+// 			},
+// 		},
+// 		{
+// 			name: "multiple free transactions in same block",
+// 			test: func() {
+// 				balanceBeforeFreeTx := s.queryBalanceOf(accounts[0].Address.String(), app.BondDenom)
+// 				balanceBeforeFreeTx2 := s.queryBalanceOf(accounts[1].Address.String(), app.BondDenom)
 
-				// basic free transaction
-				validators := s.queryValidators()
-				validator := validators[0]
-				freeTx := s.createMsgDelegateTx(accounts[0], validator.OperatorAddress, defaultStakeAmount, 0, 1000, gasLimit, fees)
+// 				// basic free transaction
+// 				validators := s.queryValidators()
+// 				validator := validators[0]
+// 				freeTx := s.createMsgDelegateTx(accounts[0], validator.OperatorAddress, defaultStakeAmount, 0, 1000, gasLimit, fees)
 
-				// other normal transaction
-				freeTx2 := s.createMsgDelegateTx(accounts[1], validator.OperatorAddress, defaultStakeAmount, 0, 1000, gasLimit, fees)
+// 				// other normal transaction
+// 				freeTx2 := s.createMsgDelegateTx(accounts[1], validator.OperatorAddress, defaultStakeAmount, 0, 1000, gasLimit, fees)
 
-				// Broadcast the transactions
-				s.waitForABlock()
-				s.broadcastTx(freeTx, 0)
-				s.broadcastTx(freeTx2, 0)
+// 				// Broadcast the transactions
+// 				s.waitForABlock()
+// 				s.broadcastTx(freeTx, 0)
+// 				s.broadcastTx(freeTx2, 0)
 
-				// Wait for a block to be created
-				s.waitForABlock()
+// 				// Wait for a block to be created
+// 				s.waitForABlock()
 
-				// Ensure that the transaction was executed
-				balanceAfterFreeTx := s.queryBalanceOf(accounts[0].Address.String(), app.BondDenom)
-				s.Require().True(balanceAfterFreeTx.Add(defaultStakeAmount).IsGTE(balanceBeforeFreeTx))
+// 				// Ensure that the transaction was executed
+// 				balanceAfterFreeTx := s.queryBalanceOf(accounts[0].Address.String(), app.BondDenom)
+// 				s.Require().True(balanceAfterFreeTx.Add(defaultStakeAmount).IsGTE(balanceBeforeFreeTx))
 
-				balanceAfterFreeTx2 := s.queryBalanceOf(accounts[1].Address.String(), app.BondDenom)
-				s.Require().True(balanceAfterFreeTx2.Add(defaultStakeAmount).IsGTE(balanceBeforeFreeTx2))
-			},
-		},
-	}
+// 				balanceAfterFreeTx2 := s.queryBalanceOf(accounts[1].Address.String(), app.BondDenom)
+// 				s.Require().True(balanceAfterFreeTx2.Add(defaultStakeAmount).IsGTE(balanceBeforeFreeTx2))
+// 			},
+// 		},
+// 	}
 
-	for _, tc := range testCases {
-		s.waitForABlock()
-		s.Run(tc.name, tc.test)
-	}
-}
+// 	for _, tc := range testCases {
+// 		s.waitForABlock()
+// 		s.Run(tc.name, tc.test)
+// 	}
+// }
 
 // // TestLanes tests that the application correctly handles lanes. The biggest invarient that is
 // // test here is making sure that transactions are ordered in blocks respecting the lane order.

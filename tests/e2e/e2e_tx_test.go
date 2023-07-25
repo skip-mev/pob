@@ -129,7 +129,8 @@ func (s *IntegrationTestSuite) createTx(account TestAccount, msgs []sdk.Msg, seq
 
 	s.Require().NoError(txBuilder.SetMsgs(msgs...))
 	txBuilder.SetFeeAmount(fees)
-	txBuilder.SetGasLimit(200_000)
+	txBuilder.SetGasLimit(gasLimit)
+	txBuilder.SetTimeoutHeight(height)
 
 	signerData := authsigning.SignerData{
 		ChainID:       app.ChainID,
