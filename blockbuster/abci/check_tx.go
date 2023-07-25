@@ -135,6 +135,7 @@ func (handler *CheckTxHandler) CheckTx() CheckTx {
 		// as if they were to be executed at the top of the block. After verification, this
 		// context will be discarded and will not apply any state changes.
 		ctx, _ := handler.baseApp.GetContextForFinalizeBlock(req.Tx).CacheContext()
+		ctx = ctx.WithExecMode(sdk.ExecModeCheck)
 
 		// Verify the bid transaction.
 		gasInfo, err := handler.ValidateBidTx(ctx, tx, bidInfo)
