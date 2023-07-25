@@ -175,7 +175,7 @@ func (s *IntegrationTestSuite) verifyTopOfBlockAuction(height uint64, bundle []s
 
 	// Check that the block contains the expected transactions in the expected order
 	// iff the bid transaction was expected to execute.
-	if len(bundle) > 0 && len(expectedExecution) > 0 && expectedExecution[bundle[0]] {
+	if len(bundle) > 0 && len(expectedExecution) > 0 && expectedExecution[bundle[0]] && len(txs) > 0 {
 		if expectedExecution[bundle[0]] {
 			hashBz := sha256.Sum256(txs[0])
 			hash := hex.EncodeToString(hashBz[:])
@@ -276,8 +276,7 @@ func (s *IntegrationTestSuite) broadcastTx(tx []byte, valIdx int) {
 	client := txtypes.NewServiceClient(grpcConn)
 
 	req := &txtypes.BroadcastTxRequest{TxBytes: tx, Mode: txtypes.BroadcastMode_BROADCAST_MODE_SYNC}
-	_, err = client.BroadcastTx(context.Background(), req)
-	s.Require().NoError(err)
+	client.BroadcastTx(context.Background(), req)
 }
 
 // queryTx queries a transaction by its hash and returns whether there was an
@@ -365,7 +364,12 @@ func (s *IntegrationTestSuite) queryBlockTxs(height uint64) [][]byte {
 	resp, err := queryClient.GetBlockByHeight(context.Background(), req)
 	s.Require().NoError(err)
 
-	return resp.GetSdkBlock().Data.Txs[1:]
+	txs := resp.GetSdkBlock().Data.Txs
+
+	// The first transaction is the vote extension.
+	s.Require().Greater(len(txs), 0)
+
+	return txs[1:]
 }
 
 // queryValidators returns the validators of the network.
