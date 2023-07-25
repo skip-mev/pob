@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/cosmos/cosmos-sdk/client/tx"
@@ -116,4 +117,23 @@ func BroadcastMsg(t *testing.T, ctx context.Context, sender cosmos.User, chain *
 	resp, err := cosmos.BroadcastTx(ctx, broadcaster, sender, msgs...)
 	require.NoError(t, err)
 	return resp
+}
+
+// QueryBuilderParams queries the x/builder module's params
+func QueryBuilderParams(t *testing.T, chain ibc.Chain) buildertypes.Params {
+	// cast chain to cosmos-chain
+	cosmosChain, ok := chain.(*cosmos.CosmosChain)
+	require.True(t, ok)
+	// get nodes
+	nodes := cosmosChain.Nodes()
+	require.True(t, len(nodes) > 0)
+	// make params query to first node
+	resp, _, err := nodes[0].ExecQuery(context.Background(), "builder", "params")
+	require.NoError(t, err)
+
+	// unmarshal params
+	var params buildertypes.Params
+	err = json.Unmarshal(resp, &params)
+	require.NoError(t, err)
+	return params
 }
