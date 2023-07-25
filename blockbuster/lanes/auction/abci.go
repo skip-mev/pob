@@ -130,8 +130,11 @@ selectBidTxLoop:
 // ProcessLane will ensure that block proposals that include transactions from
 // the top-of-block auction lane are valid.
 func (l *TOBLane) ProcessLane(ctx sdk.Context, txs []sdk.Tx, next blockbuster.ProcessLanesHandler) (sdk.Context, error) {
-	bidTx := txs[0]
+	if len(txs) == 0 {
+		return next(ctx, txs)
+	}
 
+	bidTx := txs[0]
 	if !l.Match(bidTx) {
 		return next(ctx, txs)
 	}
@@ -154,6 +157,10 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, txs []sdk.Tx, next blockbuster.Pr
 //     they were included in the bid transaction.
 //   - there are no other bid transactions in the proposal
 func (l *TOBLane) ProcessLaneBasic(txs []sdk.Tx) error {
+	if len(txs) == 0 {
+		return nil
+	}
+
 	bidTx := txs[0]
 
 	// If there is a bid transaction, it must be the first transaction in the block proposal.

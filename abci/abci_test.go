@@ -66,7 +66,7 @@ func (suite *ABCITestSuite) SetupTest() {
 	suite.key = storetypes.NewKVStoreKey(buildertypes.StoreKey)
 	testCtx := testutil.DefaultContextWithDB(suite.T(), suite.key, storetypes.NewTransientStoreKey("transient_test"))
 	suite.ctx = testCtx.Ctx.WithBlockHeight(10)
-	suite.logger = log.NewNopLogger()
+	suite.logger = log.NewTestLogger(suite.T())
 
 	suite.ctx = suite.ctx.WithConsensusParams(cmtproto.ConsensusParams{
 		Abci: &cmtproto.ABCIParams{
@@ -126,7 +126,7 @@ func (suite *ABCITestSuite) SetupTest() {
 
 	// Accounts set up
 	suite.accounts = testutils.RandomAccounts(suite.random, 10)
-	suite.balance = sdk.NewCoin("foo", math.NewInt(1000000000000000000))
+	suite.balance = sdk.NewCoin("stake", math.NewInt(1000000000000000000))
 	suite.nonces = make(map[string]uint64)
 	for _, acc := range suite.accounts {
 		suite.nonces[acc.Address.String()] = 0
@@ -134,7 +134,10 @@ func (suite *ABCITestSuite) SetupTest() {
 
 	// Proposal handler set up
 	suite.proposalHandler = abci.NewProposalHandler(
-		[]blockbuster.Lane{suite.baseLane}, // only the base lane is used for proposal handling
+		[]blockbuster.Lane{
+			suite.tobLane,
+			suite.baseLane,
+		},
 		suite.tobLane,
 		suite.logger,
 		suite.encodingConfig.TxConfig.TxEncoder(),
@@ -190,7 +193,7 @@ func (suite *ABCITestSuite) fillTOBLane(numTxs int, numBundledTxs int) {
 		// create a randomized auction transaction
 		nonce := suite.nonces[acc.Address.String()]
 		bidAmount := math.NewInt(int64(suite.random.Intn(1000) + 1))
-		bid := sdk.NewCoin("foo", bidAmount)
+		bid := sdk.NewCoin("stake", bidAmount)
 
 		signers := []testutils.Account{}
 		for j := 0; j < numBundledTxs; j++ {

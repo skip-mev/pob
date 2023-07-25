@@ -13,7 +13,7 @@ import (
 func (suite *ABCITestSuite) TestExtendVoteExtensionHandler() {
 	params := types.Params{
 		MaxBundleSize:          5,
-		ReserveFee:             sdk.NewCoin("foo", math.NewInt(10)),
+		ReserveFee:             sdk.NewCoin("stake", math.NewInt(10)),
 		FrontRunningProtection: true,
 	}
 
@@ -45,7 +45,7 @@ func (suite *ABCITestSuite) TestExtendVoteExtensionHandler() {
 			"mempool with invalid auction transaction (invalid bid)",
 			func() []byte {
 				bidder := suite.accounts[0]
-				bid := params.ReserveFee.Sub(sdk.NewCoin("foo", math.NewInt(1)))
+				bid := params.ReserveFee.Sub(sdk.NewCoin("stake", math.NewInt(1)))
 				signers := []testutils.Account{bidder}
 				timeout := 1
 
@@ -61,7 +61,7 @@ func (suite *ABCITestSuite) TestExtendVoteExtensionHandler() {
 		{
 			"mempool contains only invalid auction bids (bid is too low)",
 			func() []byte {
-				params.ReserveFee = sdk.NewCoin("foo", math.NewInt(10000000000000000))
+				params.ReserveFee = sdk.NewCoin("stake", math.NewInt(10000000000000000))
 				err := suite.builderKeeper.SetParams(suite.ctx, params)
 				suite.Require().NoError(err)
 
@@ -90,7 +90,7 @@ func (suite *ABCITestSuite) TestExtendVoteExtensionHandler() {
 		{
 			"top bid is invalid but next best is valid",
 			func() []byte {
-				params.ReserveFee = sdk.NewCoin("foo", math.NewInt(10))
+				params.ReserveFee = sdk.NewCoin("stake", math.NewInt(10))
 
 				bidder := suite.accounts[0]
 				bid := params.ReserveFee.Add(params.ReserveFee)
@@ -145,7 +145,7 @@ func (suite *ABCITestSuite) TestExtendVoteExtensionHandler() {
 func (suite *ABCITestSuite) TestVerifyVoteExtensionHandler() {
 	params := types.Params{
 		MaxBundleSize:          5,
-		ReserveFee:             sdk.NewCoin("foo", math.NewInt(100)),
+		ReserveFee:             sdk.NewCoin("stake", math.NewInt(100)),
 		FrontRunningProtection: true,
 	}
 
@@ -188,7 +188,7 @@ func (suite *ABCITestSuite) TestVerifyVoteExtensionHandler() {
 			"invalid extension with bid tx with bad timeout",
 			func() *cometabci.RequestVerifyVoteExtension {
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("foo", math.NewInt(10))
+				bid := sdk.NewCoin("stake", math.NewInt(10))
 				signers := []testutils.Account{bidder}
 				timeout := 0
 
@@ -203,7 +203,7 @@ func (suite *ABCITestSuite) TestVerifyVoteExtensionHandler() {
 			"invalid vote extension with bid tx with bad bid",
 			func() *cometabci.RequestVerifyVoteExtension {
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("foo", math.NewInt(0))
+				bid := sdk.NewCoin("stake", math.NewInt(0))
 				signers := []testutils.Account{bidder}
 				timeout := 10
 

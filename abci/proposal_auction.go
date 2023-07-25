@@ -88,12 +88,13 @@ func (h *ProposalHandler) VerifyTOB(ctx sdk.Context, proposalTxs [][]byte) (*Auc
 
 	// verify that the included vote extensions are valid in accordance with the
 	// the preferences of the application
-	if err := h.validateVoteExtensionsFn(ctx, ctx.BlockHeight(), lastCommitInfo); err != nil {
+	cacheCtx, _ := ctx.CacheContext()
+	if err := h.validateVoteExtensionsFn(cacheCtx, cacheCtx.BlockHeight(), lastCommitInfo); err != nil {
 		return nil, fmt.Errorf("failed to validate vote extensions: %w", err)
 	}
 
 	// Build the top of block proposal from the auction info.
-	expectedTOB := h.BuildTOB(ctx, lastCommitInfo, auctionInfo.MaxTxBytes)
+	expectedTOB := h.BuildTOB(cacheCtx, lastCommitInfo, auctionInfo.MaxTxBytes)
 
 	// Verify that the top of block txs matches the top of block proposal txs.
 	actualTOBTxs := proposalTxs[NumInjectedTxs : auctionInfo.NumTxs+NumInjectedTxs]
