@@ -9,6 +9,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	"github.com/skip-mev/pob/blockbuster/lanes/auction"
+	"github.com/skip-mev/pob/blockbuster/utils"
 )
 
 type (
@@ -76,23 +77,30 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() sdk.ExtendVoteHandler {
 			bidTx := auctionIterator.Tx()
 
 			// Verify the bid tx can be encoded and included in vote extension
-			if bidBz, err := h.txEncoder(bidTx); err == nil {
-				// Validate the auction transaction against a cache state
-				cacheCtx, _ := ctx.CacheContext()
+			bidTxBz, hash, err := utils.GetTxHashStr(h.txEncoder, bidTx)
+			if err != nil {
+				h.logger.Info(
+					"failed to get hash of auction bid tx",
+					"err", err,
+				)
 
-				if err := h.tobLane.VerifyTx(cacheCtx, bidTx); err == nil {
-					hash := sha256.Sum256(bidBz)
-					hashStr := hex.EncodeToString(hash[:])
-
-					h.logger.Info(
-						"extending vote with auction transaction",
-						"tx_hash", hashStr,
-						"height", ctx.BlockHeight(),
-					)
-
-					return &cometabci.ResponseExtendVote{VoteExtension: bidBz}, nil
-				}
+				continue
 			}
+
+			// Validate the auction transaction against a cache state
+			cacheCtx, _ := ctx.CacheContext()
+			if err := h.tobLane.VerifyTx(cacheCtx, bidTx); err != nil {
+				h.logger.Info(
+					"failed to verify auction bid tx",
+					"tx_hash", hash,
+					"err", err,
+				)
+
+				continue
+			}
+
+			h.logger.Info("extended vote with auction transaction", "tx_hash", hash)
+			return &cometabci.ResponseExtendVote{VoteExtension: bidTxBz}, nil
 		}
 
 		h.logger.Info(

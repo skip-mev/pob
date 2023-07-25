@@ -263,8 +263,10 @@ func (s *IntegrationTestSuite) broadcastTx(tx []byte, valIdx int) {
 	client := txtypes.NewServiceClient(grpcConn)
 
 	req := &txtypes.BroadcastTxRequest{TxBytes: tx, Mode: txtypes.BroadcastMode_BROADCAST_MODE_SYNC}
-	_, err = client.BroadcastTx(context.Background(), req)
+	resp, err := client.BroadcastTx(context.Background(), req)
 	s.Require().NoError(err)
+
+	fmt.Println(resp)
 }
 
 // queryTx queries a transaction by its hash and returns whether there was an
@@ -352,7 +354,7 @@ func (s *IntegrationTestSuite) queryBlockTxs(height uint64) [][]byte {
 	resp, err := queryClient.GetBlockByHeight(context.Background(), req)
 	s.Require().NoError(err)
 
-	return resp.GetSdkBlock().Data.Txs
+	return resp.GetSdkBlock().Data.Txs[1:]
 }
 
 // queryValidators returns the validators of the network.

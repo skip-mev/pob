@@ -105,6 +105,11 @@ func (handler *CheckTxHandler) CheckTx() CheckTx {
 
 		tx, err := handler.txDecoder(req.Tx)
 		if err != nil {
+			handler.baseApp.Logger().Info(
+				"failed to decode tx",
+				"err", err,
+			)
+
 			return sdkerrors.ResponseCheckTxWithEvents(
 				fmt.Errorf("failed to decode tx: %w", err),
 				0,
@@ -117,6 +122,11 @@ func (handler *CheckTxHandler) CheckTx() CheckTx {
 		// Attempt to get the bid info of the transaction.
 		bidInfo, err := handler.tobLane.GetAuctionBidInfo(tx)
 		if err != nil {
+			handler.baseApp.Logger().Info(
+				"failed to get auction bid info",
+				"err", err,
+			)
+
 			return sdkerrors.ResponseCheckTxWithEvents(
 				fmt.Errorf("failed to get auction bid info: %w", err),
 				0,
@@ -128,7 +138,16 @@ func (handler *CheckTxHandler) CheckTx() CheckTx {
 
 		// If this is not a bid transaction, we just execute it normally.
 		if bidInfo == nil {
-			return handler.baseApp.CheckTx(req)
+			resp, err := handler.baseApp.CheckTx(req)
+			if err != nil {
+				handler.baseApp.Logger().Info(
+					"failed to execute check tx",
+					"err", err,
+				)
+			}
+
+			handler.baseApp.Logger().Info("executed check tx")
+			return resp, err
 		}
 
 		// We attempt to get the latest committed state in order to verify transactions
@@ -139,6 +158,11 @@ func (handler *CheckTxHandler) CheckTx() CheckTx {
 		// Verify the bid transaction.
 		gasInfo, err := handler.ValidateBidTx(ctx, tx, bidInfo)
 		if err != nil {
+			handler.baseApp.Logger().Info(
+				"invalid bid tx",
+				"err", err,
+			)
+
 			return sdkerrors.ResponseCheckTxWithEvents(
 				fmt.Errorf("invalid bid tx: %w", err),
 				gasInfo.GasWanted,
@@ -150,6 +174,11 @@ func (handler *CheckTxHandler) CheckTx() CheckTx {
 
 		// If the bid transaction is valid, we know we can insert it into the mempool for consideration in the next block.
 		if err := handler.tobLane.Insert(ctx, tx); err != nil {
+			handler.baseApp.Logger().Info(
+				"invalid bid tx; failed to insert bid transaction into mempool",
+				"err", err,
+			)
+
 			return sdkerrors.ResponseCheckTxWithEvents(
 				fmt.Errorf("invalid bid tx; failed to insert bid transaction into mempool: %w", err),
 				gasInfo.GasWanted,

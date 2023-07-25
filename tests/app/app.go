@@ -62,6 +62,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/staking"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 
+	veabci "github.com/skip-mev/pob/abci"
 	"github.com/skip-mev/pob/blockbuster"
 	"github.com/skip-mev/pob/blockbuster/abci"
 	"github.com/skip-mev/pob/blockbuster/lanes/auction"
@@ -258,28 +259,35 @@ func New(
 	// ---------------------------------------------------------------------------- //
 
 	// Set POB's mempool into the app.
-	config := blockbuster.BaseLaneConfig{
+	// Create the lanes.
+	//
+	// NOTE: The lanes are ordered by priority. The first lane is the highest priority
+	// lane and the last lane is the lowest priority lane.
+	// Top of block lane allows transactions to bid for inclusion at the top of the next block.
+	tobConfig := blockbuster.BaseLaneConfig{
 		Logger:        app.Logger(),
 		TxEncoder:     app.txConfig.TxEncoder(),
 		TxDecoder:     app.txConfig.TxDecoder(),
 		MaxBlockSpace: math.LegacyZeroDec(),
 	}
-
-	// Create the lanes.
-	//
-	// NOTE: The lanes are ordered by priority. The first lane is the highest priority
-	// lane and the last lane is the lowest priority lane.
-
-	// Top of block lane allows transactions to bid for inclusion at the top of the next block.
 	tobLane := auction.NewTOBLane(
-		config,
+		tobConfig,
 		0,
 		auction.NewDefaultAuctionFactory(app.txConfig.TxDecoder()),
 	)
 
 	// Free lane allows transactions to be included in the next block for free.
+	freeConfig := blockbuster.BaseLaneConfig{
+		Logger:        app.Logger(),
+		TxEncoder:     app.txConfig.TxEncoder(),
+		TxDecoder:     app.txConfig.TxDecoder(),
+		MaxBlockSpace: math.LegacyZeroDec(),
+		IgnoreList: []blockbuster.Lane{
+			tobLane,
+		},
+	}
 	freeLane := free.NewFreeLane(
-		config,
+		freeConfig,
 		free.NewDefaultFreeFactory(app.txConfig.TxDecoder()),
 	)
 
@@ -295,12 +303,13 @@ func New(
 		},
 	}
 	defaultLane := base.NewDefaultLane(defaultConfig)
+
+	// Set the lanes into the mempool.
 	lanes := []blockbuster.Lane{
 		tobLane,
 		freeLane,
 		defaultLane,
 	}
-
 	mempool := blockbuster.NewMempool(lanes...)
 	app.App.SetMempool(mempool)
 
@@ -330,13 +339,27 @@ func New(
 	}
 	app.App.SetAnteHandler(anteHandler)
 
-	proposalHandler := abci.NewProposalHandler(
+	// Set the proposal handlers on base app
+	proposalHandler := veabci.NewProposalHandler(
+		lanes,
+		tobLane,
 		app.Logger(),
+		app.txConfig.TxEncoder(),
 		app.txConfig.TxDecoder(),
-		mempool,
+		veabci.NoOpValidateVoteExtensionsFn(),
 	)
 	app.App.SetPrepareProposal(proposalHandler.PrepareProposalHandler())
 	app.App.SetProcessProposal(proposalHandler.ProcessProposalHandler())
+
+	// Set the vote extension handler on the app.
+	voteExtensionHandler := veabci.NewVoteExtensionHandler(
+		app.Logger(),
+		tobLane,
+		app.txConfig.TxDecoder(),
+		app.txConfig.TxEncoder(),
+	)
+	app.App.SetExtendVoteHandler(voteExtensionHandler.ExtendVoteHandler())
+	app.App.SetVerifyVoteExtensionHandler(voteExtensionHandler.VerifyVoteExtensionHandler())
 
 	// Set the custom CheckTx handler on BaseApp.
 	checkTxHandler := abci.NewCheckTxHandler(
