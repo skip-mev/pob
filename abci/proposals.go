@@ -225,7 +225,7 @@ func (h *ProposalHandler) VoteExtensionsEnabled(ctx sdk.Context) bool {
 		return false
 	}
 
-	// We do a +1 here because the vote extensions are enabled at block height H
+	// We do a > here because the vote extensions are enabled at block height H
 	// but will only be used at block height H+1.
 	return ctx.BlockHeight() > cp.Abci.VoteExtensionsEnableHeight
 }
