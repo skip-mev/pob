@@ -72,6 +72,7 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() sdk.ExtendVoteHandler {
 	return func(ctx sdk.Context, req *cometabci.RequestExtendVote) (*cometabci.ResponseExtendVote, error) {
 		// Iterate through auction bids until we find a valid one
 		auctionIterator := h.tobLane.Select(ctx, nil)
+		txsToRemove := make(map[sdk.Tx]struct{}, 0)
 
 		for ; auctionIterator != nil; auctionIterator = auctionIterator.Next() {
 			bidTx := auctionIterator.Tx()
@@ -83,6 +84,7 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() sdk.ExtendVoteHandler {
 					"failed to get hash of auction bid tx",
 					"err", err,
 				)
+				txsToRemove[bidTx] = struct{}{}
 
 				continue
 			}
@@ -95,8 +97,16 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() sdk.ExtendVoteHandler {
 					"tx_hash", hash,
 					"err", err,
 				)
+				txsToRemove[bidTx] = struct{}{}
 
 				continue
+			}
+
+			if err := utils.RemoveTxsFromLane(txsToRemove, h.tobLane); err != nil {
+				h.logger.Info(
+					"failed to remove transactions from lane",
+					"err", err,
+				)
 			}
 
 			h.logger.Info("extending vote with auction transaction", "tx_hash", hash)
@@ -107,6 +117,13 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() sdk.ExtendVoteHandler {
 			"extending vote with no auction transaction",
 			"height", ctx.BlockHeight(),
 		)
+
+		if err := utils.RemoveTxsFromLane(txsToRemove, h.tobLane); err != nil {
+			h.logger.Info(
+				"failed to remove transactions from lane",
+				"err", err,
+			)
+		}
 
 		return &cometabci.ResponseExtendVote{VoteExtension: []byte{}}, nil
 	}
@@ -177,7 +194,15 @@ func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() sdk.VerifyVoteExtens
 				"err", err,
 			)
 
-			h.tobLane.Remove(bidTx)
+			if err := h.tobLane.Remove(bidTx); err != nil {
+				h.logger.Info(
+					"failed to remove auction transaction from lane",
+					"tx_hash", hash,
+					"height", ctx.BlockHeight(),
+					"err", err,
+				)
+			}
+
 			h.cache[hash] = err
 			return &cometabci.ResponseVerifyVoteExtension{Status: cometabci.ResponseVerifyVoteExtension_REJECT}, err
 		}
