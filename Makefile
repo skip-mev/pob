@@ -70,7 +70,7 @@ $(BUILD_TARGETS): $(BUILD_DIR)/
 $(BUILD_DIR)/:
 	mkdir -p $(BUILD_DIR)/
 
-# build-and-start-app builds a slinky simulation application binary in the build folder
+# build-and-start-app builds a POB simulation application binary in the build folder
 # and initializes a single validator configuration. If desired, users can suppliment
 # other addresses using "genesis add-genesis-account address 10000000000000000000000000stake".
 # This will allow users to bootstrap their wallet with a balance.
