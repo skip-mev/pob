@@ -57,15 +57,17 @@ func (s *IntegrationTestSuite) TestValidBids() {
 					s.createMsgSendTx(accounts[0], accounts[1].Address.String(), defaultSendAmount, 1, 1000, gasLimit, fees),
 				}
 
+				s.waitForABlock()
+
 				// Create a bid transaction that includes the bundle and is valid
 				bid := reserveFee
 				height := s.queryCurrentHeight()
-				bidTx := s.createAuctionBidTx(accounts[0], bid, bundle, 0, height+1, gasLimit, fees)
+				bidTx := s.createAuctionBidTx(accounts[0], bid, bundle, 0, height+3, gasLimit, fees)
 				s.broadcastTx(bidTx, 0)
 				s.displayExpectedBundle("Valid auction bid", bidTx, bundle)
 
 				// Wait for a block to be created
-				s.waitForABlock()
+				s.waitForNBlocks(2)
 
 				// Ensure that the block was correctly created and executed in the order expected
 				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
@@ -73,7 +75,7 @@ func (s *IntegrationTestSuite) TestValidBids() {
 					bundleHashes[0]: true,
 					bundleHashes[1]: true,
 				}
-				s.verifyTopOfBlockAuction(height+1, bundleHashes, expectedExecution)
+				s.verifyTopOfBlockAuction(height+2, bundleHashes, expectedExecution)
 
 				// Ensure that the escrow account has the correct balance
 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid)
@@ -92,15 +94,17 @@ func (s *IntegrationTestSuite) TestValidBids() {
 					bundle[i] = s.createMsgSendTx(accounts[0], accounts[1].Address.String(), defaultSendAmount, uint64(i), 1000, gasLimit, fees)
 				}
 
-				// Wait for a block to ensure all transactions are included in the same block
 				s.waitForABlock()
 
 				// Create a bid transaction that includes the bundle and is valid
 				bid := reserveFee
 				height := s.queryCurrentHeight()
-				bidTx := s.createAuctionBidTx(accounts[1], bid, bundle, 0, height+1, gasLimit, fees)
-				s.broadcastTx(bidTx, 0)
+				bidTx := s.createAuctionBidTx(accounts[1], bid, bundle, 0, height+3, gasLimit, fees)
 				s.displayExpectedBundle("gud auction bid", bidTx, bundle)
+				s.broadcastTx(bidTx, 0)
+
+				// broadcast the bid so that it can be included in a vote extension of a coming block
+				s.waitForABlock()
 
 				// Execute a few other messages to be included in the block after the bid and bundle
 				normalTxs := make([][]byte, 3)
@@ -129,7 +133,7 @@ func (s *IntegrationTestSuite) TestValidBids() {
 					expectedExecution[hash] = true
 				}
 
-				s.verifyTopOfBlockAuction(height+1, bundleHashes, expectedExecution)
+				s.verifyTopOfBlockAuction(height+2, bundleHashes, expectedExecution)
 
 				// Ensure that the escrow account has the correct balance
 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid)
@@ -148,31 +152,32 @@ func (s *IntegrationTestSuite) TestValidBids() {
 					bundle[i] = s.createMsgSendTx(accounts[0], accounts[1].Address.String(), defaultSendAmount, uint64(i), 1000, gasLimit, fees)
 				}
 
-				// Wait for a block to ensure all transactions are included in the same block
-				s.waitForABlock()
-
 				// Create a bid transaction that includes the bundle and is valid
 				bid := reserveFee
 				height := s.queryCurrentHeight()
-				bidTx := s.createAuctionBidTx(accounts[1], bid, bundle, 0, height+1, gasLimit, fees)
-				s.broadcastTx(bidTx, 0)
+				bidTx := s.createAuctionBidTx(accounts[1], bid, bundle, 0, height+3, gasLimit, fees)
 				s.displayExpectedBundle("gud auction bid 1", bidTx, bundle)
 
 				// Create another bid transaction that includes the bundle and is valid from the same account
 				// to verify that user can bid with the same account multiple times in the same block
 				bid2 := bid.Add(minBidIncrement)
-				bidTx2 := s.createAuctionBidTx(accounts[1], bid2, bundle, 0, height+1, gasLimit, fees)
-				s.broadcastTx(bidTx2, 0)
+				bidTx2 := s.createAuctionBidTx(accounts[1], bid2, bundle, 0, height+3, gasLimit, fees)
 				s.displayExpectedBundle("gud auction bid 2", bidTx2, bundle)
 
 				// Create a third bid
 				bid3 := bid2.Add(minBidIncrement)
-				bidTx3 := s.createAuctionBidTx(accounts[1], bid3, bundle, 0, height+1, gasLimit, fees)
-				s.broadcastTx(bidTx3, 0)
+				bidTx3 := s.createAuctionBidTx(accounts[1], bid3, bundle, 0, height+3, gasLimit, fees)
 				s.displayExpectedBundle("gud auction bid 3", bidTx3, bundle)
 
-				// Wait for a block to be created
+				// Wait for a block to ensure all transactions are included in the same block
 				s.waitForABlock()
+
+				s.broadcastTx(bidTx, 0)
+				s.broadcastTx(bidTx2, 0)
+				s.broadcastTx(bidTx3, 0)
+
+				// Wait for a block to be created
+				s.waitForNBlocks(2)
 
 				// Ensure that the block was correctly created and executed in the order expected
 				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
@@ -181,14 +186,13 @@ func (s *IntegrationTestSuite) TestValidBids() {
 				expectedExecution := map[string]bool{
 					bundleHashes[0]:  false,
 					bundleHashes2[0]: false,
-					bundleHashes3[0]: true,
 				}
 
-				for _, hash := range bundleHashes3[1:] {
+				for _, hash := range bundleHashes3 {
 					expectedExecution[hash] = true
 				}
 
-				s.verifyTopOfBlockAuction(height+1, bundleHashes3, expectedExecution)
+				s.verifyTopOfBlockAuction(height+3, bundleHashes3, expectedExecution)
 
 				// Ensure that the escrow account has the correct balance
 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid3)
@@ -213,16 +217,20 @@ func (s *IntegrationTestSuite) TestValidBids() {
 				// Create a bid transaction that includes the bundle and is valid
 				bid := reserveFee
 				height := s.queryCurrentHeight()
-				bidTx := s.createAuctionBidTx(accounts[2], bid, bundle, 0, height+1, gasLimit, fees)
+				bidTx := s.createAuctionBidTx(accounts[2], bid, bundle, 0, height+3, gasLimit, fees)
 				s.displayExpectedBundle("gud auction bid", bidTx, bundle)
+
+				// Broadcast the bid transaction
+				s.broadcastTx(bidTx, 0)
+
+				// Wait for a block to broadcast other transactions so that the normal txs can be included in the
+				// mempool before they are included in a proposal with the vote extensions
+				s.waitForABlock()
 
 				// Broadcast all of the transactions in the bundle to the mempool
 				for _, tx := range bundle {
 					s.broadcastTx(tx, 0)
 				}
-
-				// Broadcast the bid transaction
-				s.broadcastTx(bidTx, 0)
 
 				// Broadcast some other transactions to the mempool
 				normalTxs := make([][]byte, 10)
@@ -248,7 +256,7 @@ func (s *IntegrationTestSuite) TestValidBids() {
 					expectedExecution[hash] = true
 				}
 
-				s.verifyTopOfBlockAuction(height+1, bundleHashes, expectedExecution)
+				s.verifyTopOfBlockAuction(height+2, bundleHashes, expectedExecution)
 
 				// Ensure that the escrow account has the correct balance
 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid)
@@ -273,8 +281,12 @@ func (s *IntegrationTestSuite) TestValidBids() {
 				// Create a bid transaction that includes the bundle and is valid
 				bid := reserveFee
 				height := s.queryCurrentHeight()
-				bidTx := s.createAuctionBidTx(accounts[1], bid, bundle, 0, height+1, gasLimit, fees)
+				bidTx := s.createAuctionBidTx(accounts[1], bid, bundle, 0, height+3, gasLimit, fees)
 				s.broadcastTx(bidTx, 0)
+
+				// Wait for a block to broadcast other transactions so that the normal txs can be included in the
+				// mempool before they are included in a proposal with the vote extensions
+				s.waitForABlock()
 
 				// Execute a few other messages to be included in the block after the bid and bundle
 				normalTxs := make([][]byte, 3)
@@ -307,7 +319,7 @@ func (s *IntegrationTestSuite) TestValidBids() {
 					expectedExecution[hash] = true
 				}
 
-				s.verifyTopOfBlockAuction(height+1, bundleHashes, expectedExecution)
+				s.verifyTopOfBlockAuction(height+2, bundleHashes, expectedExecution)
 
 				// Ensure that the escrow account has the correct balance
 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid)
@@ -414,7 +426,7 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 				}
 
 				// Pass in nil since we don't know the order of transactions that ill be executed
-				s.verifyTopOfBlockAuction(height+2, nil, expectedExecution)
+				s.verifyTopOfBlockAuction(height+3, nil, expectedExecution)
 
 				// Ensure that the escrow account has the correct balance (both bids should have been extracted by this point)
 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid).Add(s.calculateProposerEscrowSplit(bid2))
@@ -444,18 +456,18 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 				// Create a bid transaction that includes the bundle and is valid
 				bid := reserveFee
 				height := s.queryCurrentHeight()
-				bidTx := s.createAuctionBidTx(accounts[2], bid, bundle, 0, height+2, gasLimit, fees)
+				bidTx := s.createAuctionBidTx(accounts[2], bid, bundle, 0, height+5, gasLimit, fees)
 				s.broadcastTx(bidTx, 0)
 				s.displayExpectedBundle("gud auction bid 1", bidTx, bundle)
 
 				// Create another bid transaction that includes the bundle and is valid from a different account
 				bid2 := bid.Add(minBidIncrement)
-				bidTx2 := s.createAuctionBidTx(accounts[3], bid2, bundle2, 0, height+1, gasLimit, fees)
-				s.broadcastTx(bidTx2, 0)
+				bidTx2 := s.createAuctionBidTx(accounts[3], bid2, bundle2, 0, height+5, gasLimit, fees)
+				s.broadcastTx(bidTx2, 1)
 				s.displayExpectedBundle("gud auction bid 2", bidTx2, bundle2)
 
 				// Wait for a block to be created
-				s.waitForABlock()
+				s.waitForNBlocks(3)
 
 				// Ensure that the block was correctly created and executed in the order expected
 				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
@@ -468,10 +480,10 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 					expectedExecution[hash] = true
 				}
 
-				s.verifyTopOfBlockAuction(height+1, bundleHashes2, expectedExecution)
+				s.verifyTopOfBlockAuction(height+2, bundleHashes2, expectedExecution)
 
 				// Wait for a block to be created
-				s.waitForABlock()
+				s.waitForNBlocks(3)
 
 				// Ensure that the block was correctly created and executed in the order expected
 				expectedExecution = map[string]bool{
@@ -482,7 +494,7 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 					expectedExecution[hash] = true
 				}
 
-				s.verifyTopOfBlockAuction(height+2, bundleHashes, expectedExecution)
+				s.verifyTopOfBlockAuction(height+4, bundleHashes, expectedExecution)
 
 				// Ensure that the escrow account has the correct balance (both bids should have been extracted by this point)
 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid).Add(s.calculateProposerEscrowSplit(bid2))
@@ -500,21 +512,23 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 					s.createMsgSendTx(accounts[0], accounts[1].Address.String(), defaultSendAmount, 1, 1000, gasLimit, fees),
 				}
 
+				s.waitForABlock()
+
 				// Create a bid transaction that includes the bundle and is valid
 				bid := reserveFee
 				height := s.queryCurrentHeight()
-				bidTx := s.createAuctionBidTx(accounts[0], bid, bundle, 0, height+1, gasLimit, fees)
+				bidTx := s.createAuctionBidTx(accounts[0], bid, bundle, 0, height+3, gasLimit, fees)
 				s.broadcastTx(bidTx, 0)
 				s.displayExpectedBundle("bid 1", bidTx, bundle)
 
 				// Create a second bid transaction that includes the bundle and is valid (but smaller than the min bid increment)
 				badBid := reserveFee.Add(sdk.NewInt64Coin(app.BondDenom, 10))
-				bidTx2 := s.createAuctionBidTx(accounts[0], badBid, bundle, 0, height+1, gasLimit, fees)
+				bidTx2 := s.createAuctionBidTx(accounts[0], badBid, bundle, 0, height+3, gasLimit, fees)
 				s.broadcastTx(bidTx2, 0)
 				s.displayExpectedBundle("bid 2", bidTx2, bundle)
 
 				// Wait for a block to be created
-				s.waitForABlock()
+				s.waitForNBlocks(2)
 
 				// Ensure only the first bid was executed
 				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
@@ -524,7 +538,7 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 					bundleHashes[1]:  true,
 					bundleHashes2[0]: false,
 				}
-				s.verifyTopOfBlockAuction(height+1, bundleHashes, expectedExecution)
+				s.verifyTopOfBlockAuction(height+2, bundleHashes, expectedExecution)
 
 				// Ensure that the escrow account has the correct balance
 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid)
@@ -532,7 +546,7 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 
 				// Wait another block to make sure the second bid is not executed
 				s.waitForABlock()
-				s.verifyTopOfBlockAuction(height+2, bundleHashes2, expectedExecution)
+				s.verifyTopOfBlockAuction(height+4, bundleHashes2, expectedExecution)
 			},
 		},
 		{
@@ -546,21 +560,23 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 					s.createMsgSendTx(accounts[2], accounts[1].Address.String(), defaultSendAmount, 0, 1000, gasLimit, fees),
 				}
 
+				s.waitForABlock()
+
 				// Create a bid transaction that includes the bundle and is valid
 				bid := reserveFee
 				height := s.queryCurrentHeight()
-				bidTx := s.createAuctionBidTx(accounts[0], bid, bundle, 0, height+1, gasLimit, fees)
+				bidTx := s.createAuctionBidTx(accounts[0], bid, bundle, 0, height+3, gasLimit, fees)
 				s.broadcastTx(bidTx, 0)
 				s.displayExpectedBundle("bid 1", bidTx, bundle)
 
 				// Create a second bid transaction that includes the bundle and is valid (but smaller than the min bid increment)
 				badBid := reserveFee.Add(sdk.NewInt64Coin(app.BondDenom, 10))
-				bidTx2 := s.createAuctionBidTx(accounts[1], badBid, bundle, 0, height+1, gasLimit, fees)
+				bidTx2 := s.createAuctionBidTx(accounts[1], badBid, bundle, 0, height+3, gasLimit, fees)
 				s.broadcastTx(bidTx2, 0)
 				s.displayExpectedBundle("bid 2", bidTx2, bundle)
 
 				// Wait for a block to be created
-				s.waitForABlock()
+				s.waitForNBlocks(2)
 
 				// Ensure only the first bid was executed
 				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
@@ -570,7 +586,7 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 					bundleHashes[1]:  true,
 					bundleHashes2[0]: false,
 				}
-				s.verifyTopOfBlockAuction(height+1, bundleHashes, expectedExecution)
+				s.verifyTopOfBlockAuction(height+2, bundleHashes, expectedExecution)
 
 				// Ensure that the escrow account has the correct balance
 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid)
@@ -578,99 +594,55 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 
 				// Wait another block to make sure the second bid is not executed
 				s.waitForABlock()
+				s.verifyTopOfBlockAuction(height+4, bundleHashes2, expectedExecution)
+			},
+		},
+		{
+			name: "Multiple transactions with increasing bids but first bid has same bundle so it should fail in later block (different accounts)",
+			test: func() {
+				// Get escrow account balance
+				escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
+
+				// Create a bundle with a single transaction
+				bundle := [][]byte{
+					s.createMsgSendTx(accounts[2], accounts[1].Address.String(), defaultSendAmount, 0, 1000, gasLimit, fees),
+				}
+
+				s.waitForABlock()
+
+				// Create a bid transaction that includes the bundle and is valid
+				bid := reserveFee
+				height := s.queryCurrentHeight()
+				bidTx := s.createAuctionBidTx(accounts[1], bid, bundle, 0, height+3, gasLimit, fees)
+				s.broadcastTx(bidTx, 0)
+				s.displayExpectedBundle("bid 1", bidTx, bundle)
+
+				// Create a second bid transaction that includes the bundle and is valid
+				bid2 := reserveFee.Add(minBidIncrement)
+				bidTx2 := s.createAuctionBidTx(accounts[0], bid2, bundle, 0, height+3, gasLimit, fees)
+				s.broadcastTx(bidTx2, 1)
+				s.displayExpectedBundle("bid 2", bidTx2, bundle)
+
+				// Wait for a block to be created
+				s.waitForNBlocks(2)
+
+				// Ensure only the second bid was executed
+				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
+				bundleHashes2 := s.bundleToTxHashes(bidTx2, bundle)
+				expectedExecution := map[string]bool{
+					bundleHashes[0]:  false,
+					bundleHashes2[0]: true,
+					bundleHashes2[1]: true,
+				}
 				s.verifyTopOfBlockAuction(height+2, bundleHashes2, expectedExecution)
-			},
-		},
-		{
-			name: "Multiple transactions with increasing bids but first bid has same bundle so it should fail in later block (same account)",
-			test: func() {
-				// Get escrow account balance
-				escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
-
-				// Create a bundle with a single transaction
-				bundle := [][]byte{
-					s.createMsgSendTx(accounts[0], accounts[1].Address.String(), defaultSendAmount, 1, 1000, gasLimit, fees),
-				}
-
-				// Create a bid transaction that includes the bundle and is valid
-				bid := reserveFee
-				height := s.queryCurrentHeight()
-				bidTx := s.createAuctionBidTx(accounts[0], bid, bundle, 0, height+2, gasLimit, fees)
-				s.broadcastTx(bidTx, 0)
-				s.displayExpectedBundle("bid 1", bidTx, bundle)
-
-				// Create a second bid transaction that includes the bundle and is valid
-				bid2 := reserveFee.Add(minBidIncrement)
-				bidTx2 := s.createAuctionBidTx(accounts[0], bid2, bundle, 0, height+1, gasLimit, fees)
-				s.broadcastTx(bidTx2, 0)
-				s.displayExpectedBundle("bid 2", bidTx2, bundle)
-
-				// Wait for a block to be created
-				s.waitForABlock()
-
-				// Ensure only the second bid was executed
-				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
-				bundleHashes2 := s.bundleToTxHashes(bidTx2, bundle)
-				expectedExecution := map[string]bool{
-					bundleHashes[0]:  false,
-					bundleHashes2[0]: true,
-					bundleHashes2[1]: true,
-				}
-				s.verifyTopOfBlockAuction(height+1, bundleHashes2, expectedExecution)
 
 				// Ensure that the escrow account has the correct balance
 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid2)
 				s.Require().Equal(expectedEscrowFee.Add(escrowBalance), s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
 
 				// Wait for a block to be created and ensure that the first bid was not executed
-				s.waitForABlock()
-				s.verifyTopOfBlockAuction(height+2, bundleHashes, expectedExecution)
-			},
-		},
-		{
-			name: "Multiple transactions with increasing bids but first bid has same bundle so it should fail in later block (different account)",
-			test: func() {
-				// Get escrow account balance
-				escrowBalance := s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom)
-
-				// Create a bundle with a single transaction
-				bundle := [][]byte{
-					s.createMsgSendTx(accounts[0], accounts[1].Address.String(), defaultSendAmount, 0, 1000, gasLimit, fees),
-				}
-
-				// Create a bid transaction that includes the bundle and is valid
-				bid := reserveFee
-				height := s.queryCurrentHeight()
-				bidTx := s.createAuctionBidTx(accounts[2], bid, bundle, 0, height+2, gasLimit, fees)
-				s.broadcastTx(bidTx, 0)
-				s.displayExpectedBundle("bid 1", bidTx, bundle)
-
-				// Create a second bid transaction that includes the bundle and is valid
-				bid2 := reserveFee.Add(minBidIncrement)
-				bidTx2 := s.createAuctionBidTx(accounts[1], bid2, bundle, 0, height+1, gasLimit, fees)
-				s.broadcastTx(bidTx2, 0)
-				s.displayExpectedBundle("bid 2", bidTx2, bundle)
-
-				// Wait for a block to be created
-				s.waitForABlock()
-
-				// Ensure only the second bid was executed
-				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
-				bundleHashes2 := s.bundleToTxHashes(bidTx2, bundle)
-				expectedExecution := map[string]bool{
-					bundleHashes[0]:  false,
-					bundleHashes2[0]: true,
-					bundleHashes2[1]: true,
-				}
-				s.verifyTopOfBlockAuction(height+1, bundleHashes2, expectedExecution)
-
-				// Ensure that the escrow account has the correct balance
-				expectedEscrowFee := s.calculateProposerEscrowSplit(bid2)
-				s.Require().Equal(expectedEscrowFee.Add(escrowBalance), s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
-
-				// Wait for a block to be created and ensure that the first bid was not executed
-				s.waitForABlock()
-				s.verifyTopOfBlockAuction(height+2, bundleHashes, expectedExecution)
+				s.waitForNBlocks(2)
+				s.verifyTopOfBlockAuction(height+4, bundleHashes, expectedExecution)
 			},
 		},
 		{
@@ -689,21 +661,23 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 					s.createMsgSendTx(accounts[1], accounts[0].Address.String(), defaultSendAmount, 0, 1000, gasLimit, fees),
 				}
 
+				s.waitForABlock()
+
 				// Create a bid transaction that includes the bundle and is valid
 				bid := reserveFee
 				height := s.queryCurrentHeight()
-				bidTx := s.createAuctionBidTx(accounts[2], bid, firstBundle, 0, height+1, gasLimit, fees)
+				bidTx := s.createAuctionBidTx(accounts[2], bid, firstBundle, 0, height+2, gasLimit, fees)
 				s.broadcastTx(bidTx, 0)
 				s.displayExpectedBundle("bid 1", bidTx, firstBundle)
 
 				// Create a second bid transaction that includes the bundle and is valid
 				bid2 := reserveFee.Add(minBidIncrement)
-				bidTx2 := s.createAuctionBidTx(accounts[3], bid2, secondBundle, 0, height+1, gasLimit, fees)
+				bidTx2 := s.createAuctionBidTx(accounts[3], bid2, secondBundle, 0, height+2, gasLimit, fees)
 				s.broadcastTx(bidTx2, 0)
 				s.displayExpectedBundle("bid 2", bidTx2, secondBundle)
 
 				// Wait for a block to be created
-				s.waitForABlock()
+				s.waitForNBlocks(2)
 
 				// Ensure only the second bid was executed
 				bundleHashes := s.bundleToTxHashes(bidTx, firstBundle)
@@ -714,15 +688,15 @@ func (s *IntegrationTestSuite) TestMultipleBids() {
 					bundleHashes2[0]: true,
 					bundleHashes2[1]: true,
 				}
-				s.verifyTopOfBlockAuction(height+1, bundleHashes2, expectedExecution)
+				s.verifyTopOfBlockAuction(height+2, bundleHashes2, expectedExecution)
 
 				// Ensure that the escrow account has the correct balance
 				expectedEscrowFee := s.calculateProposerEscrowSplit(bid2)
 				s.Require().Equal(expectedEscrowFee.Add(escrowBalance), s.queryBalanceOf(sdk.AccAddress(escrowAddress).String(), app.BondDenom))
 
-				// Wait for a block to be created and ensure that the second bid is executed
+				// Wait for a block to be created and ensure that the second bid is not executed
 				s.waitForABlock()
-				s.verifyTopOfBlockAuction(height+2, bundleHashes, expectedExecution)
+				s.verifyTopOfBlockAuction(height+4, bundleHashes, expectedExecution)
 			},
 		},
 	}
@@ -773,9 +747,11 @@ func (s *IntegrationTestSuite) TestInvalidBids() {
 				// Create a bid transaction that includes the bundle
 				bid := reserveFee
 				height := s.queryCurrentHeight()
-				bidTx := s.createAuctionBidTx(accounts[1], bid, bundle, 0, height+1, gasLimit, fees)
+				bidTx := s.createAuctionBidTx(accounts[1], bid, bundle, 0, height+3, gasLimit, fees)
 				s.broadcastTx(bidTx, 0)
 				s.displayExpectedBundle("bad auction bid", bidTx, bundle)
+
+				s.waitForNBlocks(2)
 
 				// Ensure that the block was built correctly and that the bid was not executed
 				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
@@ -784,7 +760,7 @@ func (s *IntegrationTestSuite) TestInvalidBids() {
 					bundleHashes[1]: false,
 				}
 
-				s.verifyTopOfBlockAuction(height+1, bundleHashes, expectedExecution)
+				s.verifyTopOfBlockAuction(height+2, bundleHashes, expectedExecution)
 			},
 		},
 		{
@@ -795,15 +771,18 @@ func (s *IntegrationTestSuite) TestInvalidBids() {
 					s.createMsgSendTx(accounts[0], accounts[1].Address.String(), defaultSendAmount, 0, 1000, gasLimit, fees),
 				}
 
+				// Wait for a block to ensure all transactions are included in the same block
+				s.waitForABlock()
+
 				// Create a bid transaction that includes the bundle that is attempting to bid more than their balance
 				bid := sdk.NewCoin(app.BondDenom, math.NewInt(999999999999999999))
 				height := s.queryCurrentHeight()
-				bidTx := s.createAuctionBidTx(accounts[1], bid, bundle, 0, height+1, gasLimit, fees)
+				bidTx := s.createAuctionBidTx(accounts[1], bid, bundle, 0, height+3, gasLimit, fees)
 				s.broadcastTx(bidTx, 0)
 				s.displayExpectedBundle("bad auction bid", bidTx, bundle)
 
 				// Wait for a block to be created
-				s.waitForABlock()
+				s.waitForNBlocks(2)
 
 				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
 				expectedExecution := map[string]bool{
@@ -812,7 +791,7 @@ func (s *IntegrationTestSuite) TestInvalidBids() {
 				}
 
 				// Ensure that the block was built correctly and that the bid was not executed
-				s.verifyTopOfBlockAuction(height+1, bundleHashes, expectedExecution)
+				s.verifyTopOfBlockAuction(height+2, bundleHashes, expectedExecution)
 			},
 		},
 		{
@@ -825,15 +804,17 @@ func (s *IntegrationTestSuite) TestInvalidBids() {
 					s.createMsgSendTx(accounts[2], accounts[1].Address.String(), defaultSendAmount, 0, 1000, gasLimit, fees),
 				}
 
+				s.waitForABlock()
+
 				// Create a bid transaction that includes the bundle
 				bid := reserveFee
 				height := s.queryCurrentHeight()
-				bidTx := s.createAuctionBidTx(accounts[1], bid, bundle, 0, height+1, gasLimit, fees)
+				bidTx := s.createAuctionBidTx(accounts[1], bid, bundle, 0, height+3, gasLimit, fees)
 				s.broadcastTx(bidTx, 0)
 				s.displayExpectedBundle("front-running auction bid", bidTx, bundle)
 
 				// Wait for a block to be created
-				s.waitForABlock()
+				s.waitForNBlocks(2)
 
 				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
 				expectedExecution := map[string]bool{
@@ -844,7 +825,7 @@ func (s *IntegrationTestSuite) TestInvalidBids() {
 				}
 
 				// Ensure that the block was built correctly and that the bid was not executed
-				s.verifyTopOfBlockAuction(height+1, bundleHashes, expectedExecution)
+				s.verifyTopOfBlockAuction(height+2, bundleHashes, expectedExecution)
 			},
 		},
 		{
@@ -855,15 +836,17 @@ func (s *IntegrationTestSuite) TestInvalidBids() {
 					s.createMsgSendTx(accounts[0], accounts[1].Address.String(), defaultSendAmount, 1000, 1000, gasLimit, fees),
 				}
 
+				s.waitForABlock()
+
 				// Create a bid transaction that includes the bundle
 				bid := reserveFee
 				height := s.queryCurrentHeight()
-				bidTx := s.createAuctionBidTx(accounts[1], bid, bundle, 0, height+1, gasLimit, fees)
+				bidTx := s.createAuctionBidTx(accounts[1], bid, bundle, 0, height+3, gasLimit, fees)
 				s.broadcastTx(bidTx, 0)
 				s.displayExpectedBundle("invalid auction bid", bidTx, bundle)
 
 				// Wait for a block to be created
-				s.waitForABlock()
+				s.waitForNBlocks(2)
 
 				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
 				expectedExecution := map[string]bool{
@@ -872,7 +855,7 @@ func (s *IntegrationTestSuite) TestInvalidBids() {
 				}
 
 				// Ensure that the block was built correctly and that the bid was not executed
-				s.verifyTopOfBlockAuction(height+1, bundleHashes, expectedExecution)
+				s.verifyTopOfBlockAuction(height+2, bundleHashes, expectedExecution)
 			},
 		},
 		{
@@ -883,15 +866,17 @@ func (s *IntegrationTestSuite) TestInvalidBids() {
 					s.createMsgSendTx(accounts[0], accounts[1].Address.String(), defaultSendAmount, 1, 1000, gasLimit, fees),
 				}
 
+				s.waitForABlock()
+
 				// Create a bid transaction that includes a bid that is smaller than the reserve fee
 				bid := reserveFee.Sub(sdk.NewInt64Coin(app.BondDenom, 1))
 				height := s.queryCurrentHeight()
-				bidTx := s.createAuctionBidTx(accounts[0], bid, bundle, 0, height+1, gasLimit, fees)
+				bidTx := s.createAuctionBidTx(accounts[0], bid, bundle, 0, height+3, gasLimit, fees)
 				s.broadcastTx(bidTx, 0)
 				s.displayExpectedBundle("invalid auction bid", bidTx, bundle)
 
 				// Wait for a block to be created
-				s.waitForABlock()
+				s.waitForNBlocks(2)
 
 				// Ensure that no transactions were executed
 				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
@@ -900,7 +885,7 @@ func (s *IntegrationTestSuite) TestInvalidBids() {
 					bundleHashes[1]: false,
 				}
 
-				s.verifyTopOfBlockAuction(height+1, bundleHashes, expectedExecution)
+				s.verifyTopOfBlockAuction(height+2, bundleHashes, expectedExecution)
 			},
 		},
 		{
@@ -912,15 +897,17 @@ func (s *IntegrationTestSuite) TestInvalidBids() {
 					bundle = append(bundle, s.createMsgSendTx(accounts[0], accounts[1].Address.String(), defaultSendAmount, uint64(i+1), 1000, gasLimit, fees))
 				}
 
+				s.waitForABlock()
+
 				// Create a bid transaction that includes the bundle
 				bid := reserveFee
 				height := s.queryCurrentHeight()
-				bidTx := s.createAuctionBidTx(accounts[0], bid, bundle, 0, height+1, gasLimit, fees)
+				bidTx := s.createAuctionBidTx(accounts[0], bid, bundle, 0, height+2, gasLimit, fees)
 				s.broadcastTx(bidTx, 0)
 				s.displayExpectedBundle("invalid auction bid", bidTx, bundle)
 
 				// Wait for a block to be created
-				s.waitForABlock()
+				s.waitForNBlocks(2)
 
 				// Ensure that no transactions were executed
 				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
@@ -929,7 +916,7 @@ func (s *IntegrationTestSuite) TestInvalidBids() {
 				for _, hash := range bundleHashes {
 					expectedExecution[hash] = false
 				}
-				s.verifyTopOfBlockAuction(height+1, bundleHashes, expectedExecution)
+				s.verifyTopOfBlockAuction(height+2, bundleHashes, expectedExecution)
 			},
 		},
 		{
@@ -948,7 +935,7 @@ func (s *IntegrationTestSuite) TestInvalidBids() {
 				s.displayExpectedBundle("invalid auction bid", bidTx, bundle)
 
 				// Wait for a block to be created
-				s.waitForABlock()
+				s.waitForNBlocks(2)
 
 				// Ensure that no transactions were executed
 				bundleHashes := s.bundleToTxHashes(bidTx, bundle)
@@ -957,7 +944,7 @@ func (s *IntegrationTestSuite) TestInvalidBids() {
 					bundleHashes[1]: false,
 				}
 
-				s.verifyTopOfBlockAuction(height+1, bundleHashes, expectedExecution)
+				s.verifyTopOfBlockAuction(height+2, bundleHashes, expectedExecution)
 			},
 		},
 		{
@@ -978,13 +965,15 @@ func (s *IntegrationTestSuite) TestInvalidBids() {
 				// Wait for a block to ensure all transactions are included in the same block
 				s.waitForABlock()
 
+				// Broadcast the bid transaction
+				s.broadcastTx(bidTx, 0)
+
+				s.waitForABlock()
+
 				// Broadcast all of the transactions in the bundle
 				for _, tx := range bundle {
 					s.broadcastTx(tx, 0)
 				}
-
-				// Broadcast the bid transaction
-				s.broadcastTx(bidTx, 0)
 
 				// Wait for a block to be created
 				s.waitForABlock()
@@ -999,7 +988,7 @@ func (s *IntegrationTestSuite) TestInvalidBids() {
 
 				expectedExecution[bundleHashes[0]] = false
 
-				s.verifyTopOfBlockAuction(height+1, bundleHashes, expectedExecution)
+				s.verifyTopOfBlockAuction(height+3, bundleHashes, expectedExecution)
 			},
 		},
 	}
@@ -1183,11 +1172,13 @@ func (s *IntegrationTestSuite) TestLanes() {
 				bidTx := s.createAuctionBidTx(accounts[2], bid, bundle, 0, height+5, gasLimit, fees)
 				s.displayExpectedBundle("Valid auction bid", bidTx, bundle)
 
+				s.waitForABlock()
+				s.broadcastTx(bidTx, 0)
+
 				// Broadcast the transactions
 				s.waitForABlock()
 				s.broadcastTx(freeTx, 0)
 				s.broadcastTx(normalTx, 0)
-				s.broadcastTx(bidTx, 0)
 
 				// Wait for a block to be created
 				s.waitForABlock()
@@ -1235,11 +1226,14 @@ func (s *IntegrationTestSuite) TestLanes() {
 				bidTx := s.createAuctionBidTx(accounts[2], bid, bundle, 0, height+5, gasLimit, fees)
 				s.displayExpectedBundle("Valid auction bid", bidTx, bundle)
 
+				s.waitForABlock()
+				s.broadcastTx(bidTx, 0)
+
 				// Broadcast the transactions
 				s.waitForABlock()
+
 				s.broadcastTx(freeTx, 0)
 				s.broadcastTx(normalTx, 0)
-				s.broadcastTx(bidTx, 0)
 
 				// Wait for a block to be created
 				s.waitForABlock()
@@ -1283,11 +1277,13 @@ func (s *IntegrationTestSuite) TestLanes() {
 				bidTx := s.createAuctionBidTx(accounts[2], bid, bundle, 0, height+5, gasLimit, fees)
 				s.displayExpectedBundle("Valid auction bid", bidTx, bundle)
 
+				s.waitForABlock()
+				s.broadcastTx(bidTx, 0)
+
 				// Broadcast the transactions
 				s.waitForABlock()
 				s.broadcastTx(freeTx, 0)
 				s.broadcastTx(normalTx, 0)
-				s.broadcastTx(bidTx, 0)
 
 				// Wait for a block to be created
 				s.waitForABlock()
@@ -1329,10 +1325,12 @@ func (s *IntegrationTestSuite) TestLanes() {
 				bidTx := s.createAuctionBidTx(accounts[1], bid, bundle, 0, height+5, gasLimit, fees)
 				s.displayExpectedBundle("Valid auction bid", bidTx, bundle)
 
+				s.waitForABlock()
+				s.broadcastTx(bidTx, 0)
+
 				// Broadcast the transactions
 				s.waitForABlock()
 				s.broadcastTx(freeTx, 0)
-				s.broadcastTx(bidTx, 0)
 
 				// Wait for a block to be created
 				s.waitForABlock()
@@ -1377,9 +1375,11 @@ func (s *IntegrationTestSuite) TestLanes() {
 
 				normalTx := s.createMsgSendTx(accounts[3], accounts[2].Address.String(), defaultSendAmountCoins, 0, 1000, gasLimit, fees)
 
-				// Broadcast the transactions (including the ones in the bundle)
 				s.waitForABlock()
 				s.broadcastTx(bidTx, 0)
+
+				// Broadcast the transactions (including the ones in the bundle)
+				s.waitForABlock()
 				s.broadcastTx(freeTx, 0)
 				s.broadcastTx(bundle[1], 0)
 				s.broadcastTx(freeTx2, 0)

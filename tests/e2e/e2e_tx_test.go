@@ -128,8 +128,9 @@ func (s *IntegrationTestSuite) createTx(account TestAccount, msgs []sdk.Msg, seq
 	sequenceNumber := baseAccount.Sequence + sequenceOffset
 
 	s.Require().NoError(txBuilder.SetMsgs(msgs...))
-	txBuilder.SetFeeAmount(sdk.NewCoins())
-	txBuilder.SetGasLimit(200_000)
+	txBuilder.SetFeeAmount(fees)
+	txBuilder.SetGasLimit(gasLimit)
+	txBuilder.SetTimeoutHeight(height)
 
 	signerData := authsigning.SignerData{
 		ChainID:       app.ChainID,
@@ -167,7 +168,7 @@ func (s *IntegrationTestSuite) createTx(account TestAccount, msgs []sdk.Msg, seq
 			SignMode:  signing.SignMode_SIGN_MODE_DIRECT,
 			Signature: sigBytes,
 		},
-		Sequence: 0,
+		Sequence: sequenceNumber,
 	}
 	s.Require().NoError(txBuilder.SetSignatures(sig))
 

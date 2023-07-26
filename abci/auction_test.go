@@ -30,7 +30,7 @@ func (suite *ABCITestSuite) TestGetBidsFromVoteExtensions() {
 				bidTxBz, err := testutils.CreateAuctionTxWithSignerBz(
 					suite.encodingConfig.TxConfig,
 					suite.accounts[0],
-					sdk.NewCoin("foo", math.NewInt(100)),
+					sdk.NewCoin("stake", math.NewInt(100)),
 					0,
 					1,
 					[]testutils.Account{suite.accounts[0]},
@@ -54,7 +54,7 @@ func (suite *ABCITestSuite) TestGetBidsFromVoteExtensions() {
 				bidTxBz1, err := testutils.CreateAuctionTxWithSignerBz(
 					suite.encodingConfig.TxConfig,
 					suite.accounts[0],
-					sdk.NewCoin("foo", math.NewInt(101)),
+					sdk.NewCoin("stake", math.NewInt(101)),
 					0,
 					1,
 					[]testutils.Account{suite.accounts[0]},
@@ -64,7 +64,7 @@ func (suite *ABCITestSuite) TestGetBidsFromVoteExtensions() {
 				bidTxBz2, err := testutils.CreateAuctionTxWithSignerBz(
 					suite.encodingConfig.TxConfig,
 					suite.accounts[0],
-					sdk.NewCoin("foo", math.NewInt(100)),
+					sdk.NewCoin("stake", math.NewInt(100)),
 					0,
 					1,
 					[]testutils.Account{suite.accounts[0]},
@@ -90,7 +90,7 @@ func (suite *ABCITestSuite) TestGetBidsFromVoteExtensions() {
 				bidTxBz1, err := testutils.CreateAuctionTxWithSignerBz(
 					suite.encodingConfig.TxConfig,
 					suite.accounts[0],
-					sdk.NewCoin("foo", math.NewInt(101)),
+					sdk.NewCoin("stake", math.NewInt(101)),
 					0,
 					1,
 					[]testutils.Account{suite.accounts[0]},
@@ -100,7 +100,7 @@ func (suite *ABCITestSuite) TestGetBidsFromVoteExtensions() {
 				bidTxBz2, err := testutils.CreateAuctionTxWithSignerBz(
 					suite.encodingConfig.TxConfig,
 					suite.accounts[0],
-					sdk.NewCoin("foo", math.NewInt(100)),
+					sdk.NewCoin("stake", math.NewInt(100)),
 					0,
 					1,
 					[]testutils.Account{suite.accounts[0]},
@@ -129,7 +129,7 @@ func (suite *ABCITestSuite) TestGetBidsFromVoteExtensions() {
 				bidTxBz1, err := testutils.CreateAuctionTxWithSignerBz(
 					suite.encodingConfig.TxConfig,
 					suite.accounts[0],
-					sdk.NewCoin("foo", math.NewInt(101)),
+					sdk.NewCoin("stake", math.NewInt(101)),
 					0,
 					1,
 					[]testutils.Account{suite.accounts[0]},
@@ -139,7 +139,7 @@ func (suite *ABCITestSuite) TestGetBidsFromVoteExtensions() {
 				bidTxBz2, err := testutils.CreateAuctionTxWithSignerBz(
 					suite.encodingConfig.TxConfig,
 					suite.accounts[0],
-					sdk.NewCoin("foo", math.NewInt(100)),
+					sdk.NewCoin("stake", math.NewInt(100)),
 					0,
 					1,
 					[]testutils.Account{suite.accounts[0]},
@@ -177,7 +177,7 @@ func (suite *ABCITestSuite) TestGetBidsFromVoteExtensions() {
 				bidTxBz1, err := testutils.CreateAuctionTxWithSignerBz(
 					suite.encodingConfig.TxConfig,
 					suite.accounts[0],
-					sdk.NewCoin("foo", math.NewInt(1001)),
+					sdk.NewCoin("stake", math.NewInt(1001)),
 					0,
 					1,
 					[]testutils.Account{suite.accounts[0]},
@@ -187,7 +187,7 @@ func (suite *ABCITestSuite) TestGetBidsFromVoteExtensions() {
 				bidTxBz2, err := testutils.CreateAuctionTxWithSignerBz(
 					suite.encodingConfig.TxConfig,
 					suite.accounts[0],
-					sdk.NewCoin("foo", math.NewInt(100)),
+					sdk.NewCoin("stake", math.NewInt(100)),
 					0,
 					1,
 					[]testutils.Account{suite.accounts[0]},
@@ -245,8 +245,8 @@ func (suite *ABCITestSuite) TestGetBidsFromVoteExtensions() {
 func (suite *ABCITestSuite) TestBuildTOB() {
 	params := buildertypes.Params{
 		MaxBundleSize:          4,
-		ReserveFee:             sdk.NewCoin("foo", math.NewInt(100)),
-		MinBidIncrement:        sdk.NewCoin("foo", math.NewInt(100)),
+		ReserveFee:             sdk.NewCoin("stake", math.NewInt(100)),
+		MinBidIncrement:        sdk.NewCoin("stake", math.NewInt(100)),
 		FrontRunningProtection: true,
 	}
 	suite.builderKeeper.SetParams(suite.ctx, params)
@@ -269,7 +269,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 				bidTx, err := testutils.CreateAuctionTxWithSigners(
 					suite.encodingConfig.TxConfig,
 					suite.accounts[0],
-					sdk.NewCoin("foo", math.NewInt(101)),
+					sdk.NewCoin("stake", math.NewInt(101)),
 					0,
 					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{suite.accounts[0]},
@@ -286,7 +286,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 				bidTx, err := testutils.CreateAuctionTxWithSigners(
 					suite.encodingConfig.TxConfig,
 					suite.accounts[0],
-					sdk.NewCoin("foo", math.NewInt(1)),
+					sdk.NewCoin("stake", math.NewInt(1)),
 					0,
 					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{suite.accounts[0]},
@@ -303,7 +303,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 				bidTx, err := testutils.CreateAuctionTxWithSigners(
 					suite.encodingConfig.TxConfig,
 					suite.accounts[0],
-					sdk.NewCoin("foo", math.NewInt(1000)),
+					sdk.NewCoin("stake", math.NewInt(1000)),
 					0,
 					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{suite.accounts[0], suite.accounts[1]},
@@ -320,7 +320,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 				bidTx, err := testutils.CreateAuctionTxWithSigners(
 					suite.encodingConfig.TxConfig,
 					suite.accounts[0],
-					sdk.NewCoin("foo", math.NewInt(101)),
+					sdk.NewCoin("stake", math.NewInt(101)),
 					0,
 					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{
@@ -344,7 +344,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 				bidTx, err := testutils.CreateAuctionTxWithSigners(
 					suite.encodingConfig.TxConfig,
 					suite.accounts[0],
-					sdk.NewCoin("foo", math.NewInt(101)),
+					sdk.NewCoin("stake", math.NewInt(101)),
 					0,
 					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{suite.accounts[0]},
@@ -361,7 +361,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 				bidTx1, err := testutils.CreateAuctionTxWithSigners(
 					suite.encodingConfig.TxConfig,
 					suite.accounts[0],
-					sdk.NewCoin("foo", math.NewInt(101)),
+					sdk.NewCoin("stake", math.NewInt(101)),
 					0,
 					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{suite.accounts[0]},
@@ -371,7 +371,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 				bidTx2, err := testutils.CreateAuctionTxWithSigners(
 					suite.encodingConfig.TxConfig,
 					suite.accounts[1],
-					sdk.NewCoin("foo", math.NewInt(102)),
+					sdk.NewCoin("stake", math.NewInt(102)),
 					0,
 					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{suite.accounts[1]},
@@ -388,7 +388,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 				bidTx1, err := testutils.CreateAuctionTxWithSigners(
 					suite.encodingConfig.TxConfig,
 					suite.accounts[0],
-					sdk.NewCoin("foo", math.NewInt(1000)),
+					sdk.NewCoin("stake", math.NewInt(1000)),
 					0,
 					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{suite.accounts[0], suite.accounts[1]},
@@ -398,7 +398,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 				bidTx2, err := testutils.CreateAuctionTxWithSigners(
 					suite.encodingConfig.TxConfig,
 					suite.accounts[1],
-					sdk.NewCoin("foo", math.NewInt(200)),
+					sdk.NewCoin("stake", math.NewInt(200)),
 					0,
 					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{suite.accounts[1]},
@@ -415,7 +415,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 				bidTx1, err := testutils.CreateAuctionTxWithSigners(
 					suite.encodingConfig.TxConfig,
 					suite.accounts[0],
-					sdk.NewCoin("foo", math.NewInt(101)),
+					sdk.NewCoin("stake", math.NewInt(101)),
 					0,
 					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{
@@ -432,7 +432,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 				bidTx2, err := testutils.CreateAuctionTxWithSigners(
 					suite.encodingConfig.TxConfig,
 					suite.accounts[1],
-					sdk.NewCoin("foo", math.NewInt(102)),
+					sdk.NewCoin("stake", math.NewInt(102)),
 					0,
 					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{suite.accounts[1]},
@@ -449,7 +449,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 				bidTx1, err := testutils.CreateAuctionTxWithSigners(
 					suite.encodingConfig.TxConfig,
 					suite.accounts[0],
-					sdk.NewCoin("foo", math.NewInt(101)),
+					sdk.NewCoin("stake", math.NewInt(101)),
 					0,
 					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{suite.accounts[0]},
@@ -459,7 +459,7 @@ func (suite *ABCITestSuite) TestBuildTOB() {
 				bidTx2, err := testutils.CreateAuctionTxWithSigners(
 					suite.encodingConfig.TxConfig,
 					suite.accounts[1],
-					sdk.NewCoin("foo", math.NewInt(102)),
+					sdk.NewCoin("stake", math.NewInt(102)),
 					0,
 					uint64(suite.ctx.BlockHeight())+2,
 					[]testutils.Account{suite.accounts[1]},

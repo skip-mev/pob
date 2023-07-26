@@ -14,8 +14,6 @@ import (
 	buildertypes "github.com/skip-mev/pob/x/builder/types"
 )
 
-// TODO:
-// - Add tests that can that trigger a panic for the tob of block lane
 func (suite *ABCITestSuite) TestPrepareProposal() {
 	var (
 		// the modified transactions cannot exceed this size
@@ -29,7 +27,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 
 		// auction configuration
 		maxBundleSize          uint32 = 10
-		reserveFee                    = sdk.NewCoin("foo", math.NewInt(1000))
+		reserveFee                    = sdk.NewCoin("stake", math.NewInt(1000))
 		frontRunningProtection        = true
 	)
 
@@ -43,7 +41,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 			"single valid tob transaction in the mempool",
 			func() {
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("foo", math.NewInt(1000))
+				bid := sdk.NewCoin("stake", math.NewInt(1000))
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{bidder}
@@ -65,7 +63,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 			"single invalid tob transaction in the mempool",
 			func() {
 				bidder := suite.accounts[0]
-				bid := reserveFee.Sub(sdk.NewCoin("foo", math.NewInt(1))) // bid is less than the reserve fee
+				bid := reserveFee.Sub(sdk.NewCoin("stake", math.NewInt(1))) // bid is less than the reserve fee
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{bidder}
@@ -109,7 +107,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 			func() {
 				// Create a valid tob transaction
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("foo", math.NewInt(1000))
+				bid := sdk.NewCoin("stake", math.NewInt(1000))
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{bidder}
@@ -139,7 +137,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 			func() {
 				// Create an invalid tob transaction (frontrunning)
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("foo", math.NewInt(1000000000))
+				bid := sdk.NewCoin("stake", math.NewInt(1000000000))
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{bidder, bidder, suite.accounts[1]}
@@ -148,7 +146,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 
 				// Create a valid tob transaction
 				bidder = suite.accounts[1]
-				bid = sdk.NewCoin("foo", math.NewInt(1000))
+				bid = sdk.NewCoin("stake", math.NewInt(1000))
 				nonce = suite.nonces[bidder.Address.String()]
 				timeout = uint64(100)
 				signers = []testutils.Account{bidder}
@@ -171,7 +169,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 			func() {
 				// Create an valid tob transaction
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("foo", math.NewInt(10000000))
+				bid := sdk.NewCoin("stake", math.NewInt(10000000))
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{suite.accounts[2], bidder}
@@ -180,7 +178,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 
 				// Create a valid tob transaction
 				bidder = suite.accounts[1]
-				bid = sdk.NewCoin("foo", math.NewInt(1000))
+				bid = sdk.NewCoin("stake", math.NewInt(1000))
 				nonce = suite.nonces[bidder.Address.String()]
 				timeout = uint64(100)
 				signers = []testutils.Account{bidder}
@@ -206,7 +204,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 
 				// Create an valid tob transaction
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("foo", math.NewInt(10000000))
+				bid := sdk.NewCoin("stake", math.NewInt(10000000))
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{suite.accounts[2], suite.accounts[1], bidder, suite.accounts[3], suite.accounts[4]}
@@ -229,7 +227,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 			func() {
 				// Create an valid tob transaction
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("foo", math.NewInt(10000000))
+				bid := sdk.NewCoin("stake", math.NewInt(10000000))
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{suite.accounts[2], suite.accounts[1], bidder, suite.accounts[3], suite.accounts[4]}
@@ -296,7 +294,10 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 			suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxEncoder(), suite.tobLane, suite.mempool)
 
 			suite.proposalHandler = abci.NewProposalHandler(
-				[]blockbuster.Lane{suite.baseLane},
+				[]blockbuster.Lane{
+					suite.tobLane,
+					suite.baseLane,
+				},
 				suite.tobLane,
 				suite.logger,
 				suite.encodingConfig.TxConfig.TxEncoder(),
@@ -308,7 +309,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 			res, _ := handler(suite.ctx, &req)
 
 			// -------------------- Check Invariants -------------------- //
-			// The first slot in the proposal must be the auction info
+			// The first slot in the proposal must be the auction info (if vote extensions are enabled)
 			auctionInfo := abci.AuctionInfo{}
 			err := auctionInfo.Unmarshal(res.Txs[abci.AuctionInfoIndex])
 			suite.Require().NoError(err)
@@ -344,7 +345,6 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				bidInfo, err := suite.tobLane.GetAuctionBidInfo(tx)
 				suite.Require().NoError(err)
 				suite.Require().Nil(bidInfo)
-
 			}
 
 			// 4. All of the transactions must be unique
@@ -360,13 +360,41 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 	}
 }
 
-// TODO:
-// - Add tests that ensure that the top of block lane does not propose more transactions than it is allowed to
+func (suite *ABCITestSuite) TestPrepareProposalPreVoteExtensions() {
+	// Create a valid tob transaction
+	bidder := suite.accounts[0]
+	bid := sdk.NewCoin("stake", math.NewInt(1000))
+	nonce := suite.nonces[bidder.Address.String()]
+	timeout := uint64(100)
+	signers := []testutils.Account{bidder}
+	bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
+	suite.Require().NoError(err)
+
+	// Insert the bid transaction into the mempool
+	suite.Require().NoError(suite.mempool.Insert(suite.ctx, bidTx))
+
+	account := suite.accounts[5]
+	nonce = suite.nonces[account.Address.String()]
+	timeout = uint64(100)
+	numberMsgs := uint64(3)
+	normalTx, err := testutils.CreateRandomTx(suite.encodingConfig.TxConfig, account, nonce, numberMsgs, timeout)
+	suite.Require().NoError(err)
+
+	// Insert the normal transaction into the mempool
+	suite.Require().NoError(suite.mempool.Insert(suite.ctx, normalTx))
+
+	handler := suite.proposalHandler.PrepareProposalHandler()
+	req := suite.createPrepareProposalRequest(1000000000000)
+	suite.ctx = suite.ctx.WithBlockHeight(0)
+	res, _ := handler(suite.ctx, &req)
+	suite.Require().Equal(1, len(res.Txs))
+}
+
 func (suite *ABCITestSuite) TestProcessProposal() {
 	var (
 		// auction configuration
 		maxBundleSize          uint32 = 10
-		reserveFee                    = sdk.NewCoin("foo", math.NewInt(1000))
+		reserveFee                    = sdk.NewCoin("stake", math.NewInt(1000))
 		frontRunningProtection        = true
 		maxTxBytes             int64  = 1000000000000000000
 
@@ -419,7 +447,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			func() {
 				// Create a valid tob transaction
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("foo", math.NewInt(1000))
+				bid := sdk.NewCoin("stake", math.NewInt(1000))
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{bidder}
@@ -442,7 +470,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			func() {
 				// Create a valid tob transaction
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("foo", math.NewInt(1000))
+				bid := sdk.NewCoin("stake", math.NewInt(1000))
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{bidder}
@@ -471,7 +499,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			func() {
 				// Create a valid tob transaction
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("foo", math.NewInt(1000))
+				bid := sdk.NewCoin("stake", math.NewInt(1000))
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{bidder}
@@ -497,7 +525,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			func() {
 				// Create a valid tob transaction
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("foo", math.NewInt(1000))
+				bid := sdk.NewCoin("stake", math.NewInt(1000))
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{suite.accounts[1], bidder}
@@ -522,7 +550,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			func() {
 				// Create a valid tob transaction
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("foo", math.NewInt(1000))
+				bid := sdk.NewCoin("stake", math.NewInt(1000))
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{bidder, suite.accounts[1]} // front-running
@@ -547,7 +575,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			func() {
 				// Create a valid tob transaction
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("foo", math.NewInt(1000))
+				bid := sdk.NewCoin("stake", math.NewInt(1000))
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{bidder, bidder}
@@ -556,7 +584,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 
 				// Create another valid tob transaction
 				bidder = suite.accounts[1]
-				bid = sdk.NewCoin("foo", math.NewInt(1000000))
+				bid = sdk.NewCoin("stake", math.NewInt(1000000))
 				nonce = suite.nonces[bidder.Address.String()]
 				timeout = uint64(100)
 				signers = []testutils.Account{bidder}
@@ -582,7 +610,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			func() {
 				// Create a valid tob transaction
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("foo", math.NewInt(1000))
+				bid := sdk.NewCoin("stake", math.NewInt(1000))
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{bidder, bidder}
@@ -591,7 +619,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 
 				// Create another valid tob transaction
 				bidder = suite.accounts[1]
-				bid = sdk.NewCoin("foo", math.NewInt(1000000))
+				bid = sdk.NewCoin("stake", math.NewInt(1000000))
 				nonce = suite.nonces[bidder.Address.String()]
 				timeout = uint64(100)
 				signers = []testutils.Account{bidder}
@@ -617,7 +645,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			func() {
 				// Create a valid tob transaction
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("foo", math.NewInt(1000))
+				bid := sdk.NewCoin("stake", math.NewInt(1000))
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{bidder, bidder}
@@ -626,7 +654,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 
 				// Create another valid tob transaction
 				bidder = suite.accounts[1]
-				bid = sdk.NewCoin("foo", math.NewInt(1000000))
+				bid = sdk.NewCoin("stake", math.NewInt(1000000))
 				nonce = suite.nonces[bidder.Address.String()]
 				timeout = uint64(100)
 				signers = []testutils.Account{bidder}
@@ -656,7 +684,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			func() {
 				// Create a valid tob transaction
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("foo", math.NewInt(1000))
+				bid := sdk.NewCoin("stake", math.NewInt(1000))
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{bidder}
@@ -684,7 +712,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			func() {
 				// Create a valid tob transaction
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("foo", math.NewInt(1000))
+				bid := sdk.NewCoin("stake", math.NewInt(1000))
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{bidder}
@@ -718,7 +746,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			func() {
 				// Create a valid tob transaction
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("foo", math.NewInt(10000000))
+				bid := sdk.NewCoin("stake", math.NewInt(10000000))
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{suite.accounts[2], suite.accounts[1], bidder, suite.accounts[3], suite.accounts[4]}
@@ -764,7 +792,10 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 
 			// reset the proposal handler with the new mempool
 			suite.proposalHandler = abci.NewProposalHandler(
-				[]blockbuster.Lane{suite.baseLane},
+				[]blockbuster.Lane{
+					suite.tobLane,
+					suite.baseLane,
+				},
 				suite.tobLane, log.NewTestLogger(suite.T()),
 				suite.encodingConfig.TxConfig.TxEncoder(),
 				suite.encodingConfig.TxConfig.TxDecoder(),
