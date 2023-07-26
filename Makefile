@@ -91,6 +91,7 @@ docker-build-integration:
 TEST_E2E_TAGS = e2e
 TEST_E2E_DEPS = docker-build
 TEST_INTEGRATION_DEPS = docker-build-integration
+TEST_INTEGRATION_TAGS = integration
 
 test-e2e: $(TEST_E2E_DEPS)
 	@echo "Running E2E tests..."
@@ -98,7 +99,7 @@ test-e2e: $(TEST_E2E_DEPS)
 
 test-integration: $(TEST_INTEGRATION_DEPS)
 	@ echo "Running integration tests..."
-	@go test ./tests/pob_integration_test.go -timeout 30m -race -v
+	@go test ./tests/pob_integration_test.go -timeout 30m -race -v -tags='$(TEST_INTEGRATION_TAGS)'
 
 test:
 	@go test -v ./...
