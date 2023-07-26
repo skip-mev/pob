@@ -110,7 +110,7 @@ type Tx struct {
 	SequenceIncrement  uint64
 	Height             uint64
 	SkipInclusionCheck bool
-	ExpectFail 	   bool
+	ExpectFail         bool
 }
 
 // CreateAuctionBidMsg creates a new AuctionBid tx signed by the given user, the order of txs in the MsgAuctionBid will be determined by the contents + order of the MessageForUsers
@@ -154,8 +154,8 @@ func BroadcastTxs(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, 
 		// check execution was successful
 		if !msgsPerUser[i].ExpectFail {
 			require.Equal(t, res.Code, uint32(0))
-		} 
-			
+		}
+
 	}
 
 	// block on all txs being included in block
