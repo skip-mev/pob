@@ -45,7 +45,7 @@ var (
 			Type:                   "cosmos",
 			Name:                   "pob",
 			Denom:                  denom,
-			ChainID:                "pob-1",
+			ChainID:                "chain-id-0",
 			Bin:                    "testappd",
 			Bech32Prefix:           "cosmos",
 			CoinType:               "118",
