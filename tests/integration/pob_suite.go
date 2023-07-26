@@ -356,7 +356,7 @@ func (s *POBIntegrationTestSuite) TestMultipleBids() {
 		// query next block
 		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+1)
 		block := Block(s.T(), s.chain.(*cosmos.CosmosChain), int64(height+1))
-
+		
 		// check bid2 was included first
 		VerifyBlock(s.T(), block, 0, TxHash(txs[1]), bundledTxs2)
 
@@ -364,7 +364,6 @@ func (s *POBIntegrationTestSuite) TestMultipleBids() {
 		escrowAcctBalanceAfterBid := QueryAccountBalance(s.T(), s.chain, escrowAddr, params.ReserveFee.Denom)
 		expectedIncrement := escrowAddressIncrement(bidAmt.Add(params.MinBidIncrement.Add(bidAmt)).Amount, params.ProposerFee)
 		require.Equal(s.T(), escrowAcctBalanceBeforeBid+expectedIncrement, escrowAcctBalanceAfterBid)
-
 		// check next block
 		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+2)
 		block = Block(s.T(), s.chain.(*cosmos.CosmosChain), int64(height+2))

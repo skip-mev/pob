@@ -146,7 +146,6 @@ func BroadcastTxs(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, 
 	// broadcast each tx
 	require.True(t, len(chain.Nodes()) > 0)
 	client := chain.Nodes()[0].Client
-
 	for i, tx := range txs {
 		// broadcast tx
 		res, err := client.BroadcastTxSync(ctx, tx)
