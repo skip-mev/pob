@@ -9,6 +9,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	"github.com/skip-mev/pob/blockbuster/lanes/auction"
+	"github.com/skip-mev/pob/blockbuster/utils"
 )
 
 type (
@@ -71,28 +72,47 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() sdk.ExtendVoteHandler {
 	return func(ctx sdk.Context, req *cometabci.RequestExtendVote) (*cometabci.ResponseExtendVote, error) {
 		// Iterate through auction bids until we find a valid one
 		auctionIterator := h.tobLane.Select(ctx, nil)
+		txsToRemove := make(map[sdk.Tx]struct{}, 0)
+
+		defer func() {
+			if err := utils.RemoveTxsFromLane(txsToRemove, h.tobLane); err != nil {
+				h.logger.Info(
+					"failed to remove transactions from lane",
+					"err", err,
+				)
+			}
+		}()
 
 		for ; auctionIterator != nil; auctionIterator = auctionIterator.Next() {
 			bidTx := auctionIterator.Tx()
 
 			// Verify the bid tx can be encoded and included in vote extension
-			if bidBz, err := h.txEncoder(bidTx); err == nil {
-				// Validate the auction transaction against a cache state
-				cacheCtx, _ := ctx.CacheContext()
+			bidTxBz, hash, err := utils.GetTxHashStr(h.txEncoder, bidTx)
+			if err != nil {
+				h.logger.Info(
+					"failed to get hash of auction bid tx",
+					"err", err,
+				)
+				txsToRemove[bidTx] = struct{}{}
 
-				if err := h.tobLane.VerifyTx(cacheCtx, bidTx); err == nil {
-					hash := sha256.Sum256(bidBz)
-					hashStr := hex.EncodeToString(hash[:])
-
-					h.logger.Info(
-						"extending vote with auction transaction",
-						"tx_hash", hashStr,
-						"height", ctx.BlockHeight(),
-					)
-
-					return &cometabci.ResponseExtendVote{VoteExtension: bidBz}, nil
-				}
+				continue
 			}
+
+			// Validate the auction transaction against a cache state
+			cacheCtx, _ := ctx.CacheContext()
+			if err := h.tobLane.VerifyTx(cacheCtx, bidTx); err != nil {
+				h.logger.Info(
+					"failed to verify auction bid tx",
+					"tx_hash", hash,
+					"err", err,
+				)
+				txsToRemove[bidTx] = struct{}{}
+
+				continue
+			}
+
+			h.logger.Info("extending vote with auction transaction", "tx_hash", hash)
+			return &cometabci.ResponseExtendVote{VoteExtension: bidTxBz}, nil
 		}
 
 		h.logger.Info(
@@ -168,6 +188,15 @@ func (h *VoteExtensionHandler) VerifyVoteExtensionHandler() sdk.VerifyVoteExtens
 				"height", ctx.BlockHeight(),
 				"err", err,
 			)
+
+			if err := h.tobLane.Remove(bidTx); err != nil {
+				h.logger.Info(
+					"failed to remove auction transaction from lane",
+					"tx_hash", hash,
+					"height", ctx.BlockHeight(),
+					"err", err,
+				)
+			}
 
 			h.cache[hash] = err
 			return &cometabci.ResponseVerifyVoteExtension{Status: cometabci.ResponseVerifyVoteExtension_REJECT}, err

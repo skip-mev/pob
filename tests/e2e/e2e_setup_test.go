@@ -223,6 +223,7 @@ func (s *IntegrationTestSuite) initValidatorConfigs() {
 		valConfig.LogLevel = "info"
 		valConfig.BaseConfig.Genesis = filepath.Join("config", "genesis.json")
 		valConfig.RootDir = filepath.Join("root", ".simapp")
+		valConfig.Consensus.TimeoutCommit = 2 * time.Second
 
 		var peers []string
 

@@ -152,15 +152,6 @@ func (h *ProposalHandler) buildTOB(ctx sdk.Context, bidTx sdk.Tx, maxBytes int64
 		return proposal, err
 	}
 
-	maxBytesForLane := utils.GetMaxTxBytesForLane(
-		proposal.GetMaxTxBytes(),
-		proposal.GetTotalTxBytes(),
-		h.tobLane.GetMaxBlockSpace(),
-	)
-	if int64(len(txBz)) > maxBytesForLane {
-		return proposal, fmt.Errorf("bid transaction is too large; got %d, max %d", len(txBz), maxBytes)
-	}
-
 	// Ensure that the bid transaction is valid
 	if err := h.tobLane.VerifyTx(ctx, bidTx); err != nil {
 		return proposal, err
