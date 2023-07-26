@@ -110,6 +110,7 @@ type Tx struct {
 	SequenceIncrement  uint64
 	Height             uint64
 	SkipInclusionCheck bool
+	ExpectFail 	   bool
 }
 
 // CreateAuctionBidMsg creates a new AuctionBid tx signed by the given user, the order of txs in the MsgAuctionBid will be determined by the contents + order of the MessageForUsers
@@ -145,19 +146,23 @@ func BroadcastTxs(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, 
 	// broadcast each tx
 	require.True(t, len(chain.Nodes()) > 0)
 	client := chain.Nodes()[0].Client
-	for _, tx := range txs {
+	for i, tx := range txs {
 		// broadcast tx
 		res, err := client.BroadcastTxSync(ctx, tx)
 		require.NoError(t, err)
+
 		// check execution was successful
-		require.Equal(t, res.Code, uint32(0))
+		if !msgsPerUser[i].ExpectFail {
+			require.Equal(t, res.Code, uint32(0))
+		} 
+			
 	}
 
 	// block on all txs being included in block
 	eg := errgroup.Group{}
 	for i, tx := range txs {
 		// if we don't expect this tx to be included.. skip it
-		if msgsPerUser[i].SkipInclusionCheck {
+		if msgsPerUser[i].SkipInclusionCheck || msgsPerUser[i].ExpectFail {
 			continue
 		}
 
@@ -169,7 +174,6 @@ func BroadcastTxs(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, 
 				if err != nil {
 					return false, nil
 				}
-
 				return true, nil
 			})
 		})

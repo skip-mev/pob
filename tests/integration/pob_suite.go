@@ -78,6 +78,13 @@ func (s *POBIntegrationTestSuite) TestQueryParams() {
 	s.Require().Equal(buildertypes.DefaultProposerFee, params.ProposerFee)
 }
 
+// TestValidBids tests the execution of various valid auction bids. There are a few
+// invariants that are tested:
+//
+//  1. The order of transactions in a bundle is preserved when bids are valid.
+//  2. All transactions execute as expected.
+//  3. The balance of the escrow account should be updated correctly.
+//  4. Top of block bids will be included in block proposals before other transactions
 func (s *POBIntegrationTestSuite) TestValidBids() {
 	params := QueryBuilderParams(s.T(), s.chain)
 	escrowAddr := sdk.AccAddress(params.EscrowAccountAddress).String()
@@ -286,6 +293,363 @@ func (s *POBIntegrationTestSuite) TestValidBids() {
 		escrowAcctBalanceAfterBid := QueryAccountBalance(s.T(), s.chain, escrowAddr, params.ReserveFee.Denom)
 		expectedIncrement := escrowAddressIncrement(bidAmt.Amount, params.ProposerFee)
 		require.Equal(s.T(), escrowAcctBalanceBeforeBid+expectedIncrement, escrowAcctBalanceAfterBid)
+	})
+}
+
+// TestMultipleBids tests the execution of various valid auction bids in the same block. There are a few
+// invariants that are tested:
+//
+//  1. The order of transactions in a bundle is preserved when bids are valid.
+//  2. All transactions execute as expected.
+//  3. The balance of the escrow account should be updated correctly.
+//  4. Top of block bids will be included in block proposals before other transactions
+//     that are included in the same block.
+//  5. If there is a block that has multiple valid bids with timeouts that are sufficiently far apart,
+//     the bids should be executed respecting the highest bids until the timeout is reached.
+func (s *POBIntegrationTestSuite) TestMultipleBids() {
+	params := QueryBuilderParams(s.T(), s.chain)
+	escrowAddr := sdk.AccAddress(params.EscrowAccountAddress).String()
+
+	s.Run("broadcasting bids to two different validators (both should execute over several blocks) with same bid", func() {
+		// escrow account balance
+		escrowAcctBalanceBeforeBid := QueryAccountBalance(s.T(), s.chain, escrowAddr, params.ReserveFee.Denom)
+
+		// create bid 1
+		// bank-send msg
+		msg := MessagesForUser{
+			User:              s.user1,
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			SequenceIncrement: 1,
+		}
+		// create bid1
+		bidAmt := params.ReserveFee
+		bid1, bundledTxs := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, []MessagesForUser{msg})
+
+		// create bid 2
+		msg2 := MessagesForUser{
+			User:              s.user2,
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user2.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			SequenceIncrement: 1,
+		}
+		// create bid2 w/ higher bid than bid1
+		bid2, bundledTxs2 := CreateAuctionBidMsg(s.T(), context.Background(), s.user2, s.chain.(*cosmos.CosmosChain), bidAmt.Add(params.MinBidIncrement), []MessagesForUser{msg2})
+		
+		// get chain height
+		height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
+		require.NoError(s.T(), err)
+
+		// broadcast both bids
+		txs := BroadcastMsgsPerUser(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []MessagesForUser{
+			{
+				User:   s.user1,
+				Msgs:   []sdk.Msg{bid1},
+				Height: height + 2,
+				SkipInclusionCheck: true,
+			},
+			{
+				User:   s.user2,
+				Msgs:   []sdk.Msg{bid2},
+				Height: height + 1,
+			},
+		})
+
+		// query next block
+		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+1)
+		block := Block(s.T(), s.chain.(*cosmos.CosmosChain), int64(height+1))
+		
+		// check bid2 was included first
+		VerifyBlock(s.T(), block, TxHash(txs[1]), bundledTxs2)
+		
+		// check escrow balance
+		escrowAcctBalanceAfterBid := QueryAccountBalance(s.T(), s.chain, escrowAddr, params.ReserveFee.Denom)
+		expectedIncrement := escrowAddressIncrement(bidAmt.Add(params.MinBidIncrement.Add(bidAmt)).Amount, params.ProposerFee)
+		require.Equal(s.T(), escrowAcctBalanceBeforeBid+expectedIncrement, escrowAcctBalanceAfterBid)
+		
+		// check next block
+		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+2)
+		block = Block(s.T(), s.chain.(*cosmos.CosmosChain), int64(height+2))
+
+		// check bid1 was included second
+		VerifyBlock(s.T(), block, TxHash(txs[0]), bundledTxs)
+	})
+	
+	s.Run("Multiple bid transactions with second bid being smaller than min bid increment", func() {
+			// escrow account balance
+			escrowAcctBalanceBeforeBid := QueryAccountBalance(s.T(), s.chain, escrowAddr, params.ReserveFee.Denom)
+
+			// create bid 1
+			// bank-send msg
+			msg := MessagesForUser{
+				User:              s.user1,
+				Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+				SequenceIncrement: 1,
+			}
+			// create bid1
+			bidAmt := params.ReserveFee
+			bid1, bundledTxs := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, []MessagesForUser{msg})
+	
+			// create bid 2
+			msg2 := MessagesForUser{
+				User:              s.user2,
+				Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user2.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+				SequenceIncrement: 1,
+			}
+			// create bid2 w/ higher bid than bid1
+			bid2, _ := CreateAuctionBidMsg(s.T(), context.Background(), s.user2, s.chain.(*cosmos.CosmosChain), bidAmt, []MessagesForUser{msg2})
+			
+			// get chain height
+			height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
+			require.NoError(s.T(), err)
+	
+			// broadcast both bids
+			txs := BroadcastMsgsPerUser(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []MessagesForUser{
+				{
+					User:   s.user1,
+					Msgs:   []sdk.Msg{bid1},
+					Height: height + 1,
+				},
+				{
+					User:   s.user2,
+					Msgs:   []sdk.Msg{bid2},
+					Height: height + 1,
+					ExpectFail: true,
+				},
+			})
+	
+			// query next block
+			WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+1)
+			block := Block(s.T(), s.chain.(*cosmos.CosmosChain), int64(height+1))
+			
+			// check bid2 was included first
+			VerifyBlock(s.T(), block, TxHash(txs[0]), bundledTxs)
+			
+			// check escrow balance
+			escrowAcctBalanceAfterBid := QueryAccountBalance(s.T(), s.chain, escrowAddr, params.ReserveFee.Denom)
+			expectedIncrement := escrowAddressIncrement(bidAmt.Amount, params.ProposerFee)
+			require.Equal(s.T(), escrowAcctBalanceBeforeBid+expectedIncrement, escrowAcctBalanceAfterBid)
+	})
+
+	s.Run("Multiple bid transactions from diff accounts with second bid being smaller than min bid increment", func() {
+		// escrow account balance
+		escrowAcctBalanceBeforeBid := QueryAccountBalance(s.T(), s.chain, escrowAddr, params.ReserveFee.Denom)
+
+		// create bid 1
+		// bank-send msg
+		msg := MessagesForUser{
+			User:              s.user1,
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			SequenceIncrement: 1,
+		}
+		// create bid1
+		bidAmt := params.ReserveFee
+		bid1, bundledTxs := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, []MessagesForUser{msg})
+
+		// create bid 2
+		msg2 := MessagesForUser{
+			User:              s.user2,
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user2.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			SequenceIncrement: 1,
+		}
+		// create bid2 w/ higher bid than bid1
+		bid2, _ := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, []MessagesForUser{msg2})
+		
+		// get chain height
+		height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
+		require.NoError(s.T(), err)
+
+		// broadcast both bids
+		txs := BroadcastMsgsPerUser(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []MessagesForUser{
+			{
+				User:   s.user1,
+				Msgs:   []sdk.Msg{bid1},
+				Height: height + 1,
+			},
+			{
+				User:   s.user1,
+				Msgs:   []sdk.Msg{bid2},
+				SequenceIncrement: 1,
+				Height: height + 1,
+				ExpectFail: true,
+			},
+		})
+
+		// query next block
+		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+1)
+		block := Block(s.T(), s.chain.(*cosmos.CosmosChain), int64(height+1))
+		
+		// check bid2 was included first
+		VerifyBlock(s.T(), block, TxHash(txs[0]), bundledTxs)
+		
+		// check escrow balance
+		escrowAcctBalanceAfterBid := QueryAccountBalance(s.T(), s.chain, escrowAddr, params.ReserveFee.Denom)
+		expectedIncrement := escrowAddressIncrement(bidAmt.Amount, params.ProposerFee)
+		require.Equal(s.T(), escrowAcctBalanceBeforeBid+expectedIncrement, escrowAcctBalanceAfterBid)
+	})
+
+	s.Run("Multiple transactions with increasing bids but first bid has same bundle so it should fail in later block", func() {
+		// escrow account balance
+		escrowAcctBalanceBeforeBid := QueryAccountBalance(s.T(), s.chain, escrowAddr, params.ReserveFee.Denom)
+
+		// create bid 1
+		// bank-send msg
+		msg := MessagesForUser{
+			User:              s.user1,
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			SequenceIncrement: 1,
+		}
+		// create bid1
+		bidAmt := params.ReserveFee
+		bid1, bundledTxs := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, []MessagesForUser{msg})
+
+		// create bid2 w/ higher bid than bid1
+		bid2, _ := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt.Add(params.MinBidIncrement), []MessagesForUser{msg})
+		
+		// get chain height
+		height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
+		require.NoError(s.T(), err)
+
+		// broadcast both bids
+		txs := BroadcastMsgsPerUser(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []MessagesForUser{
+			{
+				User:   s.user1,
+				Msgs:   []sdk.Msg{bid2},
+				Height: height + 1,
+			},
+			{
+				User:   s.user1,
+				Msgs:   []sdk.Msg{bid1},
+				Height: height + 1,
+				SequenceIncrement: 1,
+				ExpectFail: true,
+			},
+		})
+
+		// query next block
+		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+1)
+		block := Block(s.T(), s.chain.(*cosmos.CosmosChain), int64(height+1))
+		
+		// check bid2 was included first
+		VerifyBlock(s.T(), block, TxHash(txs[0]), bundledTxs)
+		
+		// check escrow balance
+		escrowAcctBalanceAfterBid := QueryAccountBalance(s.T(), s.chain, escrowAddr, params.ReserveFee.Denom)
+		expectedIncrement := escrowAddressIncrement(bidAmt.Add(params.MinBidIncrement).Amount, params.ProposerFee)
+		require.Equal(s.T(), escrowAcctBalanceBeforeBid+expectedIncrement, escrowAcctBalanceAfterBid)
+	})
+
+	s.Run("Multiple transactions from diff. account with increasing bids but first bid has same bundle so it should fail in later block", func() {
+		// escrow account balance
+		escrowAcctBalanceBeforeBid := QueryAccountBalance(s.T(), s.chain, escrowAddr, params.ReserveFee.Denom)
+
+		// create bid 1
+		// bank-send msg
+		msg := MessagesForUser{
+			User:              s.user1,
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			SequenceIncrement: 1,
+		}
+		// create bid1
+		bidAmt := params.ReserveFee
+		bid1, bundledTxs := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, []MessagesForUser{msg})
+
+		// create bid2 w/ higher bid than bid1
+		bid2, _ := CreateAuctionBidMsg(s.T(), context.Background(), s.user2, s.chain.(*cosmos.CosmosChain), bidAmt.Add(params.MinBidIncrement), []MessagesForUser{msg})
+		
+		// get chain height
+		height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
+		require.NoError(s.T(), err)
+
+		// broadcast both bids
+		txs := BroadcastMsgsPerUser(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []MessagesForUser{
+			{
+				User:   s.user1,
+				Msgs:   []sdk.Msg{bid2},
+				Height: height + 1,
+			},
+			{
+				User:   s.user2,
+				Msgs:   []sdk.Msg{bid1},
+				Height: height + 1,
+				ExpectFail: true,
+			},
+		})
+
+		// query next block
+		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+1)
+		block := Block(s.T(), s.chain.(*cosmos.CosmosChain), int64(height+1))
+		
+		// check bid2 was included first
+		VerifyBlock(s.T(), block, TxHash(txs[0]), bundledTxs)
+		
+		// check escrow balance
+		escrowAcctBalanceAfterBid := QueryAccountBalance(s.T(), s.chain, escrowAddr, params.ReserveFee.Denom)
+		expectedIncrement := escrowAddressIncrement(bidAmt.Add(params.MinBidIncrement).Amount, params.ProposerFee)
+		require.Equal(s.T(), escrowAcctBalanceBeforeBid+expectedIncrement, escrowAcctBalanceAfterBid)	
+	})
+
+	s.Run("Multiple transactions with increasing bids and different bundles", func() {
+		// escrow account balance
+		escrowAcctBalanceBeforeBid := QueryAccountBalance(s.T(), s.chain, escrowAddr, params.ReserveFee.Denom)
+
+		// create bid 1
+		// bank-send msg
+		msg := MessagesForUser{
+			User:              s.user1,
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			SequenceIncrement: 1,
+		}
+		// create bid1
+		bidAmt := params.ReserveFee
+		bid1, bundledTxs := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, []MessagesForUser{msg})
+
+		// create bid2
+		// create a second message
+		msg2 := MessagesForUser{
+			User:              s.user2,
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user2.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			SequenceIncrement: 1,
+		}
+
+		// create bid2 w/ higher bid than bid1
+		bid2, bundledTxs2 := CreateAuctionBidMsg(s.T(), context.Background(), s.user2, s.chain.(*cosmos.CosmosChain), bidAmt.Add(params.MinBidIncrement), []MessagesForUser{msg2})
+		
+		// get chain height
+		height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
+		require.NoError(s.T(), err)
+
+		// broadcast both bids
+		txs := BroadcastMsgsPerUser(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []MessagesForUser{
+			{
+				User:   s.user1,
+				Msgs:   []sdk.Msg{bid1},
+				Height: height + 2,
+				SkipInclusionCheck: true,
+			},
+			{
+				User:   s.user2,
+				Msgs:   []sdk.Msg{bid2},
+				Height: height + 1,
+			},
+		})
+
+		// query next block
+		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+1)
+		block := Block(s.T(), s.chain.(*cosmos.CosmosChain), int64(height+1))
+		
+		// check bid2 was included first
+		VerifyBlock(s.T(), block, TxHash(txs[1]), bundledTxs2)
+		
+		// query next block and check tx inclusion
+		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+2)
+		block = Block(s.T(), s.chain.(*cosmos.CosmosChain), int64(height+2))
+
+		// check bid1 was included second
+		VerifyBlock(s.T(), block, TxHash(txs[0]), bundledTxs)
+
+		// check escrow balance
+		escrowAcctBalanceAfterBid := QueryAccountBalance(s.T(), s.chain, escrowAddr, params.ReserveFee.Denom)
+		expectedIncrement := escrowAddressIncrement(bidAmt.Add(params.MinBidIncrement.Add(bidAmt)).Amount, params.ProposerFee)
+		require.Equal(s.T(), escrowAcctBalanceBeforeBid+expectedIncrement, escrowAcctBalanceAfterBid)	
 	})
 }
 
