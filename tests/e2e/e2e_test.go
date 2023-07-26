@@ -62,7 +62,7 @@ func (s *IntegrationTestSuite) TestValidBids() {
 				// Create a bid transaction that includes the bundle and is valid
 				bid := reserveFee
 				height := s.queryCurrentHeight()
-				bidTx := s.createAuctionBidTx(accounts[0], bid, bundle, 0, height+2, gasLimit, fees)
+				bidTx := s.createAuctionBidTx(accounts[0], bid, bundle, 0, height+3, gasLimit, fees)
 				s.broadcastTx(bidTx, 0)
 				s.displayExpectedBundle("Valid auction bid", bidTx, bundle)
 
@@ -99,7 +99,7 @@ func (s *IntegrationTestSuite) TestValidBids() {
 				// Create a bid transaction that includes the bundle and is valid
 				bid := reserveFee
 				height := s.queryCurrentHeight()
-				bidTx := s.createAuctionBidTx(accounts[1], bid, bundle, 0, height+2, gasLimit, fees)
+				bidTx := s.createAuctionBidTx(accounts[1], bid, bundle, 0, height+3, gasLimit, fees)
 				s.displayExpectedBundle("gud auction bid", bidTx, bundle)
 				s.broadcastTx(bidTx, 0)
 
