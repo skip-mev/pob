@@ -372,6 +372,23 @@ func (s *IntegrationTestSuite) queryBlockTxs(height uint64) [][]byte {
 	return txs[1:]
 }
 
+// queryTx returns information about a transaction.
+func (s *IntegrationTestSuite) queryTx(txHash string) *txtypes.GetTxResponse {
+	queryClient := txtypes.NewServiceClient(s.createClientContext())
+
+	req := &txtypes.GetTxRequest{Hash: txHash}
+	resp, err := queryClient.GetTx(context.Background(), req)
+	s.Require().NoError(err)
+
+	return resp
+}
+
+// queryTxExecutionHeight returns the block height at which a transaction was executed.
+func (s *IntegrationTestSuite) queryTxExecutionHeight(txHash string) uint64 {
+	txResp := s.queryTx(txHash)
+	return uint64(txResp.TxResponse.Height)
+}
+
 // queryValidators returns the validators of the network.
 func (s *IntegrationTestSuite) queryValidators() []stakingtypes.Validator {
 	queryClient := stakingtypes.NewQueryClient(s.createClientContext())

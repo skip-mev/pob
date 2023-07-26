@@ -74,6 +74,15 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() sdk.ExtendVoteHandler {
 		auctionIterator := h.tobLane.Select(ctx, nil)
 		txsToRemove := make(map[sdk.Tx]struct{}, 0)
 
+		defer func() {
+			if err := utils.RemoveTxsFromLane(txsToRemove, h.tobLane); err != nil {
+				h.logger.Info(
+					"failed to remove transactions from lane",
+					"err", err,
+				)
+			}
+		}()
+
 		for ; auctionIterator != nil; auctionIterator = auctionIterator.Next() {
 			bidTx := auctionIterator.Tx()
 
@@ -102,13 +111,6 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() sdk.ExtendVoteHandler {
 				continue
 			}
 
-			if err := utils.RemoveTxsFromLane(txsToRemove, h.tobLane); err != nil {
-				h.logger.Info(
-					"failed to remove transactions from lane",
-					"err", err,
-				)
-			}
-
 			h.logger.Info("extending vote with auction transaction", "tx_hash", hash)
 			return &cometabci.ResponseExtendVote{VoteExtension: bidTxBz}, nil
 		}
@@ -117,13 +119,6 @@ func (h *VoteExtensionHandler) ExtendVoteHandler() sdk.ExtendVoteHandler {
 			"extending vote with no auction transaction",
 			"height", ctx.BlockHeight(),
 		)
-
-		if err := utils.RemoveTxsFromLane(txsToRemove, h.tobLane); err != nil {
-			h.logger.Info(
-				"failed to remove transactions from lane",
-				"err", err,
-			)
-		}
 
 		return &cometabci.ResponseExtendVote{VoteExtension: []byte{}}, nil
 	}
