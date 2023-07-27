@@ -163,13 +163,13 @@ func (s *POBIntegrationTestSuite) TestValidBids() {
 		msgsToBcast = append(msgsToBcast, Tx{
 			User:   s.user1,
 			Msgs:   []sdk.Msg{bid},
-			Height: height + 2,
+			Height: height + 1,
 		})
 
 		msgsToBcast = append(msgsToBcast, Tx{
 			User:   s.user2,
 			Msgs:   msgs[1:2],
-			Height: height + 2,
+			Height: height + 1,
 		})
 
 		regular_txs := BroadcastTxs(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), msgsToBcast)
@@ -544,10 +544,10 @@ func (s *POBIntegrationTestSuite) TestMultipleBids() {
 		// create bid 1
 		// bank-send msg
 		msg := MessagesForUser{
-			User:              s.user1,
-			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
-			SequenceIncrement: 1,
+			User:              s.user3,
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user3.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
 		}
+
 		// create bid1
 		bidAmt := params.ReserveFee
 		bid1, bundledTxs := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, []MessagesForUser{msg})
@@ -562,12 +562,12 @@ func (s *POBIntegrationTestSuite) TestMultipleBids() {
 		// broadcast both bids
 		txs := BroadcastMsgsPerUser(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []MessagesForUser{
 			{
-				User:   s.user1,
+				User:   s.user2,
 				Msgs:   []sdk.Msg{bid2},
 				Height: height + 1,
 			},
 			{
-				User:       s.user2,
+				User:       s.user1,
 				Msgs:       []sdk.Msg{bid1},
 				Height:     height + 1,
 				ExpectFail: true,
