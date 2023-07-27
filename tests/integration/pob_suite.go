@@ -200,25 +200,25 @@ func (s *POBIntegrationTestSuite) TestValidBids() {
 			{
 				User:               s.user1,
 				Msgs:               []sdk.Msg{bid},
-				Height:             height + 2,
+				Height:             height + 1,
 				SkipInclusionCheck: true,
 			},
 			{
 				User:               s.user1,
 				Msgs:               []sdk.Msg{bid2},
-				Height:             height + 2,
+				Height:             height + 1,
 				SkipInclusionCheck: true,
 			},
 			{
 				User:   s.user1,
 				Msgs:   []sdk.Msg{bid3},
-				Height: height + 2,
+				Height: height + 1,
 			},
 		})
 
 		// Verify the block
-		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+2)
-		VerifyBlock(s.T(), Block(s.T(), s.chain.(*cosmos.CosmosChain), int64(height+2)), TxHash(txs[2]), bundledTxs)
+		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+1)
+		VerifyBlock(s.T(), Block(s.T(), s.chain.(*cosmos.CosmosChain), int64(height+1)), TxHash(txs[2]), bundledTxs)
 
 		//  check escrow account balance
 		escrowAcctBalanceAfterBid := QueryAccountBalance(s.T(), s.chain, escrowAddr, params.ReserveFee.Denom)
