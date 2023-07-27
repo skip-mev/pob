@@ -1,4 +1,4 @@
-//go:build integration
+// go:build integration
 
 package tests
 
@@ -29,6 +29,13 @@ var (
 	noHostMount    = false
 	gasAdjustment  = float64(2.0)
 
+	genesisKV = []cosmos.GenesisKV{
+		{
+			Key:   "app_state.builder.params.max_bundle_size",
+			Value: 3,
+		},
+	}
+
 	// interchain specification
 	spec = &interchaintest.ChainSpec{
 		ChainName:     "pob",
@@ -54,6 +61,7 @@ var (
 			TrustingPeriod:         "48h",
 			NoHostMount:            noHostMount,
 			UsingNewGenesisCommand: true,
+			ModifyGenesis: cosmos.ModifyGenesis(genesisKV),
 		},
 	}
 )
