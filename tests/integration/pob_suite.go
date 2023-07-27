@@ -70,7 +70,7 @@ func (s *POBIntegrationTestSuite) TestQueryParams() {
 	params := QueryBuilderParams(s.T(), s.chain)
 
 	// check default params are correct
-	s.Require().Equal(buildertypes.DefaultMaxBundleSize, params.MaxBundleSize)
+	s.Require().Equal(uint32(3), params.MaxBundleSize)
 	s.Require().Equal(buildertypes.DefaultEscrowAccountAddress, sdk.AccAddress(params.EscrowAccountAddress))
 	s.Require().Equal(buildertypes.DefaultReserveFee, params.ReserveFee)
 	s.Require().Equal(buildertypes.DefaultMinBidIncrement, params.MinBidIncrement)
@@ -216,24 +216,26 @@ func (s *POBIntegrationTestSuite) TestValidBids() {
 		height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
 		require.NoError(s.T(), err)
 
+		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+1)
+
 		// broadcast all bids
 		broadcastedTxs := BroadcastTxs(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []Tx{
 			{
 				User:               s.user1,
 				Msgs:               []sdk.Msg{bid},
-				Height:             height + 1,
+				Height:             height + 3,
 				SkipInclusionCheck: true,
 			},
 			{
 				User:               s.user1,
 				Msgs:               []sdk.Msg{bid2},
-				Height:             height + 1,
+				Height:             height + 3,
 				SkipInclusionCheck: true,
 			},
 			{
 				User:   s.user1,
 				Msgs:   []sdk.Msg{bid3},
-				Height: height + 1,
+				Height: height + 3,
 			},
 		})
 
@@ -248,6 +250,14 @@ func (s *POBIntegrationTestSuite) TestValidBids() {
 	})
 
 	s.Run("bid with a bundle with transactions that are already in the mempool", func() {
+		// reset 
+		height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
+		require.NoError(s.T(), err)
+
+		// wait for the next height
+		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+1)
+
+
 		// escrow account balance
 		escrowAcctBalanceBeforeBid := QueryAccountBalance(s.T(), s.chain, escrowAddr, params.ReserveFee.Denom)
 
@@ -269,7 +279,7 @@ func (s *POBIntegrationTestSuite) TestValidBids() {
 		bid, bundledTxs := CreateAuctionBidMsg(s.T(), context.Background(), s.user2, s.chain.(*cosmos.CosmosChain), bidAmt, txs)
 
 		// get chain height
-		height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
+		height, err = s.chain.(*cosmos.CosmosChain).Height(context.Background())
 		require.NoError(s.T(), err)
 
 		// broadcast txs in the bundle to network + bundle + extra
