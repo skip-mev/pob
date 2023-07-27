@@ -61,7 +61,7 @@ var (
 			TrustingPeriod:         "48h",
 			NoHostMount:            noHostMount,
 			UsingNewGenesisCommand: true,
-			ModifyGenesis: cosmos.ModifyGenesis(genesisKV),
+			ModifyGenesis:          cosmos.ModifyGenesis(genesisKV),
 		},
 	}
 )
