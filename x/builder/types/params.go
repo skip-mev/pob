@@ -11,10 +11,10 @@ import (
 var (
 	DefaultMaxBundleSize          uint32 = 2
 	DefaultEscrowAccountAddress          = authtypes.NewModuleAddress(ModuleName)
-	DefaultReserveFee                    = sdk.NewCoin("stake", sdk.NewInt(1))
-	DefaultMinBidIncrement               = sdk.NewCoin("stake", sdk.NewInt(1))
+	DefaultReserveFee                    = sdk.NewCoin("stake", math.NewInt(1))
+	DefaultMinBidIncrement               = sdk.NewCoin("stake", math.NewInt(1))
 	DefaultFrontRunningProtection        = true
-	DefaultProposerFee                   = sdk.ZeroDec()
+	DefaultProposerFee                   = math.LegacyNewDec(0)
 )
 
 // NewParams returns a new Params instance with the provided values.
@@ -23,7 +23,7 @@ func NewParams(
 	escrowAccountAddress []byte,
 	reserveFee, minBidIncrement sdk.Coin,
 	frontRunningProtection bool,
-	proposerFee sdk.Dec,
+	proposerFee math.LegacyDec,
 ) Params {
 	return Params{
 		MaxBundleSize:          maxBundleSize,
@@ -49,9 +49,14 @@ func DefaultParams() Params {
 
 // Validate performs basic validation on the parameters.
 func (p Params) Validate() error {
+	if p.EscrowAccountAddress == nil {
+		return fmt.Errorf("escrow account address cannot be nil")
+	}
+
 	if err := validateFee(p.ReserveFee); err != nil {
 		return fmt.Errorf("invalid reserve fee (%s)", err)
 	}
+
 	if err := validateFee(p.MinBidIncrement); err != nil {
 		return fmt.Errorf("invalid minimum bid increment (%s)", err)
 	}
