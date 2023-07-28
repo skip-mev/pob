@@ -1,11 +1,8 @@
 FROM golang:1.20-bullseye AS builder
 
 WORKDIR /src/pob
-COPY go.mod go.sum ./
-RUN go mod download
-
-WORKDIR /src/pob
 COPY . .
+RUN go mod tidy
 RUN make build-test-app
 
 ## Prepare the final clear binary
