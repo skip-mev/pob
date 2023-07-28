@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"cosmossdk.io/log"
 	"cosmossdk.io/math"
-	storetypes "cosmossdk.io/store/types"
+	"github.com/cometbft/cometbft/libs/log"
+	storetypes "github.com/cosmos/cosmos-sdk/store/types"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/golang/mock/gomock"
@@ -76,7 +76,7 @@ func (suite *ABCITestSuite) SetupTest() {
 
 	// Lanes configuration
 	config := blockbuster.BaseLaneConfig{
-		Logger:        log.NewTestLogger(suite.T()),
+		Logger:        log.NewNopLogger(),
 		TxEncoder:     suite.encodingConfig.TxConfig.TxEncoder(),
 		TxDecoder:     suite.encodingConfig.TxConfig.TxDecoder(),
 		AnteHandler:   suite.anteHandler,
@@ -143,7 +143,7 @@ func (suite *ABCITestSuite) SetupTest() {
 	suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxEncoder(), suite.tobLane, suite.mempool)
 
 	// Proposal handler set up
-	suite.proposalHandler = abci.NewProposalHandler(log.NewTestLogger(suite.T()), suite.encodingConfig.TxConfig.TxDecoder(), suite.mempool)
+	suite.proposalHandler = abci.NewProposalHandler(log.NewNopLogger(), suite.encodingConfig.TxConfig.TxDecoder(), suite.mempool)
 }
 
 func (suite *ABCITestSuite) anteHandler(ctx sdk.Context, tx sdk.Tx, _ bool) (sdk.Context, error) {
@@ -691,12 +691,11 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 			}
 
 			// Create a new proposal handler
-			suite.proposalHandler = abci.NewProposalHandler(log.NewTestLogger(suite.T()), suite.encodingConfig.TxConfig.TxDecoder(), suite.mempool)
+			suite.proposalHandler = abci.NewProposalHandler(log.NewNopLogger(), suite.encodingConfig.TxConfig.TxDecoder(), suite.mempool)
 			handler := suite.proposalHandler.PrepareProposalHandler()
-			res, err := handler(suite.ctx, &abcitypes.RequestPrepareProposal{
+			res := handler(suite.ctx, abcitypes.RequestPrepareProposal{
 				MaxTxBytes: maxTxBytes,
 			})
-			suite.Require().NoError(err)
 
 			// -------------------- Check Invariants -------------------- //
 			// 1. the number of transactions in the response must be equal to the number of expected transactions
@@ -1043,18 +1042,12 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxEncoder(), suite.tobLane, suite.mempool)
 
 			handler := suite.proposalHandler.ProcessProposalHandler()
-			res, err := handler(suite.ctx, &abcitypes.RequestProcessProposal{
+			res := handler(suite.ctx, abcitypes.RequestProcessProposal{
 				Txs: proposalTxs,
 			})
 
 			// Check if the response is valid
 			suite.Require().Equal(tc.response, res.Status)
-
-			if res.Status == abcitypes.ResponseProcessProposal_ACCEPT {
-				suite.Require().NoError(err)
-			} else {
-				suite.Require().Error(err)
-			}
 		})
 	}
 }
