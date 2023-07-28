@@ -11,10 +11,10 @@ import (
 var (
 	DefaultMaxBundleSize          uint32 = 2
 	DefaultEscrowAccountAddress          = authtypes.NewModuleAddress(ModuleName)
-	DefaultReserveFee                    = sdk.NewCoin("stake", math.NewInt(1))
-	DefaultMinBidIncrement               = sdk.NewCoin("stake", math.NewInt(1))
+	DefaultReserveFee                    = sdk.NewCoin("stake", sdk.NewInt(1))
+	DefaultMinBidIncrement               = sdk.NewCoin("stake", sdk.NewInt(1))
 	DefaultFrontRunningProtection        = true
-	DefaultProposerFee                   = math.LegacyNewDec(0)
+	DefaultProposerFee                   = sdk.NewDec(0)
 )
 
 // NewParams returns a new Params instance with the provided values.
@@ -23,7 +23,7 @@ func NewParams(
 	escrowAccountAddress []byte,
 	reserveFee, minBidIncrement sdk.Coin,
 	frontRunningProtection bool,
-	proposerFee math.LegacyDec,
+	proposerFee sdk.Dec,
 ) Params {
 	return Params{
 		MaxBundleSize:          maxBundleSize,
