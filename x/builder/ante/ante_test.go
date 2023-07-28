@@ -103,7 +103,8 @@ func (suite *AnteTestSuite) SetupTest() {
 }
 
 func (suite *AnteTestSuite) anteHandler(ctx sdk.Context, tx sdk.Tx, _ bool) (sdk.Context, error) {
-	suite.bankKeeper.EXPECT().GetBalance(ctx, gomock.Any(), suite.balance.Denom).AnyTimes().Return(suite.balance)
+	signer := tx.GetMsgs()[0].GetSigners()[0]
+	suite.bankKeeper.EXPECT().GetBalance(ctx, signer, suite.balance.Denom).AnyTimes().Return(suite.balance)
 
 	next := func(ctx sdk.Context, tx sdk.Tx, _ bool) (sdk.Context, error) {
 		return ctx, nil
