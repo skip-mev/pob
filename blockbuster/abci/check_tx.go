@@ -249,7 +249,7 @@ func (handler *CheckTxHandler) GetContextForBidTx(req cometabci.RequestCheckTx) 
 	// Create a new context based off of the latest committed state.
 	header := tmproto.Header{
 		Height:  handler.baseApp.LastBlockHeight(),
-		ChainID: handler.chainID,
+		ChainID: handler.chainID, // TODO: Replace with actual chain ID. This is currently not exposed by the app.
 	}
 	ctx, _ := sdk.NewContext(ms, header, true, handler.baseApp.Logger()).CacheContext()
 
