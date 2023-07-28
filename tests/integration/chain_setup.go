@@ -104,7 +104,7 @@ func CreateTx(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, user
 	return bz
 }
 
-type MessagesForUser struct {
+type Tx struct {
 	User               cosmos.User
 	Msgs               []sdk.Msg
 	SequenceIncrement  uint64
@@ -113,7 +113,7 @@ type MessagesForUser struct {
 }
 
 // CreateAuctionBidMsg creates a new AuctionBid tx signed by the given user, the order of txs in the MsgAuctionBid will be determined by the contents + order of the MessageForUsers
-func CreateAuctionBidMsg(t *testing.T, ctx context.Context, searcher cosmos.User, chain *cosmos.CosmosChain, bid sdk.Coin, users []MessagesForUser) (*buildertypes.MsgAuctionBid, [][]byte) {
+func CreateAuctionBidMsg(t *testing.T, ctx context.Context, searcher cosmos.User, chain *cosmos.CosmosChain, bid sdk.Coin, users []Tx) (*buildertypes.MsgAuctionBid, [][]byte) {
 	// for each MessagesForUser get the signed bytes
 	txs := make([][]byte, len(users))
 	for i, user := range users {
@@ -132,9 +132,10 @@ func CreateAuctionBidMsg(t *testing.T, ctx context.Context, searcher cosmos.User
 	), txs
 }
 
-// BroadcastMsgsPerUser broadcasts the given messages for each user, this method does not block on the messages being included in a block.
-// This function returns the broadcasted txs
-func BroadcastMsgsPerUser(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, msgsPerUser []MessagesForUser) [][]byte {
+// BroadcastTxs broadcasts the given messages for each user. This function returns the broadcasted txs. If a message 
+// is not expected to be included in a block, set SkipInclusionCheck to true and the method 
+// will not block on the tx's inclusion in a block, otherwise this method will block on the tx's inclusion
+func BroadcastTxs(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, msgsPerUser []Tx) [][]byte {
 	txs := make([][]byte, len(msgsPerUser))
 
 	for i, msg := range msgsPerUser {
@@ -177,25 +178,6 @@ func BroadcastMsgsPerUser(t *testing.T, ctx context.Context, chain *cosmos.Cosmo
 	require.NoError(t, eg.Wait())
 
 	return txs
-}
-
-// BroadcastMsg broadcasts the given messages as a tx signed by the given sender, it blocks until a response from the chain is received
-// and fails if a timeout occurs
-func BroadcastMsgWithBlock(t *testing.T, ctx context.Context, sender cosmos.User, chain *cosmos.CosmosChain, timeoutHeight uint64, msgs ...sdk.Msg) sdk.TxResponse {
-	// create a broadcaster
-	broadcaster := cosmos.NewBroadcaster(t, chain)
-
-	// set timeout height for generated txs
-	broadcaster.ConfigureFactoryOptions(func(txf tx.Factory) tx.Factory {
-		return txf.WithTimeoutHeight(timeoutHeight)
-	})
-
-	resp, err := cosmos.BroadcastTx(ctx, broadcaster, sender, msgs...)
-
-	// check execution was successful
-	require.NoError(t, err)
-	require.Equal(t, uint32(0), resp.Code)
-	return resp
 }
 
 // QueryBuilderParams queries the x/builder module's params
@@ -275,13 +257,13 @@ func WaitForHeight(t *testing.T, chain *cosmos.CosmosChain, height uint64) {
 }
 
 // VerifyBlock takes a Block and verifies that it contains the given bid at the 0-th index, and the bundled txs immediately after
-func VerifyBlock(t *testing.T, block *rpctypes.ResultBlock, bidTxHash string, txs [][]byte) {
+func VerifyBlock(t *testing.T, block *rpctypes.ResultBlock, offset int, bidTxHash string, txs [][]byte) {
 	// verify the block
-	require.Equal(t, bidTxHash, TxHash(block.Block.Data.Txs[0]))
+	require.Equal(t, bidTxHash, TxHash(block.Block.Data.Txs[offset]))
 
 	// verify the txs in sequence
 	for i, tx := range txs {
-		require.Equal(t, TxHash(tx), TxHash(block.Block.Data.Txs[i+1]))
+		require.Equal(t, TxHash(tx), TxHash(block.Block.Data.Txs[i+offset + 1]))
 	}
 }
 

@@ -92,7 +92,7 @@ func (s *POBIntegrationTestSuite) TestValidBids() {
 
 		// create the MsgAuctioBid
 		bidAmt := params.ReserveFee
-		bid, bundledTxs := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, []MessagesForUser{
+		bid, bundledTxs := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, []Tx{
 			{
 				User: s.user1,
 				Msgs: []sdk.Msg{
@@ -106,15 +106,21 @@ func (s *POBIntegrationTestSuite) TestValidBids() {
 		require.NoError(s.T(), err)
 
 		// broadcast + wait for the tx to be included in a block
-		res := BroadcastMsgWithBlock(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), height+2, bid)
-		height = uint64(res.Height)
+		res := BroadcastTxs(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []Tx{
+			{
+				User:   s.user1,
+				Msgs:   []sdk.Msg{bid},
+				Height: height + 1,
+			},
+		})
+		height = height + 1
 
 		// wait for next height
 		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height)
 
 		// query + verify the block
 		block := Block(s.T(), s.chain.(*cosmos.CosmosChain), int64(height))
-		VerifyBlock(s.T(), block, res.TxHash, bundledTxs)
+		VerifyBlock(s.T(), block, 0, TxHash(res[0]), bundledTxs)
 
 		// ensure that the escrow account has the correct balance
 		escrowAcctBalanceAfterBid := QueryAccountBalance(s.T(), s.chain, escrowAddr, params.ReserveFee.Denom)
@@ -134,7 +140,7 @@ func (s *POBIntegrationTestSuite) TestValidBids() {
 
 		// create the MsgAuctionBid
 		bidAmt := params.ReserveFee
-		bid, bundledTxs := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, []MessagesForUser{
+		bid, bundledTxs := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, []Tx{
 			{
 				User:              s.user1,
 				Msgs:              msgs[0:1],
@@ -146,20 +152,20 @@ func (s *POBIntegrationTestSuite) TestValidBids() {
 		require.NoError(s.T(), err)
 
 		// create the messages to be broadcast
-		msgsToBcast := make([]MessagesForUser, 0)
-		msgsToBcast = append(msgsToBcast, MessagesForUser{
+		msgsToBcast := make([]Tx, 0)
+		msgsToBcast = append(msgsToBcast, Tx{
 			User:   s.user1,
 			Msgs:   []sdk.Msg{bid},
 			Height: height + 2,
 		})
 
-		msgsToBcast = append(msgsToBcast, MessagesForUser{
+		msgsToBcast = append(msgsToBcast, Tx{
 			User:   s.user2,
 			Msgs:   msgs[1:2],
 			Height: height + 2,
 		})
 
-		regular_txs := BroadcastMsgsPerUser(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), msgsToBcast)
+		regular_txs := BroadcastTxs(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), msgsToBcast)
 
 		// get the block at the next height
 		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+1)
@@ -167,7 +173,7 @@ func (s *POBIntegrationTestSuite) TestValidBids() {
 
 		// verify the block
 		bidTxHash := TxHash(regular_txs[0])
-		VerifyBlock(s.T(), block, bidTxHash, append(bundledTxs, regular_txs[1:]...))
+		VerifyBlock(s.T(), block, 0, bidTxHash, append(bundledTxs, regular_txs[1:]...))
 
 		// ensure that escrow account has the correct balance
 		escrowAcctBalanceAfterBid := QueryAccountBalance(s.T(), s.chain, escrowAddr, params.ReserveFee.Denom)
@@ -181,30 +187,30 @@ func (s *POBIntegrationTestSuite) TestValidBids() {
 
 		// create multi-tx valid bundle
 		// bank-send msg
-		msgs := make([]MessagesForUser, 2)
-		msgs[0] = MessagesForUser{
+		txs := make([]Tx, 2)
+		txs[0] = Tx{
 			User:              s.user1,
 			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
 			SequenceIncrement: 1,
 		}
-		msgs[1] = MessagesForUser{
+		txs[1] = Tx{
 			User:              s.user1,
 			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
 			SequenceIncrement: 2,
 		}
 		// create bundle
 		bidAmt := params.ReserveFee
-		bid, bundledTxs := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, msgs)
+		bid, bundledTxs := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, txs)
 		// create 2 more bundle w same txs from same user
-		bid2, _ := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt.Add(params.MinBidIncrement), msgs)
-		bid3, _ := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt.Add(params.MinBidIncrement).Add(params.MinBidIncrement), msgs)
+		bid2, _ := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt.Add(params.MinBidIncrement), txs)
+		bid3, _ := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt.Add(params.MinBidIncrement).Add(params.MinBidIncrement), txs)
 
 		// query height
 		height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
 		require.NoError(s.T(), err)
 
 		// broadcast all bids
-		txs := BroadcastMsgsPerUser(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []MessagesForUser{
+		broadcastedTxs := BroadcastTxs(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []Tx{
 			{
 				User:               s.user1,
 				Msgs:               []sdk.Msg{bid},
@@ -226,7 +232,7 @@ func (s *POBIntegrationTestSuite) TestValidBids() {
 
 		// Verify the block
 		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+1)
-		VerifyBlock(s.T(), Block(s.T(), s.chain.(*cosmos.CosmosChain), int64(height+1)), TxHash(txs[2]), bundledTxs)
+		VerifyBlock(s.T(), Block(s.T(), s.chain.(*cosmos.CosmosChain), int64(height+1)), 0, TxHash(broadcastedTxs[2]), bundledTxs)
 
 		//  check escrow account balance
 		escrowAcctBalanceAfterBid := QueryAccountBalance(s.T(), s.chain, escrowAddr, params.ReserveFee.Denom)
@@ -240,12 +246,12 @@ func (s *POBIntegrationTestSuite) TestValidBids() {
 
 		// create valid bundle
 		// bank-send msg
-		msgs := make([]MessagesForUser, 2)
-		msgs[0] = MessagesForUser{
+		txs := make([]Tx, 2)
+		txs[0] = Tx{
 			User: s.user1,
 			Msgs: []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
 		}
-		msgs[1] = MessagesForUser{
+		txs[1] = Tx{
 			User:              s.user1,
 			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
 			SequenceIncrement: 1,
@@ -253,14 +259,14 @@ func (s *POBIntegrationTestSuite) TestValidBids() {
 
 		// create bundle
 		bidAmt := params.ReserveFee
-		bid, bundledTxs := CreateAuctionBidMsg(s.T(), context.Background(), s.user2, s.chain.(*cosmos.CosmosChain), bidAmt, msgs)
+		bid, bundledTxs := CreateAuctionBidMsg(s.T(), context.Background(), s.user2, s.chain.(*cosmos.CosmosChain), bidAmt, txs)
 
 		// get chain height
 		height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
 		require.NoError(s.T(), err)
 
 		// broadcast txs in the bundle to network + bundle + extra
-		txs := BroadcastMsgsPerUser(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []MessagesForUser{msgs[0], msgs[1], {
+		broadcastedTxs := BroadcastTxs(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []Tx{txs[0], txs[1], {
 			User:   s.user2,
 			Msgs:   []sdk.Msg{bid},
 			Height: height + 1,
@@ -274,7 +280,7 @@ func (s *POBIntegrationTestSuite) TestValidBids() {
 		block := Block(s.T(), s.chain.(*cosmos.CosmosChain), int64(height+1))
 
 		// check block
-		VerifyBlock(s.T(), block, TxHash(txs[2]), append(bundledTxs, txs[3]))
+		VerifyBlock(s.T(), block, 0, TxHash(broadcastedTxs[2]), append(bundledTxs, broadcastedTxs[3]))
 
 		// check escrow account balance
 		escrowAcctBalanceAfterBid := QueryAccountBalance(s.T(), s.chain, escrowAddr, params.ReserveFee.Denom)
