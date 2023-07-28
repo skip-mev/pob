@@ -379,23 +379,23 @@ func (s *POBIntegrationTestSuite) TestMultipleBids() {
 
 		// create bid 1
 		// bank-send msg
-		msg := Tx{
+		tx := Tx{
 			User:              s.user1,
 			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
 			SequenceIncrement: 1,
 		}
 		// create bid1
 		bidAmt := params.ReserveFee
-		bid1, bundledTxs := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, []Tx{msg})
+		bid1, bundledTxs := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, []Tx{tx})
 
 		// create bid 2
-		msg2 := Tx{
+		tx2 := Tx{
 			User:              s.user2,
 			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user2.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
 			SequenceIncrement: 1,
 		}
 		// create bid2 w/ higher bid than bid1
-		bid2, _ := CreateAuctionBidMsg(s.T(), context.Background(), s.user2, s.chain.(*cosmos.CosmosChain), bidAmt, []Tx{msg2})
+		bid2, _ := CreateAuctionBidMsg(s.T(), context.Background(), s.user2, s.chain.(*cosmos.CosmosChain), bidAmt, []Tx{tx2})
 
 		// get chain height
 		height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
