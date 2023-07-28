@@ -107,9 +107,9 @@ func TestMsgUpdateParams(t *testing.T) {
 				Authority: sdk.AccAddress([]byte("test")).String(),
 				Params: types.Params{
 					EscrowAccountAddress: nil,
-					ReserveFee:           sdk.NewCoin("test", math.NewInt(100)),
-					MinBidIncrement:      sdk.NewCoin("test", math.NewInt(100)),
-					ProposerFee:          math.LegacyNewDecFromInt(math.NewInt(1)),
+					ReserveFee:           sdk.NewCoin("test", sdk.NewInt(100)),
+					MinBidIncrement:      sdk.NewCoin("test", sdk.NewInt(100)),
+					ProposerFee:          sdk.NewDecFromInt(sdk.NewInt(1)),
 				},
 			},
 			expectPass: false,

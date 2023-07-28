@@ -29,5 +29,5 @@ type StakingKeeper interface {
 
 // RewardsAddressProvider is an interface that provides an address where auction profits are sent.
 type RewardsAddressProvider interface {
-	GetRewardsAddress(context sdk.Context) sdk.AccAddress
+	GetRewardsAddress(context sdk.Context) (sdk.AccAddress, error)
 }
