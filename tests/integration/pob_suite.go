@@ -57,6 +57,14 @@ func (s *POBIntegrationTestSuite) TearDownSuite() {
 	s.ic.Close()
 }
 
+func (s *POBIntegrationTestSuite) SetupSubTest() {
+	// wait for 1 block height
+	// query height
+	height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
+	require.NoError(s.T(), err)
+	WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height + 1)
+}
+
 func (s *POBIntegrationTestSuite) TestQueryParams() {
 	// query params
 	params := QueryBuilderParams(s.T(), s.chain)
