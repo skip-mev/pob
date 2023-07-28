@@ -62,7 +62,7 @@ func (s *POBIntegrationTestSuite) SetupSubTest() {
 	// query height
 	height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
 	require.NoError(s.T(), err)
-	WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height + 1)
+	WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+1)
 }
 
 func (s *POBIntegrationTestSuite) TestQueryParams() {
@@ -216,26 +216,28 @@ func (s *POBIntegrationTestSuite) TestValidBids() {
 		height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
 		require.NoError(s.T(), err)
 
+		// wait for the next height to broadcast
 		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+1)
+		height++
 
 		// broadcast all bids
 		broadcastedTxs := BroadcastTxs(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []Tx{
 			{
 				User:               s.user1,
 				Msgs:               []sdk.Msg{bid},
-				Height:             height + 3,
+				Height:             height + 1,
 				SkipInclusionCheck: true,
 			},
 			{
 				User:               s.user1,
 				Msgs:               []sdk.Msg{bid2},
-				Height:             height + 3,
+				Height:             height + 1,
 				SkipInclusionCheck: true,
 			},
 			{
 				User:   s.user1,
 				Msgs:   []sdk.Msg{bid3},
-				Height: height + 3,
+				Height: height + 1,
 			},
 		})
 
@@ -250,13 +252,12 @@ func (s *POBIntegrationTestSuite) TestValidBids() {
 	})
 
 	s.Run("bid with a bundle with transactions that are already in the mempool", func() {
-		// reset 
+		// reset
 		height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
 		require.NoError(s.T(), err)
 
 		// wait for the next height
 		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+1)
-
 
 		// escrow account balance
 		escrowAcctBalanceBeforeBid := QueryAccountBalance(s.T(), s.chain, escrowAddr, params.ReserveFee.Denom)
@@ -365,20 +366,21 @@ func (s *POBIntegrationTestSuite) TestMultipleBids() {
 		// query next block
 		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+1)
 		block := Block(s.T(), s.chain.(*cosmos.CosmosChain), int64(height+1))
-		
+
 		// check bid2 was included first
 		VerifyBlock(s.T(), block, 0, TxHash(txs[1]), bundledTxs2)
 
-		// check escrow balance
-		escrowAcctBalanceAfterBid := QueryAccountBalance(s.T(), s.chain, escrowAddr, params.ReserveFee.Denom)
-		expectedIncrement := escrowAddressIncrement(bidAmt.Add(params.MinBidIncrement.Add(bidAmt)).Amount, params.ProposerFee)
-		require.Equal(s.T(), escrowAcctBalanceBeforeBid+expectedIncrement, escrowAcctBalanceAfterBid)
 		// check next block
 		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+2)
 		block = Block(s.T(), s.chain.(*cosmos.CosmosChain), int64(height+2))
 
 		// check bid1 was included second
 		VerifyBlock(s.T(), block, 0, TxHash(txs[0]), bundledTxs)
+
+		// check escrow balance
+		escrowAcctBalanceAfterBid := QueryAccountBalance(s.T(), s.chain, escrowAddr, params.ReserveFee.Denom)
+		expectedIncrement := escrowAddressIncrement(bidAmt.Add(params.MinBidIncrement.Add(bidAmt)).Amount, params.ProposerFee)
+		require.Equal(s.T(), escrowAcctBalanceBeforeBid+expectedIncrement, escrowAcctBalanceAfterBid)
 	})
 
 	s.Run("Multiple bid transactions with second bid being smaller than min bid increment", func() {
@@ -550,8 +552,8 @@ func (s *POBIntegrationTestSuite) TestMultipleBids() {
 		// create bid 1
 		// bank-send msg
 		msg := Tx{
-			User:              s.user3,
-			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user3.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			User: s.user3,
+			Msgs: []sdk.Msg{banktypes.NewMsgSend(s.user3.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
 		}
 
 		// create bid1
@@ -664,9 +666,9 @@ func (s *POBIntegrationTestSuite) TestInvalidBids() {
 	s.Run("searcher is attempting to submit a bundle that includes another bid tx", func() {
 		// create bid tx
 		msg := Tx{
-			User: 			s.user1,
-			Msgs: 			[]sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
-			SequenceIncrement: 	2,
+			User:              s.user1,
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			SequenceIncrement: 2,
 		}
 		bidAmt := params.ReserveFee
 		bid, _ := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, []Tx{msg})
@@ -675,10 +677,10 @@ func (s *POBIntegrationTestSuite) TestInvalidBids() {
 		// wrap bidTx in another tx
 		wrappedBid, _ := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, []Tx{
 			{
-				User: s.user1,
-				Msgs: []sdk.Msg{bid},
+				User:              s.user1,
+				Msgs:              []sdk.Msg{bid},
 				SequenceIncrement: 1,
-				Height: height + 1,
+				Height:            height + 1,
 			},
 		})
 
@@ -687,9 +689,9 @@ func (s *POBIntegrationTestSuite) TestInvalidBids() {
 		// broadcast wrapped bid, and expect a failure
 		BroadcastTxs(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []Tx{
 			{
-				User: s.user1,
-				Msgs: []sdk.Msg{wrappedBid},
-				Height: height + 1,
+				User:       s.user1,
+				Msgs:       []sdk.Msg{wrappedBid},
+				Height:     height + 1,
 				ExpectFail: true,
 			},
 		})
@@ -698,9 +700,9 @@ func (s *POBIntegrationTestSuite) TestInvalidBids() {
 	s.Run("Invalid bid that is attempting to bid more than their balance", func() {
 		// create bid tx
 		msg := Tx{
-			User: 			s.user1,
-			Msgs: 			[]sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
-			SequenceIncrement: 	2,
+			User:              s.user1,
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			SequenceIncrement: 2,
 		}
 		bidAmt := sdk.NewCoin("stake", sdk.NewInt(1000000000000000000))
 		bid, _ := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, []Tx{msg})
@@ -709,24 +711,24 @@ func (s *POBIntegrationTestSuite) TestInvalidBids() {
 		require.NoError(s.T(), err)
 
 		// broadcast wrapped bid, and expect a failure
-		SimulateTx(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), s.user1, height + 1, true, []sdk.Msg{bid}...)
+		SimulateTx(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), s.user1, height+1, true, []sdk.Msg{bid}...)
 	})
 
 	s.Run("Invalid bid that is attempting to front-run/sandwich", func() {
 		// create bid tx
 		msg := Tx{
-			User: 			s.user1,
-			Msgs: 			[]sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
-			SequenceIncrement: 	1,			
+			User:              s.user1,
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			SequenceIncrement: 1,
 		}
 		msg2 := Tx{
-			User: 			s.user2,
-			Msgs: 			[]sdk.Msg{banktypes.NewMsgSend(s.user2.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			User: s.user2,
+			Msgs: []sdk.Msg{banktypes.NewMsgSend(s.user2.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
 		}
 		msg3 := Tx{
-			User: 			s.user1,
-			Msgs: 			[]sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
-			SequenceIncrement: 	2,
+			User:              s.user1,
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			SequenceIncrement: 2,
 		}
 
 		bidAmt := params.ReserveFee
@@ -736,15 +738,15 @@ func (s *POBIntegrationTestSuite) TestInvalidBids() {
 		require.NoError(s.T(), err)
 
 		// broadcast wrapped bid, and expect a failure
-		SimulateTx(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), s.user1, height + 1, true, []sdk.Msg{bid}...)
+		SimulateTx(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), s.user1, height+1, true, []sdk.Msg{bid}...)
 	})
 
 	s.Run("Invalid bid that includes an invalid bundle tx", func() {
 		// create bid tx
 		msg := Tx{
-			User: 			s.user1,
-			Msgs: 			[]sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
-			SequenceIncrement: 	2,
+			User:              s.user1,
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			SequenceIncrement: 2,
 		}
 		bidAmt := params.ReserveFee
 		bid, _ := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, []Tx{msg})
@@ -755,22 +757,22 @@ func (s *POBIntegrationTestSuite) TestInvalidBids() {
 		// broadcast wrapped bid, and expect a failure
 		BroadcastTxs(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []Tx{
 			{
-				User: s.user1,
-				Msgs: []sdk.Msg{bid},
+				User:       s.user1,
+				Msgs:       []sdk.Msg{bid},
 				ExpectFail: true,
-				Height: height + 1,
+				Height:     height + 1,
 			},
 		})
 	})
-	
+
 	s.Run("Invalid auction bid with a bid smaller than the reserve fee", func() {
 		// create bid tx
 		msg := Tx{
-			User: 			s.user1,
-			Msgs: 			[]sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
-			SequenceIncrement: 	1,
+			User:              s.user1,
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			SequenceIncrement: 1,
 		}
-		
+
 		// create bid smaller than reserve
 		bidAmt := sdk.NewCoin("stake", sdk.NewInt(0))
 		bid, _ := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, []Tx{msg})
@@ -779,46 +781,46 @@ func (s *POBIntegrationTestSuite) TestInvalidBids() {
 		require.NoError(s.T(), err)
 
 		// broadcast wrapped bid, and expect a failure
-		SimulateTx(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), s.user1, height + 1, true, []sdk.Msg{bid}...)
+		SimulateTx(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), s.user1, height+1, true, []sdk.Msg{bid}...)
 	})
 
 	s.Run("Invalid auction bid with too many transactions in the bundle", func() {
-			// create bid tx
-			msgs := make([]Tx, 4)
+		// create bid tx
+		msgs := make([]Tx, 4)
 
-			for i := range msgs {
-				msgs[i] = Tx{
-					User: 			s.user1,
-					Msgs: 			[]sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
-					SequenceIncrement: 	uint64(i+1),
-				}
+		for i := range msgs {
+			msgs[i] = Tx{
+				User:              s.user1,
+				Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+				SequenceIncrement: uint64(i + 1),
 			}
-			
-			// create bid smaller than reserve
-			bidAmt := sdk.NewCoin("stake", sdk.NewInt(0))
-			bid, _ := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, msgs)
-	
-			height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
-			require.NoError(s.T(), err)
-	
-			// broadcast wrapped bid, and expect a failure
-			SimulateTx(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), s.user1, height + 1, true, []sdk.Msg{bid}...)	
+		}
+
+		// create bid smaller than reserve
+		bidAmt := sdk.NewCoin("stake", sdk.NewInt(0))
+		bid, _ := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, msgs)
+
+		height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
+		require.NoError(s.T(), err)
+
+		// broadcast wrapped bid, and expect a failure
+		SimulateTx(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), s.user1, height+1, true, []sdk.Msg{bid}...)
 	})
 
 	s.Run("invalid auction bid that has an invalid timeout", func() {
-			// create bid tx
-			msg := Tx{
-				User: 			s.user1,
-				Msgs: 			[]sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
-				SequenceIncrement: 	1,
-			}
-			
-			// create bid smaller than reserve
-			bidAmt := sdk.NewCoin("stake", sdk.NewInt(0))
-			bid, _ := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, []Tx{msg})
-	
-			// broadcast wrapped bid, and expect a failure
-			SimulateTx(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), s.user1, 0, true, []sdk.Msg{bid}...)	
+		// create bid tx
+		msg := Tx{
+			User:              s.user1,
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			SequenceIncrement: 1,
+		}
+
+		// create bid smaller than reserve
+		bidAmt := sdk.NewCoin("stake", sdk.NewInt(0))
+		bid, _ := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, []Tx{msg})
+
+		// broadcast wrapped bid, and expect a failure
+		SimulateTx(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), s.user1, 0, true, []sdk.Msg{bid}...)
 	})
 
 	s.Run("Invalid bid that includes valid transactions that are in the mempool", func() {
@@ -850,9 +852,9 @@ func (s *POBIntegrationTestSuite) TestInvalidBids() {
 		// broadcast + wait for the tx to be included in a block
 		txs := BroadcastTxs(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []Tx{
 			{
-				User:   s.user1,
-				Msgs:   []sdk.Msg{bid},
-				Height: height + 1,
+				User:       s.user1,
+				Msgs:       []sdk.Msg{bid},
+				Height:     height + 1,
 				ExpectFail: true,
 			},
 			{
