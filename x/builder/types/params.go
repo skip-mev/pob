@@ -14,7 +14,7 @@ var (
 	DefaultReserveFee                    = sdk.NewCoin("stake", sdk.NewInt(1))
 	DefaultMinBidIncrement               = sdk.NewCoin("stake", sdk.NewInt(1))
 	DefaultFrontRunningProtection        = true
-	DefaultProposerFee                   = sdk.ZeroDec()
+	DefaultProposerFee                   = sdk.NewDec(0)
 )
 
 // NewParams returns a new Params instance with the provided values.
@@ -49,9 +49,14 @@ func DefaultParams() Params {
 
 // Validate performs basic validation on the parameters.
 func (p Params) Validate() error {
+	if p.EscrowAccountAddress == nil {
+		return fmt.Errorf("escrow account address cannot be nil")
+	}
+
 	if err := validateFee(p.ReserveFee); err != nil {
 		return fmt.Errorf("invalid reserve fee (%s)", err)
 	}
+
 	if err := validateFee(p.MinBidIncrement); err != nil {
 		return fmt.Errorf("invalid minimum bid increment (%s)", err)
 	}
