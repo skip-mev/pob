@@ -34,6 +34,9 @@ type (
 		// anteHandler is utilized to verify the bid transaction against the latest
 		// committed state.
 		anteHandler sdk.AnteHandler
+
+		// chainID is the chain id of the application.
+		chainID string
 	}
 
 	// CheckTx is baseapp's CheckTx method that checks the validity of a
@@ -72,9 +75,6 @@ type (
 
 		// GetConsensusParams is utilized to retrieve the consensus params.
 		GetConsensusParams(ctx sdk.Context) *tmproto.ConsensusParams
-
-		// ChainID is utilized to retrieve the chain ID.
-		ChainID() string
 	}
 )
 
@@ -84,12 +84,14 @@ func NewCheckTxHandler(
 	txDecoder sdk.TxDecoder,
 	tobLane TOBLane,
 	anteHandler sdk.AnteHandler,
+	chainID string,
 ) *CheckTxHandler {
 	return &CheckTxHandler{
 		baseApp:     baseApp,
 		txDecoder:   txDecoder,
 		tobLane:     tobLane,
 		anteHandler: anteHandler,
+		chainID:     chainID,
 	}
 }
 
@@ -247,7 +249,7 @@ func (handler *CheckTxHandler) GetContextForBidTx(req cometabci.RequestCheckTx) 
 	// Create a new context based off of the latest committed state.
 	header := tmproto.Header{
 		Height:  handler.baseApp.LastBlockHeight(),
-		ChainID: handler.baseApp.ChainID(),
+		ChainID: handler.chainID,
 	}
 	ctx, _ := sdk.NewContext(ms, header, true, handler.baseApp.Logger()).CacheContext()
 

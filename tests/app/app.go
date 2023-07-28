@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 
 	"cosmossdk.io/depinject"
 	dbm "github.com/cometbft/cometbft-db"
@@ -20,7 +21,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/server/api"
 	"github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
-	"github.com/cosmos/cosmos-sdk/store/streaming"
 	storetypes "github.com/cosmos/cosmos-sdk/store/types"
 	"github.com/cosmos/cosmos-sdk/testutil/testdata_pulsar"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -67,8 +67,12 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/upgrade"
 	upgradeclient "github.com/cosmos/cosmos-sdk/x/upgrade/client"
 	upgradekeeper "github.com/cosmos/cosmos-sdk/x/upgrade/keeper"
-	"github.com/skip-mev/pob/abci"
-	"github.com/skip-mev/pob/mempool"
+
+	"github.com/skip-mev/pob/blockbuster"
+	"github.com/skip-mev/pob/blockbuster/abci"
+	"github.com/skip-mev/pob/blockbuster/lanes/auction"
+	"github.com/skip-mev/pob/blockbuster/lanes/base"
+	"github.com/skip-mev/pob/blockbuster/lanes/free"
 	buildermodule "github.com/skip-mev/pob/x/builder"
 	builderkeeper "github.com/skip-mev/pob/x/builder/keeper"
 )
@@ -262,7 +266,58 @@ func New(
 	app.App = appBuilder.Build(logger, db, traceStore, baseAppOptions...)
 
 	// Set POB's mempool into the app.
-	mempool := mempool.NewAuctionMempool(app.txConfig.TxDecoder(), app.txConfig.TxEncoder(), 0, mempool.NewDefaultAuctionFactory(app.txConfig.TxDecoder()))
+	// Create the lanes.
+	//
+	// NOTE: The lanes are ordered by priority. The first lane is the highest priority
+	// lane and the last lane is the lowest priority lane.
+	// Top of block lane allows transactions to bid for inclusion at the top of the next block.
+	tobConfig := blockbuster.BaseLaneConfig{
+		Logger:        app.Logger(),
+		TxEncoder:     app.txConfig.TxEncoder(),
+		TxDecoder:     app.txConfig.TxDecoder(),
+		MaxBlockSpace: sdk.ZeroDec(),
+	}
+	tobLane := auction.NewTOBLane(
+		tobConfig,
+		0,
+		auction.NewDefaultAuctionFactory(app.txConfig.TxDecoder()),
+	)
+
+	// Free lane allows transactions to be included in the next block for free.
+	freeConfig := blockbuster.BaseLaneConfig{
+		Logger:        app.Logger(),
+		TxEncoder:     app.txConfig.TxEncoder(),
+		TxDecoder:     app.txConfig.TxDecoder(),
+		MaxBlockSpace: sdk.ZeroDec(),
+		IgnoreList: []blockbuster.Lane{
+			tobLane,
+		},
+	}
+	freeLane := free.NewFreeLane(
+		freeConfig,
+		free.NewDefaultFreeFactory(app.txConfig.TxDecoder()),
+	)
+
+	// Default lane accepts all other transactions.
+	defaultConfig := blockbuster.BaseLaneConfig{
+		Logger:        app.Logger(),
+		TxEncoder:     app.txConfig.TxEncoder(),
+		TxDecoder:     app.txConfig.TxDecoder(),
+		MaxBlockSpace: sdk.ZeroDec(),
+		IgnoreList: []blockbuster.Lane{
+			tobLane,
+			freeLane,
+		},
+	}
+	defaultLane := base.NewDefaultLane(defaultConfig)
+
+	// Set the lanes into the mempool.
+	lanes := []blockbuster.Lane{
+		tobLane,
+		freeLane,
+		defaultLane,
+	}
+	mempool := blockbuster.NewMempool(lanes...)
 	app.App.SetMempool(mempool)
 
 	// Create a global ante handler that will be called on each transaction when
@@ -277,39 +332,42 @@ func New(
 	options := POBHandlerOptions{
 		BaseOptions:   handlerOptions,
 		BuilderKeeper: app.BuilderKeeper,
-		Mempool:       mempool,
 		TxDecoder:     app.txConfig.TxDecoder(),
 		TxEncoder:     app.txConfig.TxEncoder(),
+		FreeLane:      freeLane,
+		TOBLane:       tobLane,
+		Mempool:       mempool,
 	}
 	anteHandler := NewPOBAnteHandler(options)
 
-	// Set the proposal handlers on the BaseApp along with the custom antehandler.
-	proposalHandlers := abci.NewProposalHandler(
-		mempool,
-		app.App.Logger(),
-		anteHandler,
-		options.TxEncoder,
-		options.TxDecoder,
-	)
-	app.App.SetPrepareProposal(proposalHandlers.PrepareProposalHandler())
-	app.App.SetProcessProposal(proposalHandlers.ProcessProposalHandler())
+	// Set the lane config on the lanes.
+	for _, lane := range lanes {
+		lane.SetAnteHandler(anteHandler)
+	}
 	app.App.SetAnteHandler(anteHandler)
+
+	// Set the proposal handlers on base app
+	proposalHandler := abci.NewProposalHandler(
+		app.Logger(),
+		app.txConfig.TxDecoder(),
+		mempool,
+	)
+	app.App.SetPrepareProposal(proposalHandler.PrepareProposalHandler())
+	app.App.SetProcessProposal(proposalHandler.ProcessProposalHandler())
 
 	// Set the custom CheckTx handler on BaseApp.
 	checkTxHandler := abci.NewCheckTxHandler(
 		app.App,
 		app.txConfig.TxDecoder(),
-		mempool,
+		tobLane,
 		anteHandler,
-		ChainID,
+		app.ChainID(),
 	)
 	app.SetCheckTx(checkTxHandler.CheckTx())
 
-	// load state streaming if enabled
-	if _, _, err := streaming.LoadStreamingServices(app.App.BaseApp, appOpts, app.appCodec, logger, app.kvStoreKeys()); err != nil {
-		logger.Error("failed to load state streaming", "err", err)
-		os.Exit(1)
-	}
+	// ---------------------------------------------------------------------------- //
+	// ------------------------- End Custom Code ---------------------------------- //
+	// ---------------------------------------------------------------------------- //
 
 	/****  Module Options ****/
 
@@ -350,6 +408,13 @@ func (app *TestApp) CheckTx(req cometabci.RequestCheckTx) cometabci.ResponseChec
 // SetCheckTx sets the checkTxHandler for the app.
 func (app *TestApp) SetCheckTx(handler abci.CheckTx) {
 	app.checkTxHandler = handler
+}
+
+// ChainID gets chainID from private fields of BaseApp
+// Should be removed once SDK 0.50.x will be adopted
+func (app *TestApp) ChainID() string {
+	field := reflect.ValueOf(app.BaseApp).Elem().FieldByName("chainID")
+	return field.String()
 }
 
 // Name returns the name of the App
