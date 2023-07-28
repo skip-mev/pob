@@ -111,7 +111,7 @@ func (config *DefaultAuctionFactory) getBundleSigners(bundle [][]byte) ([]map[st
 		txSigners := make(map[string]struct{})
 
 		for _, signer := range sigTx.GetSigners() {
-			txSigners[sdk.AccAddress(signer).String()] = struct{}{}
+			txSigners[signer.String()] = struct{}{}
 		}
 
 		bundleSigners = append(bundleSigners, txSigners)
