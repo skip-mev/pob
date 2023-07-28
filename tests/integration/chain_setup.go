@@ -104,12 +104,38 @@ func CreateTx(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, user
 	return bz
 }
 
+// SimulateTx simulates the provided messages, and checks whether the provided failure condition is met
+func SimulateTx(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, user cosmos.User, height uint64, expectFail bool, msgs ...sdk.Msg) {
+	// create a broadcaster
+	broadcaster := cosmos.NewBroadcaster(t, chain)
+
+	// create tx factory + Client Context
+	txf, err := broadcaster.GetFactory(ctx, user)
+	require.NoError(t, err)
+
+	cc, err := broadcaster.GetClientContext(ctx, user)
+	require.NoError(t, err)
+
+	txf, err = txf.Prepare(cc)
+	require.NoError(t, err)
+
+	// set timeout height
+	if height != 0 {
+		txf = txf.WithTimeoutHeight(height)
+	}
+
+	// get gas for tx
+	_, _, err = tx.CalculateGas(cc, txf, msgs...)
+	require.Equal(t, err != nil, expectFail)
+}
+
 type Tx struct {
 	User               cosmos.User
 	Msgs               []sdk.Msg
 	SequenceIncrement  uint64
 	Height             uint64
 	SkipInclusionCheck bool
+	ExpectFail         bool
 }
 
 // CreateAuctionBidMsg creates a new AuctionBid tx signed by the given user, the order of txs in the MsgAuctionBid will be determined by the contents + order of the MessageForUsers
@@ -132,8 +158,8 @@ func CreateAuctionBidMsg(t *testing.T, ctx context.Context, searcher cosmos.User
 	), txs
 }
 
-// BroadcastTxs broadcasts the given messages for each user. This function returns the broadcasted txs. If a message 
-// is not expected to be included in a block, set SkipInclusionCheck to true and the method 
+// BroadcastTxs broadcasts the given messages for each user. This function returns the broadcasted txs. If a message
+// is not expected to be included in a block, set SkipInclusionCheck to true and the method
 // will not block on the tx's inclusion in a block, otherwise this method will block on the tx's inclusion
 func BroadcastTxs(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, msgsPerUser []Tx) [][]byte {
 	txs := make([][]byte, len(msgsPerUser))
@@ -145,19 +171,24 @@ func BroadcastTxs(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, 
 	// broadcast each tx
 	require.True(t, len(chain.Nodes()) > 0)
 	client := chain.Nodes()[0].Client
-	for _, tx := range txs {
+
+	for i, tx := range txs {
 		// broadcast tx
 		res, err := client.BroadcastTxSync(ctx, tx)
 		require.NoError(t, err)
+
 		// check execution was successful
-		require.Equal(t, res.Code, uint32(0))
+		if !msgsPerUser[i].ExpectFail {
+			require.Equal(t, res.Code, uint32(0))
+		}
+
 	}
 
 	// block on all txs being included in block
 	eg := errgroup.Group{}
 	for i, tx := range txs {
 		// if we don't expect this tx to be included.. skip it
-		if msgsPerUser[i].SkipInclusionCheck {
+		if msgsPerUser[i].SkipInclusionCheck || msgsPerUser[i].ExpectFail {
 			continue
 		}
 
@@ -169,7 +200,6 @@ func BroadcastTxs(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, 
 				if err != nil {
 					return false, nil
 				}
-
 				return true, nil
 			})
 		})
@@ -251,7 +281,7 @@ func WaitForHeight(t *testing.T, chain *cosmos.CosmosChain, height uint64) {
 		if err != nil {
 			return false, err
 		}
-		return pollHeight > height, nil
+		return pollHeight == height, nil
 	})
 	require.NoError(t, err)
 }
@@ -259,11 +289,14 @@ func WaitForHeight(t *testing.T, chain *cosmos.CosmosChain, height uint64) {
 // VerifyBlock takes a Block and verifies that it contains the given bid at the 0-th index, and the bundled txs immediately after
 func VerifyBlock(t *testing.T, block *rpctypes.ResultBlock, offset int, bidTxHash string, txs [][]byte) {
 	// verify the block
-	require.Equal(t, bidTxHash, TxHash(block.Block.Data.Txs[offset]))
+	if bidTxHash != "" {
+		require.Equal(t, bidTxHash, TxHash(block.Block.Data.Txs[offset]))
+		offset += 1
+	}
 
 	// verify the txs in sequence
 	for i, tx := range txs {
-		require.Equal(t, TxHash(tx), TxHash(block.Block.Data.Txs[i+offset + 1]))
+		require.Equal(t, TxHash(tx), TxHash(block.Block.Data.Txs[i+offset]))
 	}
 }
 
