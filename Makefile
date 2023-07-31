@@ -91,6 +91,7 @@ build-and-start-app: build-test-app
 
 use-main:
 	go work edit -use .
+	go work edit -dropuse ./tests/integration
 
 use-integration:
 	go work edit -dropuse .
@@ -114,7 +115,7 @@ docker-build-integration: use-main
 ###############################################################################
 
 TEST_E2E_TAGS = e2e
-TEST_E2E_DEPS = docker-build
+TEST_E2E_DEPS = docker-build use-main
 TEST_INTEGRATION_DEPS = docker-build-integration use-integration
 TEST_INTEGRATION_TAGS = integration
 
@@ -126,7 +127,7 @@ test-integration: $(TEST_INTEGRATION_DEPS)
 	@ echo "Running integration tests..."
 	@go test ./tests/integration/pob_integration_test.go -timeout 30m -race -v -tags='$(TEST_INTEGRATION_TAGS)'
 
-test:
+test: use-main
 	@go test -v -race $(shell go list ./... | grep -v tests/)
 
 .PHONY: test test-e2e
@@ -171,12 +172,12 @@ proto-update-deps:
 golangci_lint_cmd=golangci-lint
 golangci_version=v1.51.2
 
-lint:
+lint: use-main
 	@echo "--> Running linter"
 	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(golangci_version)
 	@golangci-lint run
 
-lint-fix:
+lint-fix: use-main
 	@echo "--> Running linter"
 	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(golangci_version)
 	@golangci-lint run --fix
