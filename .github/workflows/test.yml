@@ -60,8 +60,7 @@ jobs:
         # Ignore the failure of a step and avoid terminating the job.
         continue-on-error: true
 
-      - name: Test E2E
+      - name: Integration Tests
         if: env.GIT_DIFF
         run: |
-          make test-e2e
           make test-integration

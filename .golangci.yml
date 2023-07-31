@@ -5,7 +5,6 @@ run:
   allow-parallel-runners: true
   concurrency: 4
   skip-dirs:
-    - tests/e2e
     - tests/integration
 
 linters:
