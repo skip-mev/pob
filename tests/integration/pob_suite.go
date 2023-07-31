@@ -5,7 +5,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	buildertypes "github.com/skip-mev/pob/x/builder/types"
 	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
 	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v7/ibc"
@@ -28,12 +27,20 @@ type POBIntegrationTestSuite struct {
 	ic *interchaintest.Interchain
 	// users
 	user1, user2, user3 ibc.Wallet
+	// denom
+	denom string
 }
 
 func NewPOBIntegrationTestSuiteFromSpec(spec *interchaintest.ChainSpec) *POBIntegrationTestSuite {
 	return &POBIntegrationTestSuite{
 		spec: spec,
+		denom: "stake",
 	}
+}
+
+func (s *POBIntegrationTestSuite) WithDenom(denom string) *POBIntegrationTestSuite {
+	s.denom = denom
+	return s
 }
 
 func (s *POBIntegrationTestSuite) SetupSuite() {
@@ -69,13 +76,8 @@ func (s *POBIntegrationTestSuite) TestQueryParams() {
 	// query params
 	params := QueryBuilderParams(s.T(), s.chain)
 
-	// check default params are correct
-	s.Require().Equal(uint32(3), params.MaxBundleSize)
-	s.Require().Equal(buildertypes.DefaultEscrowAccountAddress, sdk.AccAddress(params.EscrowAccountAddress))
-	s.Require().Equal(buildertypes.DefaultReserveFee, params.ReserveFee)
-	s.Require().Equal(buildertypes.DefaultMinBidIncrement, params.MinBidIncrement)
-	s.Require().Equal(buildertypes.DefaultFrontRunningProtection, params.FrontRunningProtection)
-	s.Require().Equal(buildertypes.DefaultProposerFee, params.ProposerFee)
+	// expect validate to pass
+	require.NoError(s.T(), params.Validate())
 }
 
 // TestValidBids tests the execution of various valid auction bids. There are a few
@@ -95,7 +97,7 @@ func (s *POBIntegrationTestSuite) TestValidBids() {
 
 		// create bundle w/ a single tx
 		// create message send tx
-		tx := banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))
+		tx := banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))
 
 		// create the MsgAuctioBid
 		bidAmt := params.ReserveFee
@@ -142,8 +144,8 @@ func (s *POBIntegrationTestSuite) TestValidBids() {
 		// create the bundle w/ a single tx
 		// bank-send msg
 		msgs := make([]sdk.Msg, 2)
-		msgs[0] = banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))
-		msgs[1] = banktypes.NewMsgSend(s.user2.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))
+		msgs[0] = banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))
+		msgs[1] = banktypes.NewMsgSend(s.user2.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))
 
 		// create the MsgAuctionBid
 		bidAmt := params.ReserveFee
@@ -197,12 +199,12 @@ func (s *POBIntegrationTestSuite) TestValidBids() {
 		txs := make([]Tx, 2)
 		txs[0] = Tx{
 			User:              s.user1,
-			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))},
 			SequenceIncrement: 1,
 		}
 		txs[1] = Tx{
 			User:              s.user1,
-			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))},
 			SequenceIncrement: 2,
 		}
 		// create bundle
@@ -267,11 +269,11 @@ func (s *POBIntegrationTestSuite) TestValidBids() {
 		txs := make([]Tx, 2)
 		txs[0] = Tx{
 			User: s.user1,
-			Msgs: []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			Msgs: []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))},
 		}
 		txs[1] = Tx{
 			User:              s.user1,
-			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))},
 			SequenceIncrement: 1,
 		}
 
@@ -290,7 +292,7 @@ func (s *POBIntegrationTestSuite) TestValidBids() {
 			Height: height + 1,
 		}, {
 			User: s.user3,
-			Msgs: []sdk.Msg{banktypes.NewMsgSend(s.user3.Address(), s.user1.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			Msgs: []sdk.Msg{banktypes.NewMsgSend(s.user3.Address(), s.user1.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))},
 		}})
 
 		// query next block
@@ -329,7 +331,7 @@ func (s *POBIntegrationTestSuite) TestMultipleBids() {
 		// bank-send msg
 		msg := Tx{
 			User:              s.user1,
-			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))},
 			SequenceIncrement: 1,
 		}
 		// create bid1
@@ -339,7 +341,7 @@ func (s *POBIntegrationTestSuite) TestMultipleBids() {
 		// create bid 2
 		msg2 := Tx{
 			User:              s.user2,
-			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user2.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user2.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))},
 			SequenceIncrement: 1,
 		}
 		// create bid2 w/ higher bid than bid1
@@ -391,7 +393,7 @@ func (s *POBIntegrationTestSuite) TestMultipleBids() {
 		// bank-send msg
 		tx := Tx{
 			User:              s.user1,
-			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))},
 			SequenceIncrement: 1,
 		}
 		// create bid1
@@ -401,7 +403,7 @@ func (s *POBIntegrationTestSuite) TestMultipleBids() {
 		// create bid 2
 		tx2 := Tx{
 			User:              s.user2,
-			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user2.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user2.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))},
 			SequenceIncrement: 1,
 		}
 		// create bid2 w/ higher bid than bid1
@@ -447,7 +449,7 @@ func (s *POBIntegrationTestSuite) TestMultipleBids() {
 		// bank-send msg
 		msg := Tx{
 			User:              s.user1,
-			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))},
 			SequenceIncrement: 1,
 		}
 		// create bid1
@@ -457,7 +459,7 @@ func (s *POBIntegrationTestSuite) TestMultipleBids() {
 		// create bid 2
 		msg2 := Tx{
 			User:              s.user2,
-			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user2.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user2.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))},
 			SequenceIncrement: 1,
 		}
 		// create bid2 w/ higher bid than bid1
@@ -503,7 +505,7 @@ func (s *POBIntegrationTestSuite) TestMultipleBids() {
 		// bank-send msg
 		msg := Tx{
 			User:              s.user1,
-			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))},
 			SequenceIncrement: 1,
 		}
 		// create bid1
@@ -553,7 +555,7 @@ func (s *POBIntegrationTestSuite) TestMultipleBids() {
 		// bank-send msg
 		msg := Tx{
 			User: s.user3,
-			Msgs: []sdk.Msg{banktypes.NewMsgSend(s.user3.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			Msgs: []sdk.Msg{banktypes.NewMsgSend(s.user3.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))},
 		}
 
 		// create bid1
@@ -602,7 +604,7 @@ func (s *POBIntegrationTestSuite) TestMultipleBids() {
 		// bank-send msg
 		msg := Tx{
 			User:              s.user1,
-			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))},
 			SequenceIncrement: 1,
 		}
 		// create bid1
@@ -613,7 +615,7 @@ func (s *POBIntegrationTestSuite) TestMultipleBids() {
 		// create a second message
 		msg2 := Tx{
 			User:              s.user2,
-			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user2.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user2.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))},
 			SequenceIncrement: 1,
 		}
 
@@ -667,7 +669,7 @@ func (s *POBIntegrationTestSuite) TestInvalidBids() {
 		// create bid tx
 		msg := Tx{
 			User:              s.user1,
-			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))},
 			SequenceIncrement: 2,
 		}
 		bidAmt := params.ReserveFee
@@ -701,10 +703,10 @@ func (s *POBIntegrationTestSuite) TestInvalidBids() {
 		// create bid tx
 		msg := Tx{
 			User:              s.user1,
-			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))},
 			SequenceIncrement: 2,
 		}
-		bidAmt := sdk.NewCoin("stake", sdk.NewInt(1000000000000000000))
+		bidAmt := sdk.NewCoin(s.denom, sdk.NewInt(1000000000000000000))
 		bid, _ := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, []Tx{msg})
 
 		height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
@@ -718,16 +720,16 @@ func (s *POBIntegrationTestSuite) TestInvalidBids() {
 		// create bid tx
 		msg := Tx{
 			User:              s.user1,
-			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))},
 			SequenceIncrement: 1,
 		}
 		msg2 := Tx{
 			User: s.user2,
-			Msgs: []sdk.Msg{banktypes.NewMsgSend(s.user2.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			Msgs: []sdk.Msg{banktypes.NewMsgSend(s.user2.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))},
 		}
 		msg3 := Tx{
 			User:              s.user1,
-			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user3.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))},
 			SequenceIncrement: 2,
 		}
 
@@ -745,7 +747,7 @@ func (s *POBIntegrationTestSuite) TestInvalidBids() {
 		// create bid tx
 		msg := Tx{
 			User:              s.user1,
-			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))},
 			SequenceIncrement: 2,
 		}
 		bidAmt := params.ReserveFee
@@ -769,12 +771,12 @@ func (s *POBIntegrationTestSuite) TestInvalidBids() {
 		// create bid tx
 		msg := Tx{
 			User:              s.user1,
-			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))},
 			SequenceIncrement: 1,
 		}
 
 		// create bid smaller than reserve
-		bidAmt := sdk.NewCoin("stake", sdk.NewInt(0))
+		bidAmt := sdk.NewCoin(s.denom, sdk.NewInt(0))
 		bid, _ := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, []Tx{msg})
 
 		height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
@@ -791,13 +793,13 @@ func (s *POBIntegrationTestSuite) TestInvalidBids() {
 		for i := range msgs {
 			msgs[i] = Tx{
 				User:              s.user1,
-				Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+				Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))},
 				SequenceIncrement: uint64(i + 1),
 			}
 		}
 
 		// create bid smaller than reserve
-		bidAmt := sdk.NewCoin("stake", sdk.NewInt(0))
+		bidAmt := sdk.NewCoin(s.denom, sdk.NewInt(0))
 		bid, _ := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, msgs)
 
 		height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
@@ -811,12 +813,12 @@ func (s *POBIntegrationTestSuite) TestInvalidBids() {
 		// create bid tx
 		msg := Tx{
 			User:              s.user1,
-			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))},
+			Msgs:              []sdk.Msg{banktypes.NewMsgSend(s.user1.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))},
 			SequenceIncrement: 1,
 		}
 
 		// create bid smaller than reserve
-		bidAmt := sdk.NewCoin("stake", sdk.NewInt(0))
+		bidAmt := sdk.NewCoin(s.denom, sdk.NewInt(0))
 		bid, _ := CreateAuctionBidMsg(s.T(), context.Background(), s.user1, s.chain.(*cosmos.CosmosChain), bidAmt, []Tx{msg})
 
 		// broadcast wrapped bid, and expect a failure
@@ -829,7 +831,7 @@ func (s *POBIntegrationTestSuite) TestInvalidBids() {
 
 		// create bundle w/ a single tx
 		// create message send tx
-		tx := banktypes.NewMsgSend(s.user2.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(100))))
+		tx := banktypes.NewMsgSend(s.user2.Address(), s.user2.Address(), sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))))
 
 		// create the MsgAuctioBid (this should fail b.c same tx is repeated twice)
 		bidAmt := params.ReserveFee
