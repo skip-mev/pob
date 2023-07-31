@@ -114,14 +114,8 @@ docker-build-integration: use-main
 ###                                  Tests                                  ###
 ###############################################################################
 
-TEST_E2E_TAGS = e2e
-TEST_E2E_DEPS = docker-build use-main
 TEST_INTEGRATION_DEPS = docker-build-integration use-integration
 TEST_INTEGRATION_TAGS = integration
-
-test-e2e: $(TEST_E2E_DEPS)
-	@echo "Running E2E tests..."
-	@go test ./tests/e2e/... -mod=readonly -timeout 30m -race -v -tags='$(TEST_E2E_TAGS)'
 
 test-integration: $(TEST_INTEGRATION_DEPS)
 	@ echo "Running integration tests..."
@@ -130,7 +124,7 @@ test-integration: $(TEST_INTEGRATION_DEPS)
 test: use-main
 	@go test -v -race $(shell go list ./... | grep -v tests/)
 
-.PHONY: test test-e2e
+.PHONY: test test-integration
 
 ###############################################################################
 ###                                Protobuf                                 ###
