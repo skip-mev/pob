@@ -15,6 +15,7 @@ import (
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	"github.com/cosmos/cosmos-sdk/x/auth/tx"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	buildertypes "github.com/skip-mev/pob/x/builder/types"
 )
 
@@ -32,6 +33,7 @@ func CreateTestEncodingConfig() EncodingConfig {
 	banktypes.RegisterInterfaces(interfaceRegistry)
 	cryptocodec.RegisterInterfaces(interfaceRegistry)
 	buildertypes.RegisterInterfaces(interfaceRegistry)
+	stakingtypes.RegisterInterfaces(interfaceRegistry)
 
 	codec := codec.NewProtoCodec(interfaceRegistry)
 
@@ -94,6 +96,18 @@ func CreateTx(txCfg client.TxConfig, account Account, nonce, timeout uint64, msg
 	return txBuilder.GetTx(), nil
 }
 
+func CreateFreeTx(txCfg client.TxConfig, account Account, nonce, timeout uint64, validator string, amount sdk.Coin) (authsigning.Tx, error) {
+	msgs := []sdk.Msg{
+		&stakingtypes.MsgDelegate{
+			DelegatorAddress: account.Address.String(),
+			ValidatorAddress: validator,
+			Amount:           amount,
+		},
+	}
+
+	return CreateTx(txCfg, account, nonce, timeout, msgs)
+}
+
 func CreateRandomTx(txCfg client.TxConfig, account Account, nonce, numberMsgs, timeout uint64) (authsigning.Tx, error) {
 	msgs := make([]sdk.Msg, numberMsgs)
 	for i := 0; i < int(numberMsgs); i++ {
@@ -123,6 +137,15 @@ func CreateRandomTx(txCfg client.TxConfig, account Account, nonce, numberMsgs, t
 	txBuilder.SetTimeoutHeight(timeout)
 
 	return txBuilder.GetTx(), nil
+}
+
+func CreateRandomTxBz(txCfg client.TxConfig, account Account, nonce, numberMsgs, timeout uint64) ([]byte, error) {
+	tx, err := CreateRandomTx(txCfg, account, nonce, numberMsgs, timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	return txCfg.TxEncoder()(tx)
 }
 
 func CreateTxWithSigners(txCfg client.TxConfig, nonce, timeout uint64, signers []Account) (authsigning.Tx, error) {
@@ -197,6 +220,20 @@ func CreateAuctionTxWithSigners(txCfg client.TxConfig, bidder Account, bid sdk.C
 	txBuilder.SetTimeoutHeight(timeout)
 
 	return txBuilder.GetTx(), nil
+}
+
+func CreateAuctionTxWithSignerBz(txCfg client.TxConfig, bidder Account, bid sdk.Coin, nonce, timeout uint64, signers []Account) ([]byte, error) {
+	bidTx, err := CreateAuctionTxWithSigners(txCfg, bidder, bid, nonce, timeout, signers)
+	if err != nil {
+		return nil, err
+	}
+
+	bz, err := txCfg.TxEncoder()(bidTx)
+	if err != nil {
+		return nil, err
+	}
+
+	return bz, nil
 }
 
 func CreateRandomMsgs(acc sdk.AccAddress, numberMsgs int) []sdk.Msg {

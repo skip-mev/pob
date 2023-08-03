@@ -32,7 +32,7 @@ func (suite *KeeperTestSuite) TestMsgAuctionBid() {
 		{
 			name: "invalid bidder address",
 			msg: &types.MsgAuctionBid{
-				Bidder: "foo",
+				Bidder: "stake",
 			},
 			malleate:  func() {},
 			expectErr: true,
@@ -54,7 +54,7 @@ func (suite *KeeperTestSuite) TestMsgAuctionBid() {
 			name: "valid bundle with no proposer fee",
 			msg: &types.MsgAuctionBid{
 				Bidder:       bidder.Address.String(),
-				Bid:          sdk.NewInt64Coin("foo", 1024),
+				Bid:          sdk.NewInt64Coin("stake", 1024),
 				Transactions: [][]byte{{0xFF}, {0xFF}},
 			},
 			malleate: func() {
@@ -68,7 +68,7 @@ func (suite *KeeperTestSuite) TestMsgAuctionBid() {
 						suite.ctx,
 						bidder.Address,
 						escrow.Address,
-						sdk.NewCoins(sdk.NewInt64Coin("foo", 1024)),
+						sdk.NewCoins(sdk.NewInt64Coin("stake", 1024)),
 					).
 					Return(nil).
 					AnyTimes()
@@ -79,7 +79,7 @@ func (suite *KeeperTestSuite) TestMsgAuctionBid() {
 			name: "valid bundle with proposer fee",
 			msg: &types.MsgAuctionBid{
 				Bidder:       bidder.Address.String(),
-				Bid:          sdk.NewInt64Coin("foo", 3416),
+				Bid:          sdk.NewInt64Coin("stake", 3416),
 				Transactions: [][]byte{{0xFF}, {0xFF}},
 			},
 			malleate: func() {
@@ -98,11 +98,11 @@ func (suite *KeeperTestSuite) TestMsgAuctionBid() {
 					AnyTimes()
 
 				suite.bankKeeper.EXPECT().
-					SendCoins(suite.ctx, bidder.Address, proposerOperator.Address, sdk.NewCoins(sdk.NewInt64Coin("foo", 1024))).
+					SendCoins(suite.ctx, bidder.Address, proposerOperator.Address, sdk.NewCoins(sdk.NewInt64Coin("stake", 1024))).
 					Return(nil)
 
 				suite.bankKeeper.EXPECT().
-					SendCoins(suite.ctx, bidder.Address, escrow.Address, sdk.NewCoins(sdk.NewInt64Coin("foo", 2392))).
+					SendCoins(suite.ctx, bidder.Address, escrow.Address, sdk.NewCoins(sdk.NewInt64Coin("stake", 2392))).
 					Return(nil)
 			},
 			expectErr: false,
@@ -164,8 +164,8 @@ func (suite *KeeperTestSuite) TestMsgUpdateParams() {
 					ProposerFee:          sdk.MustNewDecFromStr("0.1"),
 					MaxBundleSize:        2,
 					EscrowAccountAddress: suite.authorityAccount,
-					MinBidIncrement:      sdk.NewInt64Coin("foo", 100),
-					ReserveFee:           sdk.NewInt64Coin("foo", 100),
+					MinBidIncrement:      sdk.NewInt64Coin("stake", 100),
+					ReserveFee:           sdk.NewInt64Coin("stake", 100),
 				},
 			},
 			passBasic: true,

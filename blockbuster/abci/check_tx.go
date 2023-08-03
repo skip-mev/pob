@@ -5,11 +5,12 @@ import (
 	"fmt"
 
 	cometabci "github.com/cometbft/cometbft/abci/types"
-	log "github.com/cometbft/cometbft/libs/log"
+	"github.com/cometbft/cometbft/libs/log"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	"github.com/skip-mev/pob/mempool"
+	"github.com/skip-mev/pob/x/builder/types"
 )
 
 type (
@@ -26,27 +27,27 @@ type (
 		// bid transactions.
 		txDecoder sdk.TxDecoder
 
-		// mempool is utilized to retrieve the bid info of a transaction and to
-		// insert a transaction into the application-side mempool.
-		mempool CheckTxMempool
+		// TOBLane is utilized to retrieve the bid info of a transaction and to
+		// insert a bid transaction into the application-side mempool.
+		tobLane TOBLane
 
 		// anteHandler is utilized to verify the bid transaction against the latest
 		// committed state.
 		anteHandler sdk.AnteHandler
 
-		// chainID is the chain ID of the blockchain.
+		// chainID is the chain id of the application.
 		chainID string
 	}
 
 	// CheckTx is baseapp's CheckTx method that checks the validity of a
 	// transaction.
-	CheckTx func(cometabci.RequestCheckTx) cometabci.ResponseCheckTx
+	CheckTx func(req cometabci.RequestCheckTx) cometabci.ResponseCheckTx
 
-	// CheckTxMempool is the interface that defines all of the dependencies that
-	// are required to interact with the application-side mempool.
-	CheckTxMempool interface {
+	// TOBLane is the interface that defines all of the dependencies that
+	// are required to interact with the top of block lane.
+	TOBLane interface {
 		// GetAuctionBidInfo is utilized to retrieve the bid info of a transaction.
-		GetAuctionBidInfo(tx sdk.Tx) (*mempool.AuctionBidInfo, error)
+		GetAuctionBidInfo(tx sdk.Tx) (*types.BidInfo, error)
 
 		// Insert is utilized to insert a transaction into the application-side mempool.
 		Insert(ctx context.Context, tx sdk.Tx) error
@@ -60,11 +61,11 @@ type (
 	// as well as retrieve the latest committed state.
 	BaseApp interface {
 		// CommitMultiStore is utilized to retrieve the latest committed state.
-		CommitMultiStore() sdk.CommitMultiStore
+		CommitMultiStore() storetypes.CommitMultiStore
 
 		// CheckTx is baseapp's CheckTx method that checks the validity of a
 		// transaction.
-		CheckTx(cometabci.RequestCheckTx) cometabci.ResponseCheckTx
+		CheckTx(req cometabci.RequestCheckTx) cometabci.ResponseCheckTx
 
 		// Logger is utilized to log errors.
 		Logger() log.Logger
@@ -78,11 +79,17 @@ type (
 )
 
 // NewCheckTxHandler is a constructor for CheckTxHandler.
-func NewCheckTxHandler(baseApp BaseApp, txDecoder sdk.TxDecoder, mempool CheckTxMempool, anteHandler sdk.AnteHandler, chainID string) *CheckTxHandler {
+func NewCheckTxHandler(
+	baseApp BaseApp,
+	txDecoder sdk.TxDecoder,
+	tobLane TOBLane,
+	anteHandler sdk.AnteHandler,
+	chainID string,
+) *CheckTxHandler {
 	return &CheckTxHandler{
 		baseApp:     baseApp,
 		txDecoder:   txDecoder,
-		mempool:     mempool,
+		tobLane:     tobLane,
 		anteHandler: anteHandler,
 		chainID:     chainID,
 	}
@@ -97,20 +104,54 @@ func NewCheckTxHandler(baseApp BaseApp, txDecoder sdk.TxDecoder, mempool CheckTx
 func (handler *CheckTxHandler) CheckTx() CheckTx {
 	return func(req cometabci.RequestCheckTx) (resp cometabci.ResponseCheckTx) {
 		defer func() {
-			if err := recover(); err != nil {
-				resp = sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("panic in check tx handler: %s", err), 0, 0, nil, false)
+			if rec := recover(); rec != nil {
+				handler.baseApp.Logger().Error(
+					"panic in check tx handler",
+					"err", rec,
+				)
+
+				err := fmt.Errorf("panic in check tx handler: %s", rec)
+				resp = sdkerrors.ResponseCheckTxWithEvents(
+					err,
+					0,
+					0,
+					nil,
+					false,
+				)
 			}
 		}()
 
 		tx, err := handler.txDecoder(req.Tx)
 		if err != nil {
-			return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("failed to decode tx: %w", err), 0, 0, nil, false)
+			handler.baseApp.Logger().Info(
+				"failed to decode tx",
+				"err", err,
+			)
+
+			return sdkerrors.ResponseCheckTxWithEvents(
+				fmt.Errorf("failed to decode tx: %w", err),
+				0,
+				0,
+				nil,
+				false,
+			)
 		}
 
 		// Attempt to get the bid info of the transaction.
-		bidInfo, err := handler.mempool.GetAuctionBidInfo(tx)
+		bidInfo, err := handler.tobLane.GetAuctionBidInfo(tx)
 		if err != nil {
-			return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("failed to get auction bid info: %w", err), 0, 0, nil, false)
+			handler.baseApp.Logger().Info(
+				"failed to get auction bid info",
+				"err", err,
+			)
+
+			return sdkerrors.ResponseCheckTxWithEvents(
+				fmt.Errorf("failed to get auction bid info: %w", err),
+				0,
+				0,
+				nil,
+				false,
+			)
 		}
 
 		// If this is not a bid transaction, we just execute it normally.
@@ -126,12 +167,34 @@ func (handler *CheckTxHandler) CheckTx() CheckTx {
 		// Verify the bid transaction.
 		gasInfo, err := handler.ValidateBidTx(ctx, tx, bidInfo)
 		if err != nil {
-			return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("invalid bid tx: %w", err), gasInfo.GasWanted, gasInfo.GasUsed, nil, false)
+			handler.baseApp.Logger().Info(
+				"invalid bid tx",
+				"err", err,
+			)
+
+			return sdkerrors.ResponseCheckTxWithEvents(
+				fmt.Errorf("invalid bid tx: %w", err),
+				gasInfo.GasWanted,
+				gasInfo.GasUsed,
+				nil,
+				false,
+			)
 		}
 
 		// If the bid transaction is valid, we know we can insert it into the mempool for consideration in the next block.
-		if err := handler.mempool.Insert(ctx, tx); err != nil {
-			return sdkerrors.ResponseCheckTxWithEvents(fmt.Errorf("invalid bid tx; failed to insert bid transaction into mempool: %w", err), gasInfo.GasWanted, gasInfo.GasUsed, nil, false)
+		if err := handler.tobLane.Insert(ctx, tx); err != nil {
+			handler.baseApp.Logger().Info(
+				"invalid bid tx; failed to insert bid transaction into mempool",
+				"err", err,
+			)
+
+			return sdkerrors.ResponseCheckTxWithEvents(
+				fmt.Errorf("invalid bid tx; failed to insert bid transaction into mempool: %w", err),
+				gasInfo.GasWanted,
+				gasInfo.GasUsed,
+				nil,
+				false,
+			)
 		}
 
 		return cometabci.ResponseCheckTx{
@@ -143,7 +206,7 @@ func (handler *CheckTxHandler) CheckTx() CheckTx {
 }
 
 // ValidateBidTx is utilized to verify the bid transaction against the latest committed state.
-func (handler *CheckTxHandler) ValidateBidTx(ctx sdk.Context, bidTx sdk.Tx, bidInfo *mempool.AuctionBidInfo) (sdk.GasInfo, error) {
+func (handler *CheckTxHandler) ValidateBidTx(ctx sdk.Context, bidTx sdk.Tx, bidInfo *types.BidInfo) (sdk.GasInfo, error) {
 	// Verify the bid transaction.
 	ctx, err := handler.anteHandler(ctx, bidTx, false)
 	if err != nil {
@@ -158,17 +221,13 @@ func (handler *CheckTxHandler) ValidateBidTx(ctx sdk.Context, bidTx sdk.Tx, bidI
 
 	// Verify all of the bundled transactions.
 	for _, tx := range bidInfo.Transactions {
-		bundledTx, err := handler.mempool.WrapBundleTransaction(tx)
+		bundledTx, err := handler.tobLane.WrapBundleTransaction(tx)
 		if err != nil {
 			return gasInfo, fmt.Errorf("invalid bid tx; failed to decode bundled tx: %w", err)
 		}
 
-		bidInfo, err := handler.mempool.GetAuctionBidInfo(bundledTx)
-		if err != nil {
-			return gasInfo, fmt.Errorf("invalid bid tx; failed to get auction bid info: %w", err)
-		}
-
-		// Bid txs cannot be included in bundled txs.
+		// bid txs cannot be included in bundled txs
+		bidInfo, _ := handler.tobLane.GetAuctionBidInfo(bundledTx)
 		if bidInfo != nil {
 			return gasInfo, fmt.Errorf("invalid bid tx; bundled tx cannot be a bid tx")
 		}
