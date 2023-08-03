@@ -6,12 +6,28 @@ require (
 	cosmossdk.io/api v0.3.1
 	cosmossdk.io/core v0.5.1
 	cosmossdk.io/depinject v1.0.0-alpha.3
+<<<<<<< HEAD
 	cosmossdk.io/errors v1.0.0-beta.7
 	cosmossdk.io/math v1.0.0
 	github.com/cometbft/cometbft v0.37.1
 	github.com/cometbft/cometbft-db v0.7.0
 	github.com/cosmos/cosmos-proto v1.0.0-beta.2
 	github.com/cosmos/cosmos-sdk v0.47.2
+=======
+	cosmossdk.io/errors v1.0.0
+	cosmossdk.io/log v1.2.0
+	cosmossdk.io/math v1.0.1
+	cosmossdk.io/store v1.0.0-alpha.1
+	cosmossdk.io/tools/confix v0.0.0-20230724130706-5442197d6bcd
+	cosmossdk.io/x/circuit v0.0.0-20230724130706-5442197d6bcd
+	cosmossdk.io/x/feegrant v0.0.0-20230724130706-5442197d6bcd
+	cosmossdk.io/x/tx v0.9.1
+	cosmossdk.io/x/upgrade v0.0.0-20230724130706-5442197d6bcd
+	github.com/cometbft/cometbft v0.38.0-rc3
+	github.com/cosmos/cosmos-db v1.0.0
+	github.com/cosmos/cosmos-proto v1.0.0-beta.3
+	github.com/cosmos/cosmos-sdk v0.50.0-beta.0
+>>>>>>> 37aa0f2 (chore(deps): bump cosmossdk.io/log from 1.1.1-0.20230704160919-88f2c830b0ca to 1.2.0 (#230))
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/cosmos/gogoproto v1.4.8
 	github.com/golang/mock v1.6.0
@@ -140,7 +156,13 @@ require (
 	github.com/prometheus/procfs v0.9.0 // indirect
 	github.com/rakyll/statik v0.1.7 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
+<<<<<<< HEAD
 	github.com/rs/cors v1.8.2 // indirect
+=======
+	github.com/rogpeppe/go-internal v1.11.0 // indirect
+	github.com/rs/cors v1.8.3 // indirect
+	github.com/rs/zerolog v1.30.0 // indirect
+>>>>>>> 37aa0f2 (chore(deps): bump cosmossdk.io/log from 1.1.1-0.20230704160919-88f2c830b0ca to 1.2.0 (#230))
 	github.com/sasha-s/go-deadlock v0.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/spf13/afero v1.9.2 // indirect
