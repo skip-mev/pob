@@ -54,7 +54,11 @@ func NewTOBLane(
 
 // Match returns true if the transaction is a bid transaction. This is determined
 // by the AuctionFactory.
-func (l *TOBLane) Match(_ sdk.Context, tx sdk.Tx) bool {
+func (l *TOBLane) Match(ctx sdk.Context, tx sdk.Tx) bool {
+	if l.DefaultLane.MatchIgnoreList(ctx, tx) {
+		return false
+	}
+
 	bidInfo, err := l.GetAuctionBidInfo(tx)
 	return bidInfo != nil && err == nil
 }

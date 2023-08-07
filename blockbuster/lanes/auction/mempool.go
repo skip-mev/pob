@@ -106,16 +106,6 @@ func NewMempool(txEncoder sdk.TxEncoder, maxTx int, config Factory) *TOBMempool 
 
 // Insert inserts a transaction into the auction mempool.
 func (am *TOBMempool) Insert(ctx context.Context, tx sdk.Tx) error {
-	bidInfo, err := am.GetAuctionBidInfo(tx)
-	if err != nil {
-		return err
-	}
-
-	// This mempool only supports auction bid transactions.
-	if bidInfo == nil {
-		return fmt.Errorf("invalid transaction type")
-	}
-
 	if err := am.index.Insert(ctx, tx); err != nil {
 		return fmt.Errorf("failed to insert tx into auction index: %w", err)
 	}
