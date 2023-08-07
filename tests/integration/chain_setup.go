@@ -105,7 +105,7 @@ func CreateTx(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, user
 
 	require.NoError(t, tx.Sign(txf, cc.GetFromName(), txBuilder, true))
 
-	// encode and returno
+	// encode and return
 	bz, err := cc.TxConfig.TxEncoder()(txBuilder.GetTx())
 	require.NoError(t, err)
 	return bz
