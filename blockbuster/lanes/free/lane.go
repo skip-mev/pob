@@ -33,7 +33,7 @@ func NewFreeLane(cfg blockbuster.BaseLaneConfig, factory Factory) *Lane {
 
 // Match returns true if the transaction is a free transaction.
 func (l *Lane) Match(ctx sdk.Context, tx sdk.Tx) bool {
-	if l.DefaultLane.MatchIgnoreList(ctx, tx) {
+	if l.MatchIgnoreList(ctx, tx) {
 		return false
 	}
 
