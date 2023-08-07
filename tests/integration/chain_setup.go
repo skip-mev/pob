@@ -14,6 +14,7 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	buildertypes "github.com/skip-mev/pob/x/builder/types"
 	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
 	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
@@ -22,6 +23,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // ChainBuilderFromChainSpec creates an interchaintest chain builder factory given a ChainSpec
@@ -52,7 +55,7 @@ func BuildPOBInterchain(t *testing.T, ctx context.Context, chain ibc.Chain) *int
 	// create docker network
 	client, networkID := interchaintest.DockerSetup(t)
 
-	ctx, cancel := context.WithTimeout(ctx, 2 * time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
 	// build the interchain
@@ -68,7 +71,7 @@ func BuildPOBInterchain(t *testing.T, ctx context.Context, chain ibc.Chain) *int
 }
 
 // CreateTx creates a new transaction to be signed by the given user, including a provided set of messages
-func CreateTx(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, user cosmos.User, seqIncrement, height uint64, msgs ...sdk.Msg) []byte {
+func CreateTx(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, user cosmos.User, seqIncrement, height uint64, GasPrice int64, msgs ...sdk.Msg) []byte {
 	// create a broadcaster
 	broadcaster := cosmos.NewBroadcaster(t, chain)
 
@@ -94,6 +97,7 @@ func CreateTx(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, user
 
 	// update sequence number
 	txf = txf.WithSequence(txf.Sequence() + seqIncrement)
+	txf = txf.WithGasPrices(sdk.NewDecCoins(sdk.NewDecCoin(chain.Config().Denom, sdk.NewInt(GasPrice))).String())
 
 	// sign the tx
 	txBuilder, err := txf.BuildUnsignedTx(msgs...)
@@ -101,7 +105,7 @@ func CreateTx(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, user
 
 	require.NoError(t, tx.Sign(txf, cc.GetFromName(), txBuilder, true))
 
-	// encode and return
+	// encode and returno
 	bz, err := cc.TxConfig.TxEncoder()(txBuilder.GetTx())
 	require.NoError(t, err)
 	return bz
@@ -135,6 +139,7 @@ func SimulateTx(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, us
 type Tx struct {
 	User               cosmos.User
 	Msgs               []sdk.Msg
+	GasPrice           int64
 	SequenceIncrement  uint64
 	Height             uint64
 	SkipInclusionCheck bool
@@ -142,11 +147,11 @@ type Tx struct {
 }
 
 // CreateAuctionBidMsg creates a new AuctionBid tx signed by the given user, the order of txs in the MsgAuctionBid will be determined by the contents + order of the MessageForUsers
-func CreateAuctionBidMsg(t *testing.T, ctx context.Context, searcher cosmos.User, chain *cosmos.CosmosChain, bid sdk.Coin, users []Tx) (*buildertypes.MsgAuctionBid, [][]byte) {
+func CreateAuctionBidMsg(t *testing.T, ctx context.Context, searcher cosmos.User, chain *cosmos.CosmosChain, bid sdk.Coin, txsPerUser []Tx) (*buildertypes.MsgAuctionBid, [][]byte) {
 	// for each MessagesForUser get the signed bytes
-	txs := make([][]byte, len(users))
-	for i, user := range users {
-		txs[i] = CreateTx(t, ctx, chain, user.User, user.SequenceIncrement, user.Height, user.Msgs...)
+	txs := make([][]byte, len(txsPerUser))
+	for i, tx := range txsPerUser {
+		txs[i] = CreateTx(t, ctx, chain, tx.User, tx.SequenceIncrement, tx.Height, tx.GasPrice, tx.Msgs...)
 	}
 
 	bech32SearcherAddress := searcher.FormattedAddress()
@@ -168,7 +173,7 @@ func BroadcastTxs(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, 
 	txs := make([][]byte, len(msgsPerUser))
 
 	for i, msg := range msgsPerUser {
-		txs[i] = CreateTx(t, ctx, chain, msg.User, msg.SequenceIncrement, msg.Height, msg.Msgs...)
+		txs[i] = CreateTx(t, ctx, chain, msg.User, msg.SequenceIncrement, msg.Height, msg.GasPrice, msg.Msgs...)
 	}
 
 	// broadcast each tx
@@ -198,8 +203,9 @@ func BroadcastTxs(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, 
 		tx := tx // pin
 		eg.Go(func() error {
 			return testutil.WaitForCondition(4*time.Second, 500*time.Millisecond, func() (bool, error) {
-				_, err := client.Tx(context.Background(), comettypes.Tx(tx).Hash(), false)
-				if err != nil {
+				res, err := client.Tx(context.Background(), comettypes.Tx(tx).Hash(), false)
+
+				if err != nil || res.TxResult.Code != uint32(0) {
 					return false, nil
 				}
 				return true, nil
@@ -229,6 +235,32 @@ func QueryBuilderParams(t *testing.T, chain ibc.Chain) buildertypes.Params {
 	err = json.Unmarshal(resp, &params)
 	require.NoError(t, err)
 	return params
+}
+
+// QueryValidators queries for all of the network's validators
+func QueryValidators(t *testing.T, chain *cosmos.CosmosChain) []sdk.ValAddress {
+	// get grpc client of the node
+	grpcAddr := chain.GetHostGRPCAddress()
+	cc, err := grpc.Dial(grpcAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+
+	require.NoError(t, err)
+
+	client := stakingtypes.NewQueryClient(cc)
+
+	// query validators
+	resp, err := client.Validators(context.Background(), &stakingtypes.QueryValidatorsRequest{})
+	require.NoError(t, err)
+
+	addrs := make([]sdk.ValAddress, len(resp.Validators))
+
+	// unmarshal validators
+	for i, val := range resp.Validators {
+		addrBz, err := sdk.GetFromBech32(val.OperatorAddress, chain.Config().Bech32Prefix+sdk.PrefixValidator+sdk.PrefixOperator)
+		require.NoError(t, err)
+
+		addrs[i] = sdk.ValAddress(addrBz)
+	}
+	return addrs
 }
 
 // QueryAccountBalance queries a given account's balance on the chain
