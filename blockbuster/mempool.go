@@ -148,7 +148,7 @@ func (m *BBMempool) Remove(tx sdk.Tx) error {
 	return fmt.Errorf(strings.Join(errors, ";"))
 }
 
-// Contains returns the lanes a transaction is currently in.
+// Contains returns true if the transaction is contained in any of the lanes.
 func (m *BBMempool) Contains(tx sdk.Tx) bool {
 	for _, lane := range m.registry {
 		if lane.Contains(tx) {
