@@ -993,3 +993,299 @@ func (s *POBIntegrationTestSuite) TestFreeLane() {
 		require.Equal(s.T(), user2BalanceBefore, user2BalanceAfter + delegation.Amount.Int64())
 	})
 }
+
+func (s *POBIntegrationTestSuite) TestLanes() {
+	validators := QueryValidators(s.T(), s.chain.(*cosmos.CosmosChain))
+	require.True(s.T(), len(validators) > 0)
+
+	delegation := sdk.NewCoin(s.denom, sdk.NewInt(100))
+
+	params := QueryBuilderParams(s.T(), s.chain)
+
+	s.Run("block with tob, free, and normal tx", func() {
+		user2BalanceBefore := QueryAccountBalance(s.T(), s.chain.(*cosmos.CosmosChain), s.user2.FormattedAddress(), s.denom)
+
+		// create free-tx, bid-tx, and normal-tx\
+		bid, bundledTx := CreateAuctionBidMsg(
+			s.T(), 
+			context.Background(), 
+			s.user1, 
+			s.chain.(*cosmos.CosmosChain), 
+			params.ReserveFee, 
+			[]Tx{
+				{
+					User: s.user1,
+					Msgs: []sdk.Msg{
+						&banktypes.MsgSend{
+							FromAddress: s.user1.FormattedAddress(),
+							ToAddress:   s.user1.FormattedAddress(),
+							Amount:      sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))),
+						},
+					},
+					SequenceIncrement: 1,
+				},
+			},
+		)
+		
+		height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
+		require.NoError(s.T(), err)
+
+		txs := BroadcastTxs(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []Tx{
+			{
+				User: s.user1,
+				Msgs: []sdk.Msg{bid},
+				Height: height + 1,
+			},
+			{
+				User: s.user2,
+				Msgs: []sdk.Msg{
+					stakingtypes.NewMsgDelegate(
+						sdk.AccAddress(s.user2.Address()),
+						sdk.ValAddress(validators[0]),
+						delegation,
+					),	
+				},
+				GasPrice: 10,
+			},
+			{
+				User: s.user3,
+				Msgs: []sdk.Msg{
+					&banktypes.MsgSend{
+						FromAddress: s.user3.FormattedAddress(),
+						ToAddress: s.user3.FormattedAddress(),
+						Amount: sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))),
+					},
+				},
+			},
+		})
+
+		// check block
+		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+1)
+		block := Block(s.T(), s.chain.(*cosmos.CosmosChain), int64(height+1))
+
+		VerifyBlock(s.T(), block, 0, TxHash(txs[0]), append(bundledTx, txs[1:]...))
+
+		// check user2 balance expect no fee deduction
+		user2BalanceAfter := QueryAccountBalance(s.T(), s.chain.(*cosmos.CosmosChain), s.user2.FormattedAddress(), s.denom)
+		require.Equal(s.T(), user2BalanceBefore, user2BalanceAfter + delegation.Amount.Int64())
+	})
+
+	s.Run("failing top of block transaction, free, and normal tx", func() {
+		user2BalanceBefore := QueryAccountBalance(s.T(), s.chain.(*cosmos.CosmosChain), s.user2.FormattedAddress(), s.denom)
+		user1Balance := QueryAccountBalance(s.T(), s.chain.(*cosmos.CosmosChain), s.user1.FormattedAddress(), s.denom)
+		// create free-tx, bid-tx, and normal-tx\
+		bid, bundledTxs := CreateAuctionBidMsg(
+			s.T(), 
+			context.Background(), 
+			s.user1, 
+			s.chain.(*cosmos.CosmosChain), 
+			params.ReserveFee, 
+			[]Tx{
+				{
+					User: s.user1,
+					Msgs: []sdk.Msg{
+						&banktypes.MsgSend{
+							FromAddress: s.user1.FormattedAddress(),
+							ToAddress:   s.user1.FormattedAddress(),
+							// transfer all tokens
+							Amount:      sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(user1Balance))),
+						},
+					},
+					SequenceIncrement: 1,
+				},
+				{
+					User: s.user1,
+					Msgs: []sdk.Msg{
+						&banktypes.MsgSend{
+							FromAddress: s.user1.FormattedAddress(),
+							ToAddress:   s.user1.FormattedAddress(),
+							// doing the same again will fail
+							Amount:      sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(user1Balance))),
+						},
+					},
+					SequenceIncrement: 2,	
+				},
+			},
+		)
+		
+		height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
+		require.NoError(s.T(), err)
+
+		txs := BroadcastTxs(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []Tx{
+			{
+				User: s.user1,
+				Msgs: []sdk.Msg{bid},
+				Height: height + 1,
+				ExpectFail: true,
+			},
+			{
+				User: s.user2,
+				Msgs: []sdk.Msg{
+					stakingtypes.NewMsgDelegate(
+						sdk.AccAddress(s.user2.Address()),
+						sdk.ValAddress(validators[0]),
+						delegation,
+					),	
+				},
+				GasPrice: 10,
+			},
+			{
+				User: s.user3,
+				Msgs: []sdk.Msg{
+					&banktypes.MsgSend{
+						FromAddress: s.user3.FormattedAddress(),
+						ToAddress: s.user3.FormattedAddress(),
+						Amount: sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))),
+					},
+				},
+			},
+		})
+
+		// check block
+		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+1)
+		block := Block(s.T(), s.chain.(*cosmos.CosmosChain), int64(height+1))
+
+		VerifyBlock(s.T(), block, 0, TxHash(txs[0]), append(bundledTxs, txs[1:]...))
+
+		// check user2 balance expect no fee deduction
+		user2BalanceAfter := QueryAccountBalance(s.T(), s.chain.(*cosmos.CosmosChain), s.user2.FormattedAddress(), s.denom)
+		require.Equal(s.T(), user2BalanceBefore, user2BalanceAfter + delegation.Amount.Int64())	
+	})
+
+	s.Run("top of block transaction that includes transactions from the free lane", func() {
+		user2BalanceBefore := QueryAccountBalance(s.T(), s.chain.(*cosmos.CosmosChain), s.user2.FormattedAddress(), s.denom)
+
+		delegateTx := Tx{
+			User: s.user2,
+			Msgs: []sdk.Msg{
+				&stakingtypes.MsgDelegate{
+					DelegatorAddress: s.user2.FormattedAddress(),
+					ValidatorAddress: sdk.ValAddress(validators[0]).String(),
+					Amount:           delegation,
+				},
+			},
+			GasPrice: 10,
+		}
+
+		bid, bundledTx := CreateAuctionBidMsg(
+			s.T(),
+			context.Background(),
+			s.user3,
+			s.chain.(*cosmos.CosmosChain),
+			params.ReserveFee,
+			[]Tx{
+				delegateTx,
+				{
+					User: s.user3,
+					Msgs: []sdk.Msg{
+						&banktypes.MsgSend{
+							FromAddress: s.user3.FormattedAddress(),
+							ToAddress:   s.user3.FormattedAddress(),
+							Amount:      sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))),
+						},
+					},
+					SequenceIncrement: 1,
+				},
+			},
+		)
+
+		height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
+		require.NoError(s.T(), err)
+
+		txs := BroadcastTxs(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []Tx{
+			{
+				User: s.user3,
+				Msgs: []sdk.Msg{bid},
+				Height: height + 1,
+			},
+			delegateTx,
+		})
+
+		// query balance after, expect no fees paid
+		user2BalanceAfter := QueryAccountBalance(s.T(), s.chain.(*cosmos.CosmosChain), s.user2.FormattedAddress(), s.denom)
+		s.Require().Equal(user2BalanceBefore, user2BalanceAfter + delegation.Amount.Int64())
+
+		// check block
+		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+1)
+		block := Block(s.T(), s.chain.(*cosmos.CosmosChain), int64(height+1))
+
+		// verify
+		VerifyBlock(s.T(), block, 0, TxHash(txs[0]), bundledTx)
+	})
+
+	s.Run("top of block transaction that includes transaction from free lane + other free lane txs + normal txs", func() {
+		user2BalanceBefore := QueryAccountBalance(s.T(), s.chain.(*cosmos.CosmosChain), s.user2.FormattedAddress(), s.denom)
+
+		// create free-txs signed by user2 / 3
+		user2DelegateTx := Tx{
+			User: s.user2,
+			Msgs: []sdk.Msg{
+				&stakingtypes.MsgDelegate{
+					DelegatorAddress: s.user2.FormattedAddress(),
+					ValidatorAddress: sdk.ValAddress(validators[0]).String(),
+					Amount:           delegation,
+				},
+			},
+			GasPrice: 10,
+		}
+
+		user3DelegateTx := Tx{
+			User: s.user3,
+			Msgs: []sdk.Msg{
+				&stakingtypes.MsgDelegate{
+					DelegatorAddress: s.user3.FormattedAddress(),
+					ValidatorAddress: sdk.ValAddress(validators[0]).String(),
+					Amount:           delegation,
+				},
+			},
+			GasPrice: 10,
+			SequenceIncrement: 1,
+		}
+
+		// create bid-tx w/ user3 DelegateTx
+
+		bid, bundledTx := CreateAuctionBidMsg(
+			s.T(),
+			context.Background(),
+			s.user3,
+			s.chain.(*cosmos.CosmosChain),
+			params.ReserveFee,
+			[]Tx{
+				user3DelegateTx,
+				{
+					User: s.user3,
+					Msgs: []sdk.Msg{
+						&banktypes.MsgSend{
+							FromAddress: s.user3.FormattedAddress(),
+							ToAddress:   s.user3.FormattedAddress(),
+							Amount:      sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))),
+						},
+					},
+					SequenceIncrement: 2,
+				},
+			},
+		)
+
+		height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
+		require.NoError(s.T(), err)
+
+		txs := BroadcastTxs(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []Tx{
+			{
+				User: s.user3,
+				Msgs: []sdk.Msg{bid},
+				Height: height + 1,
+			},
+			// already included above
+			user2DelegateTx,
+		})
+
+		// verify block
+		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+1)
+		block := Block(s.T(), s.chain.(*cosmos.CosmosChain), int64(height+1))
+		VerifyBlock(s.T(), block, 0, TxHash(txs[0]), append(bundledTx, txs[1:]...))
+
+		// check user2 balance expect no fee deduction
+		user2BalanceAfter := QueryAccountBalance(s.T(), s.chain.(*cosmos.CosmosChain), s.user2.FormattedAddress(), s.denom)
+		require.Equal(s.T(), user2BalanceBefore, user2BalanceAfter + delegation.Amount.Int64())
+	})
+}
