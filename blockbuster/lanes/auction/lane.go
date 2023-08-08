@@ -47,7 +47,7 @@ func NewTOBLane(
 
 	return &TOBLane{
 		Mempool:     NewMempool(cfg.TxEncoder, maxTx, af),
-		DefaultLane: base.NewDefaultLane(cfg),
+		DefaultLane: base.NewDefaultLane(cfg).WithName(LaneName),
 		Factory:     af,
 	}
 }
@@ -61,9 +61,4 @@ func (l *TOBLane) Match(ctx sdk.Context, tx sdk.Tx) bool {
 
 	bidInfo, err := l.GetAuctionBidInfo(tx)
 	return bidInfo != nil && err == nil
-}
-
-// Name returns the name of the lane.
-func (l *TOBLane) Name() string {
-	return LaneName
 }
