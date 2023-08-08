@@ -68,6 +68,7 @@ import (
 	"github.com/skip-mev/pob/blockbuster/lanes/auction"
 	"github.com/skip-mev/pob/blockbuster/lanes/base"
 	"github.com/skip-mev/pob/blockbuster/lanes/free"
+	"github.com/skip-mev/pob/blockbuster/lanes/onboarding"
 	buildermodule "github.com/skip-mev/pob/x/builder"
 	builderkeeper "github.com/skip-mev/pob/x/builder/keeper"
 )
@@ -291,6 +292,29 @@ func New(
 		free.NewDefaultFreeFactory(app.txConfig.TxDecoder()),
 	)
 
+	// The onboarding lane allows for certain onboarding transactions to be free. This
+	// lane is useful for users that recently arrived to a chain but do not have the
+	// necessary funds to interact on-chain.
+	onboardingConfig := blockbuster.BaseLaneConfig{
+		Logger:        app.Logger(),
+		TxEncoder:     app.txConfig.TxEncoder(),
+		TxDecoder:     app.txConfig.TxDecoder(),
+		MaxBlockSpace: math.LegacyZeroDec(),
+		IgnoreList: []blockbuster.Lane{
+			tobLane,
+			freeLane,
+		},
+	}
+	onboardingLane := onboarding.NewOnboardingLane(
+		onboardingConfig,
+		onboarding.NewDefaultOnboardingFactory(
+			app.BankKeeper,
+			app.AccountKeeper,
+			app.StakingKeeper,
+			3,
+		),
+	)
+
 	// Default lane accepts all other transactions.
 	defaultConfig := blockbuster.BaseLaneConfig{
 		Logger:        app.Logger(),
@@ -308,6 +332,7 @@ func New(
 	lanes := []blockbuster.Lane{
 		tobLane,
 		freeLane,
+		onboardingLane,
 		defaultLane,
 	}
 	mempool := blockbuster.NewMempool(app.Logger(), lanes...)

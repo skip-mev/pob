@@ -10,13 +10,16 @@ import (
 )
 
 type POBHandlerOptions struct {
-	BaseOptions   ante.HandlerOptions
-	Mempool       blockbuster.Mempool
-	TOBLane       builderante.TOBLane
-	TxDecoder     sdk.TxDecoder
-	TxEncoder     sdk.TxEncoder
-	BuilderKeeper builderkeeper.Keeper
-	FreeLane      blockbuster.Lane
+	BaseOptions ante.HandlerOptions
+	TxDecoder   sdk.TxDecoder
+	TxEncoder   sdk.TxEncoder
+
+	// POB dependencies
+	BuilderKeeper  builderkeeper.Keeper
+	Mempool        blockbuster.Mempool
+	TOBLane        builderante.TOBLane
+	FreeLane       blockbuster.Lane
+	OnboardingLane blockbuster.Lane
 }
 
 // NewPOBAnteHandler wraps all of the default Cosmos SDK AnteDecorators with the POB AnteHandler.
@@ -48,6 +51,7 @@ func NewPOBAnteHandler(options POBHandlerOptions) sdk.AnteHandler {
 				options.BaseOptions.TxFeeChecker,
 			),
 			options.FreeLane,
+			options.OnboardingLane,
 		),
 		ante.NewSetPubKeyDecorator(options.BaseOptions.AccountKeeper), // SetPubKeyDecorator must be called before all signature verification decorators
 		ante.NewValidateSigCountDecorator(options.BaseOptions.AccountKeeper),
