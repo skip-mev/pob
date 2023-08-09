@@ -29,6 +29,10 @@ type DefaultLane struct {
 
 	// Name defines the name of the lane.
 	laneName string
+
+	// txPriority maintains how the mempool determines relative ordering
+	// of transactions
+	txPriority blockbuster.TxPriority[int64]
 }
 
 // NewDefaultLane returns a new default lane.
@@ -38,9 +42,10 @@ func NewDefaultLane(cfg blockbuster.BaseLaneConfig) *DefaultLane {
 	}
 
 	lane := &DefaultLane{
-		Mempool:  NewDefaultMempool(cfg.TxEncoder),
-		Cfg:      cfg,
-		laneName: LaneName,
+		Mempool:    NewDefaultMempool(cfg.TxEncoder),
+		Cfg:        cfg,
+		laneName:   LaneName,
+		txPriority: blockbuster.NewDefaultTxPriority(),
 	}
 
 	return lane
@@ -50,6 +55,15 @@ func NewDefaultLane(cfg blockbuster.BaseLaneConfig) *DefaultLane {
 func (l *DefaultLane) WithName(name string) *DefaultLane {
 	l.laneName = name
 	return l
+}
+
+// Compare determines the relative priority of two transactions belonging in the same lane.
+// In the default case, priority is determined by the priority of the context passed down
+// to the API.
+func (l *DefaultLane) Compare(ctx sdk.Context, this sdk.Tx, other sdk.Tx) int {
+	firstPriority := l.txPriority.GetTxPriority(ctx, this)
+	secondPriority := l.txPriority.GetTxPriority(ctx, other)
+	return l.txPriority.Compare(firstPriority, secondPriority)
 }
 
 // Match returns true if the transaction belongs to this lane. Since

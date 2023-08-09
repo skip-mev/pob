@@ -85,6 +85,11 @@ func (t Terminator) Select(context.Context, [][]byte) sdkmempool.Iterator {
 	return nil
 }
 
+// HasHigherPriority is a no-op
+func (t Terminator) Compare(sdk.Context, sdk.Tx, sdk.Tx) int {
+	return 0
+}
+
 // ValidateLaneBasic is a no-op
 func (t Terminator) ProcessLaneBasic(sdk.Context, []sdk.Tx) error {
 	return nil

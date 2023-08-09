@@ -51,6 +51,7 @@ func (l *DefaultLane) PrepareLane(
 		// If the transaction is too large, we break and do not attempt to include more txs.
 		txSize := int64(len(txBytes))
 		if updatedSize := totalSize + txSize; updatedSize > maxTxBytes {
+			l.Logger().Info("maximum tx bytes reached", "lane", l.Name())
 			break
 		}
 
@@ -115,7 +116,7 @@ func (l *DefaultLane) ProcessLaneBasic(ctx sdk.Context, txs []sdk.Tx) error {
 	seenOtherLaneTx := false
 	lastSeenIndex := 0
 
-	for _, tx := range txs {
+	for index, tx := range txs {
 		if l.Match(ctx, tx) {
 			if seenOtherLaneTx {
 				return fmt.Errorf("the %s lane contains a transaction that belongs to another lane", l.Name())
@@ -123,6 +124,12 @@ func (l *DefaultLane) ProcessLaneBasic(ctx sdk.Context, txs []sdk.Tx) error {
 
 			lastSeenIndex++
 			continue
+		}
+
+		// If the transactions do not respect the priority defined by the mempool, we consider the proposal
+		// to be invalid
+		if index > 0 && l.Compare(ctx, tx, txs[index-1]) < -1 {
+			return fmt.Errorf("transaction at index %d has a higher priority than %d", index, index-1)
 		}
 
 		seenOtherLaneTx = true

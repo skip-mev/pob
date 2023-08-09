@@ -33,23 +33,37 @@ type TOBLane struct {
 	// if a transaction is a bid transaction and how to extract relevant
 	// information from the transaction (bid, timeout, bidder, etc.).
 	Factory
+
+	// txPriority maintains how the mempool determines relative ordering
+	// of transactions
+	txPriority blockbuster.TxPriority[string]
 }
 
 // NewTOBLane returns a new TOB lane.
 func NewTOBLane(
 	cfg blockbuster.BaseLaneConfig,
 	maxTx int,
-	af Factory,
+	factory Factory,
 ) *TOBLane {
 	if err := cfg.ValidateBasic(); err != nil {
 		panic(err)
 	}
 
 	return &TOBLane{
-		Mempool:     NewMempool(cfg.TxEncoder, maxTx, af),
+		Mempool:     NewMempool(cfg.TxEncoder, maxTx, factory),
 		DefaultLane: base.NewDefaultLane(cfg).WithName(LaneName),
-		Factory:     af,
+		txPriority:  TxPriority(factory),
+		Factory:     factory,
 	}
+}
+
+// Compare determines the relative priority of two transactions belonging in the same lane.
+// In the default case, priority is determined by the priority of the context passed down
+// to the API.
+func (l *TOBLane) Compare(ctx sdk.Context, this sdk.Tx, other sdk.Tx) int {
+	firstPriority := l.txPriority.GetTxPriority(ctx, this)
+	secondPriority := l.txPriority.GetTxPriority(ctx, other)
+	return l.txPriority.Compare(firstPriority, secondPriority)
 }
 
 // Match returns true if the transaction is a bid transaction. This is determined

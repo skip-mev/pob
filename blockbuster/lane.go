@@ -49,6 +49,9 @@ type (
 		// Name returns the name of the lane.
 		Name() string
 
+		// Compare determines the relative priority of two transactions belonging in the same lane.
+		Compare(ctx sdk.Context, this, other sdk.Tx) int
+
 		// Match determines if a transaction belongs to this lane.
 		Match(ctx sdk.Context, tx sdk.Tx) bool
 
@@ -120,4 +123,16 @@ func (c *BaseLaneConfig) ValidateBasic() error {
 	}
 
 	return nil
+}
+
+func NoOpPrepareLanesHandler() PrepareLanesHandler {
+	return func(ctx sdk.Context, proposal BlockProposal) (BlockProposal, error) {
+		return proposal, nil
+	}
+}
+
+func NoOpProcessLanesHandler() ProcessLanesHandler {
+	return func(ctx sdk.Context, txs []sdk.Tx) (sdk.Context, error) {
+		return ctx, nil
+	}
 }
