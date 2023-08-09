@@ -88,6 +88,8 @@ build-and-start-app: build-test-app
 ###############################################################################
 ##                                Workspaces                                 ##
 ###############################################################################
+init-workspace:
+	go work init
 
 use-main:
 	go work edit -use .
@@ -97,7 +99,7 @@ use-integration:
 	go work edit -dropuse .
 	go work edit -use ./tests/integration
 
-.PHONY: docker-build docker-build-integration
+.PHONY: init-workspace use-main use-integration
 ###############################################################################
 ##                                  Docker                                   ##
 ###############################################################################
@@ -110,6 +112,7 @@ docker-build-integration: use-main
 	@echo "Building integration-test Docker image..."
 	@DOCKER_BUILDKIT=1 docker build -t pob-integration -f contrib/images/pob.integration.Dockerfile .
 
+.PHONY: docker-build docker-build-integration
 ###############################################################################
 ###                                  Tests                                  ###
 ###############################################################################

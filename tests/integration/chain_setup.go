@@ -1,17 +1,25 @@
 package integration
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"io"
+	"os"
+	"path"
 	"strings"
 	"testing"
 	"time"
 
 	rpctypes "github.com/cometbft/cometbft/rpc/core/types"
 	comettypes "github.com/cometbft/cometbft/types"
+	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
+	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	buildertypes "github.com/skip-mev/pob/x/builder/types"
@@ -23,6 +31,11 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 )
+
+type KeyringOverride struct {
+	keyringOptions keyring.Option
+	cdc codec.Codec
+}
 
 // ChainBuilderFromChainSpec creates an interchaintest chain builder factory given a ChainSpec
 // and returns the associated chain
@@ -67,20 +80,21 @@ func BuildPOBInterchain(t *testing.T, ctx context.Context, chain ibc.Chain) *int
 	return ic
 }
 
+
 // CreateTx creates a new transaction to be signed by the given user, including a provided set of messages
-func CreateTx(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, user cosmos.User, seqIncrement, height uint64, msgs ...sdk.Msg) []byte {
+func (s *POBIntegrationTestSuite) CreateTx(ctx context.Context, chain *cosmos.CosmosChain, user cosmos.User, seqIncrement, height uint64, msgs ...sdk.Msg) []byte {
 	// create a broadcaster
-	broadcaster := cosmos.NewBroadcaster(t, chain)
+	broadcaster := s.bc
 
 	// create tx factory + Client Context
 	txf, err := broadcaster.GetFactory(ctx, user)
-	require.NoError(t, err)
+	require.NoError(s.T(), err)
 
 	cc, err := broadcaster.GetClientContext(ctx, user)
-	require.NoError(t, err)
+	require.NoError(s.T(), err)
 
 	txf, err = txf.Prepare(cc)
-	require.NoError(t, err)
+	require.NoError(s.T(), err)
 
 	// set timeout height
 	if height != 0 {
@@ -89,7 +103,7 @@ func CreateTx(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, user
 
 	// get gas for tx
 	_, gas, err := tx.CalculateGas(cc, txf, msgs...)
-	require.NoError(t, err)
+	require.NoError(s.T(), err)
 	txf.WithGas(gas)
 
 	// update sequence number
@@ -97,30 +111,30 @@ func CreateTx(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, user
 
 	// sign the tx
 	txBuilder, err := txf.BuildUnsignedTx(msgs...)
-	require.NoError(t, err)
+	require.NoError(s.T(), err)
 
-	require.NoError(t, tx.Sign(txf, cc.GetFromName(), txBuilder, true))
+	require.NoError(s.T(), tx.Sign(txf, cc.GetFromName(), txBuilder, true))
 
 	// encode and return
 	bz, err := cc.TxConfig.TxEncoder()(txBuilder.GetTx())
-	require.NoError(t, err)
+	require.NoError(s.T(), err)
 	return bz
 }
 
 // SimulateTx simulates the provided messages, and checks whether the provided failure condition is met
-func SimulateTx(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, user cosmos.User, height uint64, expectFail bool, msgs ...sdk.Msg) {
+func (s *POBIntegrationTestSuite) SimulateTx(ctx context.Context, chain *cosmos.CosmosChain, user cosmos.User, height uint64, expectFail bool, msgs ...sdk.Msg) {
 	// create a broadcaster
-	broadcaster := cosmos.NewBroadcaster(t, chain)
+	broadcaster := s.bc
 
 	// create tx factory + Client Context
 	txf, err := broadcaster.GetFactory(ctx, user)
-	require.NoError(t, err)
+	require.NoError(s.T(), err)
 
 	cc, err := broadcaster.GetClientContext(ctx, user)
-	require.NoError(t, err)
+	require.NoError(s.T(), err)
 
 	txf, err = txf.Prepare(cc)
-	require.NoError(t, err)
+	require.NoError(s.T(), err)
 
 	// set timeout height
 	if height != 0 {
@@ -129,7 +143,38 @@ func SimulateTx(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, us
 
 	// get gas for tx
 	_, _, err = tx.CalculateGas(cc, txf, msgs...)
-	require.Equal(t, err != nil, expectFail)
+	require.Equal(s.T(), err != nil, expectFail)
+}
+
+func (s *POBIntegrationTestSuite) setBroadcaster() {
+	bc := cosmos.NewBroadcaster(s.T(), s.chain.(*cosmos.CosmosChain))
+	
+	if s.broadcasterOverrides == nil {
+		s.bc = bc
+		return
+	}
+
+	// get the key-ring-dir from the node locally
+	keyringDir := s.keyringDirFromNode()
+
+	// create a new keyring
+	kr, err := keyring.New("", keyring.BackendTest, keyringDir, os.Stdin, s.broadcasterOverrides.cdc, s.broadcasterOverrides.keyringOptions)
+	s.Require().NoError(err)
+
+	// override factory + client context keyrings
+	bc.ConfigureFactoryOptions(
+		func(factory tx.Factory) tx.Factory {
+			return factory.WithKeybase(kr)
+		},
+	)
+
+	bc.ConfigureClientContextOptions(
+		func(cc client.Context) client.Context {
+			return cc.WithKeyring(kr)
+		},
+	)
+
+	s.bc = bc
 }
 
 type Tx struct {
@@ -142,16 +187,16 @@ type Tx struct {
 }
 
 // CreateAuctionBidMsg creates a new AuctionBid tx signed by the given user, the order of txs in the MsgAuctionBid will be determined by the contents + order of the MessageForUsers
-func CreateAuctionBidMsg(t *testing.T, ctx context.Context, searcher cosmos.User, chain *cosmos.CosmosChain, bid sdk.Coin, users []Tx) (*buildertypes.MsgAuctionBid, [][]byte) {
+func (s *POBIntegrationTestSuite) CreateAuctionBidMsg(ctx context.Context, searcher cosmos.User, chain *cosmos.CosmosChain, bid sdk.Coin, users []Tx) (*buildertypes.MsgAuctionBid, [][]byte) {
 	// for each MessagesForUser get the signed bytes
 	txs := make([][]byte, len(users))
 	for i, user := range users {
-		txs[i] = CreateTx(t, ctx, chain, user.User, user.SequenceIncrement, user.Height, user.Msgs...)
+		txs[i] = s.CreateTx(ctx, chain, user.User, user.SequenceIncrement, user.Height, user.Msgs...)
 	}
 
 	bech32SearcherAddress := searcher.FormattedAddress()
 	accAddr, err := sdk.AccAddressFromBech32(bech32SearcherAddress)
-	require.NoError(t, err)
+	s.Require().NoError(err)
 
 	// create a message auction bid
 	return buildertypes.NewMsgAuctionBid(
@@ -164,25 +209,25 @@ func CreateAuctionBidMsg(t *testing.T, ctx context.Context, searcher cosmos.User
 // BroadcastTxs broadcasts the given messages for each user. This function returns the broadcasted txs. If a message
 // is not expected to be included in a block, set SkipInclusionCheck to true and the method
 // will not block on the tx's inclusion in a block, otherwise this method will block on the tx's inclusion
-func BroadcastTxs(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, msgsPerUser []Tx) [][]byte {
+func (s *POBIntegrationTestSuite) BroadcastTxs(ctx context.Context, chain *cosmos.CosmosChain, msgsPerUser []Tx) [][]byte {
 	txs := make([][]byte, len(msgsPerUser))
 
 	for i, msg := range msgsPerUser {
-		txs[i] = CreateTx(t, ctx, chain, msg.User, msg.SequenceIncrement, msg.Height, msg.Msgs...)
+		txs[i] = s.CreateTx(ctx, chain, msg.User, msg.SequenceIncrement, msg.Height, msg.Msgs...)
 	}
 
 	// broadcast each tx
-	require.True(t, len(chain.Nodes()) > 0)
+	s.Require().True(len(chain.Nodes()) > 0)
 	client := chain.Nodes()[0].Client
 
 	for i, tx := range txs {
 		// broadcast tx
 		res, err := client.BroadcastTxSync(ctx, tx)
-		require.NoError(t, err)
+		s.Require().NoError(err)
 
 		// check execution was successful
 		if !msgsPerUser[i].ExpectFail {
-			require.Equal(t, res.Code, uint32(0))
+			s.Require().Equal(res.Code, uint32(0))
 		}
 
 	}
@@ -207,7 +252,7 @@ func BroadcastTxs(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, 
 		})
 	}
 
-	require.NoError(t, eg.Wait())
+	s.Require().NoError(eg.Wait())
 
 	return txs
 }
@@ -304,4 +349,43 @@ func VerifyBlock(t *testing.T, block *rpctypes.ResultBlock, offset int, bidTxHas
 
 func TxHash(tx []byte) string {
 	return strings.ToUpper(hex.EncodeToString(comettypes.Tx(tx).Hash()))
+}
+
+// sniped from here: https://github.com/strangelove-ventures/interchaintest ref: 9341b001214d26be420f1ca1ab0f15bad17faee6
+func (s *POBIntegrationTestSuite) keyringDirFromNode() (string) {
+	node := s.chain.(*cosmos.CosmosChain).Nodes()[0]
+
+	// create a temp-dir
+	localDir := s.T().TempDir()
+
+	containerKeyringDir := path.Join(node.HomeDir(), "keyring-test")
+	reader, _, err := node.DockerClient.CopyFromContainer(context.Background(), node.ContainerID(), containerKeyringDir)
+	s.Require().NoError(err)
+
+	s.Require().NoError(os.Mkdir(path.Join(localDir, "keyring-test"), os.ModePerm))
+
+	tr := tar.NewReader(reader)
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break // End of archive
+		}
+		s.Require().NoError(err)
+
+		var fileBuff bytes.Buffer
+		_, err = io.Copy(&fileBuff, tr)
+		s.Require().NoError(err)
+
+		name := hdr.Name
+		extractedFileName := path.Base(name)
+		isDirectory := extractedFileName == ""
+		if isDirectory {
+			continue
+		}
+
+		filePath := path.Join(localDir, "keyring-test", extractedFileName)
+		s.Require().NoError(os.WriteFile(filePath, fileBuff.Bytes(), os.ModePerm))
+	}
+
+	return localDir
 }
