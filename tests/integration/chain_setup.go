@@ -359,6 +359,7 @@ func (s *POBIntegrationTestSuite) keyringDirFromNode() (string) {
 	localDir := s.T().TempDir()
 
 	containerKeyringDir := path.Join(node.HomeDir(), "keyring-test")
+
 	reader, _, err := node.DockerClient.CopyFromContainer(context.Background(), node.ContainerID(), containerKeyringDir)
 	s.Require().NoError(err)
 

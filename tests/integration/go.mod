@@ -9,7 +9,7 @@ replace (
 	github.com/ChainSafe/go-schnorrkel/1 => github.com/ChainSafe/go-schnorrkel v1.0.0
 	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.2 //indirect
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-	github.com/strangelove-ventures/interchaintest/v7 => ../../../interchaintest/
+	github.com/strangelove-ventures/interchaintest/v7 => github.com/skip-mev/interchaintest/v7 v7.0.0-20230809220605-62a93a2dd229
 
 	github.com/vedhavyas/go-subkey => github.com/strangelove-ventures/go-subkey v1.0.7
 
@@ -25,13 +25,15 @@ require (
 	cosmossdk.io/tools/rosetta v0.2.1 // indirect
 	github.com/cosmos/cosmos-sdk v0.47.4
 	github.com/skip-mev/pob v1.0.3
-	github.com/strangelove-ventures/interchaintest/v7 v7.0.0-20230721183422-fb937bb0e165
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.24.0
 	golang.org/x/sync v0.3.0
 )
 
-require github.com/cometbft/cometbft v0.37.2
+require (
+	github.com/cometbft/cometbft v0.37.2
+	github.com/strangelove-ventures/interchaintest/v7 v7.0.0-20230802153316-8e02aef8573a
+)
 
 require (
 	cloud.google.com/go v0.110.4 // indirect
@@ -88,7 +90,7 @@ require (
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
 	github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13 // indirect
 	github.com/docker/distribution v2.8.2+incompatible // indirect
-	github.com/docker/docker v24.0.4+incompatible // indirect
+	github.com/docker/docker v24.0.5+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
@@ -222,7 +224,7 @@ require (
 	google.golang.org/genproto v0.0.0-20230706204954-ccb25ca9f130 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20230629202037-9506855d4529 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230711160842-782d3b101e98 // indirect
-	google.golang.org/grpc v1.56.2 // indirect
+	google.golang.org/grpc v1.57.0 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
