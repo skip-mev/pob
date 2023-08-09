@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	"github.com/skip-mev/pob/blockbuster"
@@ -40,12 +41,56 @@ type (
 	}
 )
 
+// TxPriority returns a TxPriority over auction bid transactions only. It
+// is to be used in the auction index only.
+func TxPriority(gasToken string) blockbuster.TxPriority[math.Int] {
+	return blockbuster.TxPriority[math.Int]{
+		GetTxPriority: func(goCtx context.Context, tx sdk.Tx) math.Int {
+			feeTx, ok := tx.(sdk.FeeTx)
+			if !ok {
+				panic(fmt.Errorf("tx is not a FeeTx: %T", tx))
+			}
+
+			fee := feeTx.GetFee()
+			return fee.AmountOf(gasToken)
+		},
+		Compare: func(a, b math.Int) int {
+			switch {
+			case a.IsNil() && b.IsNil():
+				return 0
+
+			case a.IsNil():
+				return -1
+
+			case b.IsNil():
+				return 1
+
+			default:
+				switch {
+				case a.GT(b):
+					return 1
+
+				case b.GT(a):
+					return -1
+
+				default:
+					return 0
+				}
+			}
+		},
+		MinValue: math.ZeroInt(),
+	}
+}
+
 // NewDefaultMempool returns a new default mempool instance. The default mempool
 // orders transactions by the sdk.Context priority.
-func NewDefaultMempool(txEncoder sdk.TxEncoder) *DefaultMempool {
+func NewDefaultMempool(txEncoder sdk.TxEncoder, maxTx int, gasToken string) *DefaultMempool {
 	return &DefaultMempool{
 		index: blockbuster.NewPriorityMempool(
-			blockbuster.DefaultPriorityNonceMempoolConfig(),
+			blockbuster.PriorityNonceMempoolConfig[math.Int]{
+				TxPriority: TxPriority(gasToken),
+				MaxTx:      maxTx,
+			},
 		),
 		txEncoder: txEncoder,
 		txIndex:   make(map[string]struct{}),

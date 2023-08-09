@@ -23,10 +23,12 @@ func (l *DefaultLane) PrepareLane(
 		txs         [][]byte
 		txsToRemove = make(map[sdk.Tx]struct{}, 0)
 	)
+	fmt.Println("still hit this line", l.Name(), l.Mempool.Select(ctx, nil))
 
 	// Select all transactions in the mempool that are valid and not already in the
 	// partial proposal.
 	for iterator := l.Mempool.Select(ctx, nil); iterator != nil; iterator = iterator.Next() {
+		fmt.Println("we out in the iterator")
 		tx := iterator.Tx()
 
 		txBytes, hash, err := utils.GetTxHashStr(l.Cfg.TxEncoder, tx)
@@ -70,6 +72,7 @@ func (l *DefaultLane) PrepareLane(
 		totalSize += txSize
 		txs = append(txs, txBytes)
 	}
+	fmt.Println("still hit this line", l.Name())
 
 	// Remove all transactions that were invalid during the creation of the partial proposal.
 	if err := utils.RemoveTxsFromLane(txsToRemove, l.Mempool); err != nil {
@@ -80,6 +83,7 @@ func (l *DefaultLane) PrepareLane(
 
 		return proposal, err
 	}
+	fmt.Println("still hit this line", l.Name())
 
 	// Update the partial proposal with the selected transactions. If the proposal is unable to
 	// be updated, we return an error. The proposal will only be modified if it passes all
@@ -114,7 +118,6 @@ func (l *DefaultLane) ProcessLane(ctx sdk.Context, txs []sdk.Tx, next blockbuste
 // can be no interleaving of transactions from other lanes.
 func (l *DefaultLane) ProcessLaneBasic(ctx sdk.Context, txs []sdk.Tx) error {
 	seenOtherLaneTx := false
-	lastSeenIndex := 0
 
 	for index, tx := range txs {
 		if l.Match(ctx, tx) {
@@ -122,17 +125,14 @@ func (l *DefaultLane) ProcessLaneBasic(ctx sdk.Context, txs []sdk.Tx) error {
 				return fmt.Errorf("the %s lane contains a transaction that belongs to another lane", l.Name())
 			}
 
-			lastSeenIndex++
-			continue
+			// If the transactions do not respect the priority defined by the mempool, we consider the proposal
+			// to be invalid
+			if index > 0 && l.Compare(ctx, txs[index-1], tx) == -1 {
+				return fmt.Errorf("transaction at index %d has a higher priority than %d", index, index-1)
+			}
+		} else {
+			seenOtherLaneTx = true
 		}
-
-		// If the transactions do not respect the priority defined by the mempool, we consider the proposal
-		// to be invalid
-		if index > 0 && l.Compare(ctx, tx, txs[index-1]) < -1 {
-			return fmt.Errorf("transaction at index %d has a higher priority than %d", index, index-1)
-		}
-
-		seenOtherLaneTx = true
 	}
 
 	return nil

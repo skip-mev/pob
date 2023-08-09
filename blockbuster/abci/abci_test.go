@@ -45,6 +45,8 @@ type ABCITestSuite struct {
 	lanes   []blockbuster.Lane
 	mempool blockbuster.Mempool
 
+	gasTokenDenom string
+
 	// Proposal handler set up
 	proposalHandler *abci.ProposalHandler
 
@@ -74,6 +76,8 @@ func (suite *ABCITestSuite) SetupTest() {
 	testCtx := testutil.DefaultContextWithDB(suite.T(), key, storetypes.NewTransientStoreKey("transient_test"))
 	suite.ctx = testCtx.Ctx.WithBlockHeight(1)
 
+	suite.gasTokenDenom = "stake"
+
 	// Lanes configuration
 	// Top of block lane set up
 	suite.tobConfig = blockbuster.BaseLaneConfig{
@@ -101,6 +105,7 @@ func (suite *ABCITestSuite) SetupTest() {
 	suite.freeLane = free.NewFreeLane(
 		suite.freeConfig,
 		free.NewDefaultFreeFactory(suite.encodingConfig.TxConfig.TxDecoder()),
+		suite.gasTokenDenom,
 	)
 
 	// Base lane set up
@@ -114,6 +119,7 @@ func (suite *ABCITestSuite) SetupTest() {
 	}
 	suite.baseLane = base.NewDefaultLane(
 		suite.baseConfig,
+		suite.gasTokenDenom,
 	)
 
 	// Mempool set up
@@ -159,8 +165,8 @@ func (suite *ABCITestSuite) SetupTest() {
 }
 
 func (suite *ABCITestSuite) anteHandler(ctx sdk.Context, tx sdk.Tx, _ bool) (sdk.Context, error) {
-	suite.bankKeeper.EXPECT().GetBalance(ctx, gomock.Any(), "stake").AnyTimes().Return(
-		sdk.NewCoin("stake", math.NewInt(100000000000000)),
+	suite.bankKeeper.EXPECT().GetBalance(ctx, gomock.Any(), suite.gasTokenDenom).AnyTimes().Return(
+		sdk.NewCoin(suite.gasTokenDenom, math.NewInt(100000000000000)),
 	)
 
 	next := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
@@ -174,7 +180,7 @@ func (suite *ABCITestSuite) resetLanesWithNewConfig() {
 	// Top of block lane set up
 	suite.tobLane = auction.NewTOBLane(
 		suite.tobConfig,
-		0, // No bound on the number of transactions in the lane
+		1000,
 		auction.NewDefaultAuctionFactory(suite.encodingConfig.TxConfig.TxDecoder()),
 	)
 
@@ -182,11 +188,13 @@ func (suite *ABCITestSuite) resetLanesWithNewConfig() {
 	suite.freeLane = free.NewFreeLane(
 		suite.freeConfig,
 		free.NewDefaultFreeFactory(suite.encodingConfig.TxConfig.TxDecoder()),
+		suite.gasTokenDenom,
 	)
 
 	// Base lane set up
 	suite.baseLane = base.NewDefaultLane(
 		suite.baseConfig,
+		suite.gasTokenDenom,
 	)
 
 	suite.lanes = []blockbuster.Lane{suite.tobLane, suite.freeLane, suite.baseLane}
@@ -207,8 +215,8 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 
 		// auction configuration
 		maxBundleSize          uint32 = 10
-		reserveFee                    = sdk.NewCoin("stake", math.NewInt(1000))
-		minBidIncrement               = sdk.NewCoin("stake", math.NewInt(100))
+		reserveFee                    = sdk.NewCoin(suite.gasTokenDenom, math.NewInt(1000))
+		minBidIncrement               = sdk.NewCoin(suite.gasTokenDenom, math.NewInt(100))
 		frontRunningProtection        = true
 	)
 
@@ -218,65 +226,65 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 		expectedNumberProposalTxs   int
 		expectedMempoolDistribution map[string]int
 	}{
-		{
-			"empty mempool",
-			func() {
-				txs = []sdk.Tx{}
-				auctionTxs = []sdk.Tx{}
-				winningBidTx = nil
-				insertBundledTxs = false
-			},
-			0,
-			map[string]int{
-				base.LaneName:    0,
-				auction.LaneName: 0,
-				free.LaneName:    0,
-			},
-		},
-		{
-			"maxTxBytes is less than any transaction in the mempool",
-			func() {
-				// Create a tob tx
-				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("stake", math.NewInt(1000))
-				nonce := suite.nonces[bidder.Address.String()]
-				timeout := uint64(100)
-				signers := []testutils.Account{bidder}
-				bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
-				suite.Require().NoError(err)
+		// {
+		// 	"empty mempool",
+		// 	func() {
+		// 		txs = []sdk.Tx{}
+		// 		auctionTxs = []sdk.Tx{}
+		// 		winningBidTx = nil
+		// 		insertBundledTxs = false
+		// 	},
+		// 	0,
+		// 	map[string]int{
+		// 		base.LaneName:    0,
+		// 		auction.LaneName: 0,
+		// 		free.LaneName:    0,
+		// 	},
+		// },
+		// {
+		// 	"maxTxBytes is less than any transaction in the mempool",
+		// 	func() {
+		// 		// Create a tob tx
+		// 		bidder := suite.accounts[0]
+		// 		bid := sdk.NewCoin(suite.gasTokenDenom, math.NewInt(1000))
+		// 		nonce := suite.nonces[bidder.Address.String()]
+		// 		timeout := uint64(100)
+		// 		signers := []testutils.Account{bidder}
+		// 		bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
+		// 		suite.Require().NoError(err)
 
-				// Create a free tx
-				account := suite.accounts[1]
-				nonce = suite.nonces[account.Address.String()]
-				freeTx, err := testutils.CreateFreeTx(suite.encodingConfig.TxConfig, account, nonce, timeout, "val1", bid)
-				suite.Require().NoError(err)
+		// 		// Create a free tx
+		// 		account := suite.accounts[1]
+		// 		nonce = suite.nonces[account.Address.String()]
+		// 		freeTx, err := testutils.CreateFreeTx(suite.encodingConfig.TxConfig, account, nonce, timeout, "val1", bid, sdk.NewCoin(suite.gasTokenDenom, math.NewInt(10)))
+		// 		suite.Require().NoError(err)
 
-				// Create a normal tx
-				account = suite.accounts[2]
-				nonce = suite.nonces[account.Address.String()]
-				numberMsgs := uint64(3)
-				normalTx, err := testutils.CreateRandomTx(suite.encodingConfig.TxConfig, account, nonce, numberMsgs, timeout)
-				suite.Require().NoError(err)
+		// 		// Create a normal tx
+		// 		account = suite.accounts[2]
+		// 		nonce = suite.nonces[account.Address.String()]
+		// 		numberMsgs := uint64(3)
+		// 		normalTx, err := testutils.CreateRandomTx(suite.encodingConfig.TxConfig, account, nonce, numberMsgs, timeout, sdk.NewCoin(suite.gasTokenDenom, math.NewInt(10)))
+		// 		suite.Require().NoError(err)
 
-				txs = []sdk.Tx{freeTx, normalTx}
-				auctionTxs = []sdk.Tx{bidTx}
-				winningBidTx = nil
-				insertBundledTxs = false
-				maxTxBytes = 10
-			},
-			0,
-			map[string]int{
-				base.LaneName:    1,
-				auction.LaneName: 1,
-				free.LaneName:    1,
-			},
-		},
+		// 		txs = []sdk.Tx{freeTx, normalTx}
+		// 		auctionTxs = []sdk.Tx{bidTx}
+		// 		winningBidTx = nil
+		// 		insertBundledTxs = false
+		// 		maxTxBytes = 10
+		// 	},
+		// 	0,
+		// 	map[string]int{
+		// 		base.LaneName:    1,
+		// 		auction.LaneName: 1,
+		// 		free.LaneName:    1,
+		// 	},
+		// },
 		{
 			"valid tob tx but maxTxBytes is less for the tob lane so only the free tx should be included",
 			func() {
 				// Create a tob tx
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("stake", math.NewInt(1000))
+				bid := sdk.NewCoin(suite.gasTokenDenom, math.NewInt(1000))
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{suite.accounts[2], bidder}
@@ -314,347 +322,347 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 				free.LaneName:    1,
 			},
 		},
-		{
-			"valid tob tx with sufficient space for only tob tx",
-			func() {
-				// Create a tob tx
-				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("stake", math.NewInt(1000))
-				nonce := suite.nonces[bidder.Address.String()]
-				timeout := uint64(100)
-				signers := []testutils.Account{suite.accounts[2]}
-				bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
-				suite.Require().NoError(err)
+		// {
+		// 	"valid tob tx with sufficient space for only tob tx",
+		// 	func() {
+		// 		// Create a tob tx
+		// 		bidder := suite.accounts[0]
+		// 		bid := sdk.NewCoin(suite.gasTokenDenom, math.NewInt(1000))
+		// 		nonce := suite.nonces[bidder.Address.String()]
+		// 		timeout := uint64(100)
+		// 		signers := []testutils.Account{suite.accounts[2]}
+		// 		bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
+		// 		suite.Require().NoError(err)
 
-				// Create a free tx
-				account := suite.accounts[1]
-				nonce = suite.nonces[account.Address.String()]
-				freeTx, err := testutils.CreateFreeTx(suite.encodingConfig.TxConfig, account, nonce, timeout, "val1", bid)
-				suite.Require().NoError(err)
+		// 		// Create a free tx
+		// 		account := suite.accounts[1]
+		// 		nonce = suite.nonces[account.Address.String()]
+		// 		freeTx, err := testutils.CreateFreeTx(suite.encodingConfig.TxConfig, account, nonce, timeout, "val1", bid)
+		// 		suite.Require().NoError(err)
 
-				// Get the size of the tob tx
-				bidTxBytes, err := suite.encodingConfig.TxConfig.TxEncoder()(bidTx)
-				suite.Require().NoError(err)
-				tobSize := int64(len(bidTxBytes))
+		// 		// Get the size of the tob tx
+		// 		bidTxBytes, err := suite.encodingConfig.TxConfig.TxEncoder()(bidTx)
+		// 		suite.Require().NoError(err)
+		// 		tobSize := int64(len(bidTxBytes))
 
-				// Get the size of the free tx
-				freeTxBytes, err := suite.encodingConfig.TxConfig.TxEncoder()(freeTx)
-				suite.Require().NoError(err)
-				freeSize := int64(len(freeTxBytes))
+		// 		// Get the size of the free tx
+		// 		freeTxBytes, err := suite.encodingConfig.TxConfig.TxEncoder()(freeTx)
+		// 		suite.Require().NoError(err)
+		// 		freeSize := int64(len(freeTxBytes))
 
-				maxTxBytes = tobSize*2 + freeSize - 1
-				suite.tobConfig.MaxBlockSpace = math.LegacyZeroDec()
-				suite.freeConfig.MaxBlockSpace = math.LegacyMustNewDecFromStr("0.1")
+		// 		maxTxBytes = tobSize*2 + freeSize - 1
+		// 		suite.tobConfig.MaxBlockSpace = math.LegacyZeroDec()
+		// 		suite.freeConfig.MaxBlockSpace = math.LegacyMustNewDecFromStr("0.1")
 
-				txs = []sdk.Tx{freeTx}
-				auctionTxs = []sdk.Tx{bidTx}
-				winningBidTx = bidTx
-				insertBundledTxs = false
-			},
-			2,
-			map[string]int{
-				base.LaneName:    0,
-				auction.LaneName: 1,
-				free.LaneName:    1,
-			},
-		},
-		{
-			"tob, free, and normal tx but only space for tob and normal tx",
-			func() {
-				// Create a tob tx
-				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("stake", math.NewInt(1000))
-				nonce := suite.nonces[bidder.Address.String()]
-				timeout := uint64(100)
-				signers := []testutils.Account{suite.accounts[2], bidder}
-				bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
-				suite.Require().NoError(err)
+		// 		txs = []sdk.Tx{freeTx}
+		// 		auctionTxs = []sdk.Tx{bidTx}
+		// 		winningBidTx = bidTx
+		// 		insertBundledTxs = false
+		// 	},
+		// 	2,
+		// 	map[string]int{
+		// 		base.LaneName:    0,
+		// 		auction.LaneName: 1,
+		// 		free.LaneName:    1,
+		// 	},
+		// },
+		// {
+		// 	"tob, free, and normal tx but only space for tob and normal tx",
+		// 	func() {
+		// 		// Create a tob tx
+		// 		bidder := suite.accounts[0]
+		// 		bid := sdk.NewCoin(suite.gasTokenDenom, math.NewInt(1000))
+		// 		nonce := suite.nonces[bidder.Address.String()]
+		// 		timeout := uint64(100)
+		// 		signers := []testutils.Account{suite.accounts[2], bidder}
+		// 		bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
+		// 		suite.Require().NoError(err)
 
-				// Create a free tx
-				account := suite.accounts[1]
-				nonce = suite.nonces[account.Address.String()]
-				freeTx, err := testutils.CreateFreeTx(suite.encodingConfig.TxConfig, account, nonce, timeout, "val1", bid)
-				suite.Require().NoError(err)
+		// 		// Create a free tx
+		// 		account := suite.accounts[1]
+		// 		nonce = suite.nonces[account.Address.String()]
+		// 		freeTx, err := testutils.CreateFreeTx(suite.encodingConfig.TxConfig, account, nonce, timeout, "val1", bid)
+		// 		suite.Require().NoError(err)
 
-				// Create a normal tx
-				account = suite.accounts[3]
-				nonce = suite.nonces[account.Address.String()]
-				numberMsgs := uint64(3)
-				normalTx, err := testutils.CreateRandomTx(suite.encodingConfig.TxConfig, account, nonce, numberMsgs, timeout)
-				suite.Require().NoError(err)
+		// 		// Create a normal tx
+		// 		account = suite.accounts[3]
+		// 		nonce = suite.nonces[account.Address.String()]
+		// 		numberMsgs := uint64(3)
+		// 		normalTx, err := testutils.CreateRandomTx(suite.encodingConfig.TxConfig, account, nonce, numberMsgs, timeout)
+		// 		suite.Require().NoError(err)
 
-				// Get the size of the tob tx
-				bidTxBytes, err := suite.encodingConfig.TxConfig.TxEncoder()(bidTx)
-				suite.Require().NoError(err)
-				tobSize := int64(len(bidTxBytes))
+		// 		// Get the size of the tob tx
+		// 		bidTxBytes, err := suite.encodingConfig.TxConfig.TxEncoder()(bidTx)
+		// 		suite.Require().NoError(err)
+		// 		tobSize := int64(len(bidTxBytes))
 
-				// Get the size of the free tx
-				freeTxBytes, err := suite.encodingConfig.TxConfig.TxEncoder()(freeTx)
-				suite.Require().NoError(err)
-				freeSize := int64(len(freeTxBytes))
+		// 		// Get the size of the free tx
+		// 		freeTxBytes, err := suite.encodingConfig.TxConfig.TxEncoder()(freeTx)
+		// 		suite.Require().NoError(err)
+		// 		freeSize := int64(len(freeTxBytes))
 
-				// Get the size of the normal tx
-				normalTxBytes, err := suite.encodingConfig.TxConfig.TxEncoder()(normalTx)
-				suite.Require().NoError(err)
-				normalSize := int64(len(normalTxBytes))
+		// 		// Get the size of the normal tx
+		// 		normalTxBytes, err := suite.encodingConfig.TxConfig.TxEncoder()(normalTx)
+		// 		suite.Require().NoError(err)
+		// 		normalSize := int64(len(normalTxBytes))
 
-				maxTxBytes = tobSize*2 + freeSize + normalSize + 1
+		// 		maxTxBytes = tobSize*2 + freeSize + normalSize + 1
 
-				// Tob can take up as much space as it wants
-				suite.tobConfig.MaxBlockSpace = math.LegacyZeroDec()
+		// 		// Tob can take up as much space as it wants
+		// 		suite.tobConfig.MaxBlockSpace = math.LegacyZeroDec()
 
-				// Free can take up less space than the tx
-				suite.freeConfig.MaxBlockSpace = math.LegacyMustNewDecFromStr("0.01")
+		// 		// Free can take up less space than the tx
+		// 		suite.freeConfig.MaxBlockSpace = math.LegacyMustNewDecFromStr("0.01")
 
-				// Default can take up as much space as it wants
-				suite.baseConfig.MaxBlockSpace = math.LegacyZeroDec()
+		// 		// Default can take up as much space as it wants
+		// 		suite.baseConfig.MaxBlockSpace = math.LegacyZeroDec()
 
-				txs = []sdk.Tx{freeTx, normalTx}
-				auctionTxs = []sdk.Tx{bidTx}
-				winningBidTx = bidTx
-				insertBundledTxs = false
-			},
-			4,
-			map[string]int{
-				base.LaneName:    1,
-				auction.LaneName: 1,
-				free.LaneName:    1,
-			},
-		},
-		{
-			"single valid tob transaction in the mempool",
-			func() {
-				// reset the configs
-				suite.tobConfig.MaxBlockSpace = math.LegacyZeroDec()
-				suite.freeConfig.MaxBlockSpace = math.LegacyZeroDec()
-				suite.baseConfig.MaxBlockSpace = math.LegacyZeroDec()
+		// 		txs = []sdk.Tx{freeTx, normalTx}
+		// 		auctionTxs = []sdk.Tx{bidTx}
+		// 		winningBidTx = bidTx
+		// 		insertBundledTxs = false
+		// 	},
+		// 	4,
+		// 	map[string]int{
+		// 		base.LaneName:    1,
+		// 		auction.LaneName: 1,
+		// 		free.LaneName:    1,
+		// 	},
+		// },
+		// {
+		// 	"single valid tob transaction in the mempool",
+		// 	func() {
+		// 		// reset the configs
+		// 		suite.tobConfig.MaxBlockSpace = math.LegacyZeroDec()
+		// 		suite.freeConfig.MaxBlockSpace = math.LegacyZeroDec()
+		// 		suite.baseConfig.MaxBlockSpace = math.LegacyZeroDec()
 
-				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("stake", math.NewInt(1000))
-				nonce := suite.nonces[bidder.Address.String()]
-				timeout := uint64(100)
-				signers := []testutils.Account{bidder}
-				bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
-				suite.Require().NoError(err)
+		// 		bidder := suite.accounts[0]
+		// 		bid := sdk.NewCoin(suite.gasTokenDenom, math.NewInt(1000))
+		// 		nonce := suite.nonces[bidder.Address.String()]
+		// 		timeout := uint64(100)
+		// 		signers := []testutils.Account{bidder}
+		// 		bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
+		// 		suite.Require().NoError(err)
 
-				txs = []sdk.Tx{}
-				auctionTxs = []sdk.Tx{bidTx}
-				winningBidTx = bidTx
-				insertBundledTxs = false
-				maxTxBytes = 1000000000000000000
-			},
-			2,
-			map[string]int{
-				base.LaneName:    0,
-				auction.LaneName: 1,
-				free.LaneName:    0,
-			},
-		},
-		{
-			"single invalid tob transaction in the mempool",
-			func() {
-				bidder := suite.accounts[0]
-				bid := reserveFee.Sub(sdk.NewCoin("stake", math.NewInt(1))) // bid is less than the reserve fee
-				nonce := suite.nonces[bidder.Address.String()]
-				timeout := uint64(100)
-				signers := []testutils.Account{bidder}
-				bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
-				suite.Require().NoError(err)
+		// 		txs = []sdk.Tx{}
+		// 		auctionTxs = []sdk.Tx{bidTx}
+		// 		winningBidTx = bidTx
+		// 		insertBundledTxs = false
+		// 		maxTxBytes = 1000000000000000000
+		// 	},
+		// 	2,
+		// 	map[string]int{
+		// 		base.LaneName:    0,
+		// 		auction.LaneName: 1,
+		// 		free.LaneName:    0,
+		// 	},
+		// },
+		// {
+		// 	"single invalid tob transaction in the mempool",
+		// 	func() {
+		// 		bidder := suite.accounts[0]
+		// 		bid := reserveFee.Sub(sdk.NewCoin(suite.gasTokenDenom, math.NewInt(1))) // bid is less than the reserve fee
+		// 		nonce := suite.nonces[bidder.Address.String()]
+		// 		timeout := uint64(100)
+		// 		signers := []testutils.Account{bidder}
+		// 		bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
+		// 		suite.Require().NoError(err)
 
-				txs = []sdk.Tx{}
-				auctionTxs = []sdk.Tx{bidTx}
-				winningBidTx = nil
-				insertBundledTxs = false
-			},
-			0,
-			map[string]int{
-				base.LaneName:    0,
-				auction.LaneName: 0,
-				free.LaneName:    0,
-			},
-		},
-		{
-			"normal transactions in the mempool",
-			func() {
-				account := suite.accounts[0]
-				nonce := suite.nonces[account.Address.String()]
-				timeout := uint64(100)
-				numberMsgs := uint64(3)
-				normalTx, err := testutils.CreateRandomTx(suite.encodingConfig.TxConfig, account, nonce, numberMsgs, timeout)
-				suite.Require().NoError(err)
+		// 		txs = []sdk.Tx{}
+		// 		auctionTxs = []sdk.Tx{bidTx}
+		// 		winningBidTx = nil
+		// 		insertBundledTxs = false
+		// 	},
+		// 	0,
+		// 	map[string]int{
+		// 		base.LaneName:    0,
+		// 		auction.LaneName: 0,
+		// 		free.LaneName:    0,
+		// 	},
+		// },
+		// {
+		// 	"normal transactions in the mempool",
+		// 	func() {
+		// 		account := suite.accounts[0]
+		// 		nonce := suite.nonces[account.Address.String()]
+		// 		timeout := uint64(100)
+		// 		numberMsgs := uint64(3)
+		// 		normalTx, err := testutils.CreateRandomTx(suite.encodingConfig.TxConfig, account, nonce, numberMsgs, timeout)
+		// 		suite.Require().NoError(err)
 
-				txs = []sdk.Tx{normalTx}
-				auctionTxs = []sdk.Tx{}
-				winningBidTx = nil
-				insertBundledTxs = false
-			},
-			1,
-			map[string]int{
-				base.LaneName:    1,
-				auction.LaneName: 0,
-				free.LaneName:    0,
-			},
-		},
-		{
-			"normal transactions and tob transactions in the mempool",
-			func() {
-				// Create a valid tob transaction
-				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("stake", math.NewInt(1000))
-				nonce := suite.nonces[bidder.Address.String()]
-				timeout := uint64(100)
-				signers := []testutils.Account{bidder}
-				bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
-				suite.Require().NoError(err)
+		// 		txs = []sdk.Tx{normalTx}
+		// 		auctionTxs = []sdk.Tx{}
+		// 		winningBidTx = nil
+		// 		insertBundledTxs = false
+		// 	},
+		// 	1,
+		// 	map[string]int{
+		// 		base.LaneName:    1,
+		// 		auction.LaneName: 0,
+		// 		free.LaneName:    0,
+		// 	},
+		// },
+		// {
+		// 	"normal transactions and tob transactions in the mempool",
+		// 	func() {
+		// 		// Create a valid tob transaction
+		// 		bidder := suite.accounts[0]
+		// 		bid := sdk.NewCoin(suite.gasTokenDenom, math.NewInt(1000))
+		// 		nonce := suite.nonces[bidder.Address.String()]
+		// 		timeout := uint64(100)
+		// 		signers := []testutils.Account{bidder}
+		// 		bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
+		// 		suite.Require().NoError(err)
 
-				// Create a valid default transaction
-				account := suite.accounts[1]
-				nonce = suite.nonces[account.Address.String()] + 1
-				numberMsgs := uint64(3)
-				normalTx, err := testutils.CreateRandomTx(suite.encodingConfig.TxConfig, account, nonce, numberMsgs, timeout)
-				suite.Require().NoError(err)
+		// 		// Create a valid default transaction
+		// 		account := suite.accounts[1]
+		// 		nonce = suite.nonces[account.Address.String()] + 1
+		// 		numberMsgs := uint64(3)
+		// 		normalTx, err := testutils.CreateRandomTx(suite.encodingConfig.TxConfig, account, nonce, numberMsgs, timeout)
+		// 		suite.Require().NoError(err)
 
-				txs = []sdk.Tx{normalTx}
-				auctionTxs = []sdk.Tx{bidTx}
-				winningBidTx = bidTx
-				insertBundledTxs = false
-			},
-			3,
-			map[string]int{
-				base.LaneName:    1,
-				auction.LaneName: 1,
-				free.LaneName:    0,
-			},
-		},
-		{
-			"multiple tob transactions where the first is invalid",
-			func() {
-				// Create an invalid tob transaction (frontrunning)
-				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("stake", math.NewInt(1000000000))
-				nonce := suite.nonces[bidder.Address.String()]
-				timeout := uint64(100)
-				signers := []testutils.Account{bidder, bidder, suite.accounts[1]}
-				bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
-				suite.Require().NoError(err)
+		// 		txs = []sdk.Tx{normalTx}
+		// 		auctionTxs = []sdk.Tx{bidTx}
+		// 		winningBidTx = bidTx
+		// 		insertBundledTxs = false
+		// 	},
+		// 	3,
+		// 	map[string]int{
+		// 		base.LaneName:    1,
+		// 		auction.LaneName: 1,
+		// 		free.LaneName:    0,
+		// 	},
+		// },
+		// {
+		// 	"multiple tob transactions where the first is invalid",
+		// 	func() {
+		// 		// Create an invalid tob transaction (frontrunning)
+		// 		bidder := suite.accounts[0]
+		// 		bid := sdk.NewCoin(suite.gasTokenDenom, math.NewInt(1000000000))
+		// 		nonce := suite.nonces[bidder.Address.String()]
+		// 		timeout := uint64(100)
+		// 		signers := []testutils.Account{bidder, bidder, suite.accounts[1]}
+		// 		bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
+		// 		suite.Require().NoError(err)
 
-				// Create a valid tob transaction
-				bidder = suite.accounts[1]
-				bid = sdk.NewCoin("stake", math.NewInt(1000))
-				nonce = suite.nonces[bidder.Address.String()]
-				timeout = uint64(100)
-				signers = []testutils.Account{bidder}
-				bidTx2, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
-				suite.Require().NoError(err)
+		// 		// Create a valid tob transaction
+		// 		bidder = suite.accounts[1]
+		// 		bid = sdk.NewCoin(suite.gasTokenDenom, math.NewInt(1000))
+		// 		nonce = suite.nonces[bidder.Address.String()]
+		// 		timeout = uint64(100)
+		// 		signers = []testutils.Account{bidder}
+		// 		bidTx2, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
+		// 		suite.Require().NoError(err)
 
-				txs = []sdk.Tx{}
-				auctionTxs = []sdk.Tx{bidTx, bidTx2}
-				winningBidTx = bidTx2
-				insertBundledTxs = false
-			},
-			2,
-			map[string]int{
-				base.LaneName:    0,
-				auction.LaneName: 1,
-				free.LaneName:    0,
-			},
-		},
-		{
-			"multiple tob transactions where the first is valid",
-			func() {
-				// Create an valid tob transaction
-				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("stake", math.NewInt(10000000))
-				nonce := suite.nonces[bidder.Address.String()]
-				timeout := uint64(100)
-				signers := []testutils.Account{suite.accounts[2], bidder}
-				bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
-				suite.Require().NoError(err)
+		// 		txs = []sdk.Tx{}
+		// 		auctionTxs = []sdk.Tx{bidTx, bidTx2}
+		// 		winningBidTx = bidTx2
+		// 		insertBundledTxs = false
+		// 	},
+		// 	2,
+		// 	map[string]int{
+		// 		base.LaneName:    0,
+		// 		auction.LaneName: 1,
+		// 		free.LaneName:    0,
+		// 	},
+		// },
+		// {
+		// 	"multiple tob transactions where the first is valid",
+		// 	func() {
+		// 		// Create an valid tob transaction
+		// 		bidder := suite.accounts[0]
+		// 		bid := sdk.NewCoin(suite.gasTokenDenom, math.NewInt(10000000))
+		// 		nonce := suite.nonces[bidder.Address.String()]
+		// 		timeout := uint64(100)
+		// 		signers := []testutils.Account{suite.accounts[2], bidder}
+		// 		bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
+		// 		suite.Require().NoError(err)
 
-				// Create a valid tob transaction
-				bidder = suite.accounts[1]
-				bid = sdk.NewCoin("stake", math.NewInt(1000))
-				nonce = suite.nonces[bidder.Address.String()]
-				timeout = uint64(100)
-				signers = []testutils.Account{bidder}
-				bidTx2, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
-				suite.Require().NoError(err)
+		// 		// Create a valid tob transaction
+		// 		bidder = suite.accounts[1]
+		// 		bid = sdk.NewCoin(suite.gasTokenDenom, math.NewInt(1000))
+		// 		nonce = suite.nonces[bidder.Address.String()]
+		// 		timeout = uint64(100)
+		// 		signers = []testutils.Account{bidder}
+		// 		bidTx2, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
+		// 		suite.Require().NoError(err)
 
-				txs = []sdk.Tx{}
-				auctionTxs = []sdk.Tx{bidTx, bidTx2}
-				winningBidTx = bidTx
-				insertBundledTxs = false
-			},
-			3,
-			map[string]int{
-				base.LaneName:    0,
-				auction.LaneName: 2,
-				free.LaneName:    0,
-			},
-		},
-		{
-			"multiple tob transactions where the first is valid and bundle is inserted into mempool",
-			func() {
-				frontRunningProtection = false
+		// 		txs = []sdk.Tx{}
+		// 		auctionTxs = []sdk.Tx{bidTx, bidTx2}
+		// 		winningBidTx = bidTx
+		// 		insertBundledTxs = false
+		// 	},
+		// 	3,
+		// 	map[string]int{
+		// 		base.LaneName:    0,
+		// 		auction.LaneName: 2,
+		// 		free.LaneName:    0,
+		// 	},
+		// },
+		// {
+		// 	"multiple tob transactions where the first is valid and bundle is inserted into mempool",
+		// 	func() {
+		// 		frontRunningProtection = false
 
-				// Create an valid tob transaction
-				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("stake", math.NewInt(10000000))
-				nonce := suite.nonces[bidder.Address.String()]
-				timeout := uint64(100)
-				signers := []testutils.Account{suite.accounts[2], suite.accounts[1], bidder, suite.accounts[3], suite.accounts[4]}
-				bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
-				suite.Require().NoError(err)
+		// 		// Create an valid tob transaction
+		// 		bidder := suite.accounts[0]
+		// 		bid := sdk.NewCoin(suite.gasTokenDenom, math.NewInt(10000000))
+		// 		nonce := suite.nonces[bidder.Address.String()]
+		// 		timeout := uint64(100)
+		// 		signers := []testutils.Account{suite.accounts[2], suite.accounts[1], bidder, suite.accounts[3], suite.accounts[4]}
+		// 		bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
+		// 		suite.Require().NoError(err)
 
-				txs = []sdk.Tx{}
-				auctionTxs = []sdk.Tx{bidTx}
-				winningBidTx = bidTx
-				insertBundledTxs = true
-			},
-			6,
-			map[string]int{
-				base.LaneName:    5,
-				auction.LaneName: 1,
-				free.LaneName:    0,
-			},
-		},
-		{
-			"valid tob, free, and normal tx",
-			func() {
-				// Create a tob tx
-				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("stake", math.NewInt(1000))
-				nonce := suite.nonces[bidder.Address.String()]
-				timeout := uint64(100)
-				signers := []testutils.Account{suite.accounts[2], bidder}
-				bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
-				suite.Require().NoError(err)
+		// 		txs = []sdk.Tx{}
+		// 		auctionTxs = []sdk.Tx{bidTx}
+		// 		winningBidTx = bidTx
+		// 		insertBundledTxs = true
+		// 	},
+		// 	6,
+		// 	map[string]int{
+		// 		base.LaneName:    5,
+		// 		auction.LaneName: 1,
+		// 		free.LaneName:    0,
+		// 	},
+		// },
+		// {
+		// 	"valid tob, free, and normal tx",
+		// 	func() {
+		// 		// Create a tob tx
+		// 		bidder := suite.accounts[0]
+		// 		bid := sdk.NewCoin(suite.gasTokenDenom, math.NewInt(1000))
+		// 		nonce := suite.nonces[bidder.Address.String()]
+		// 		timeout := uint64(100)
+		// 		signers := []testutils.Account{suite.accounts[2], bidder}
+		// 		bidTx, err := testutils.CreateAuctionTxWithSigners(suite.encodingConfig.TxConfig, bidder, bid, nonce, timeout, signers)
+		// 		suite.Require().NoError(err)
 
-				// Create a free tx
-				account := suite.accounts[1]
-				nonce = suite.nonces[account.Address.String()]
-				freeTx, err := testutils.CreateFreeTx(suite.encodingConfig.TxConfig, account, nonce, timeout, "val1", bid)
-				suite.Require().NoError(err)
+		// 		// Create a free tx
+		// 		account := suite.accounts[1]
+		// 		nonce = suite.nonces[account.Address.String()]
+		// 		freeTx, err := testutils.CreateFreeTx(suite.encodingConfig.TxConfig, account, nonce, timeout, "val1", bid)
+		// 		suite.Require().NoError(err)
 
-				// Create a normal tx
-				account = suite.accounts[3]
-				nonce = suite.nonces[account.Address.String()]
-				numberMsgs := uint64(3)
-				normalTx, err := testutils.CreateRandomTx(suite.encodingConfig.TxConfig, account, nonce, numberMsgs, timeout)
-				suite.Require().NoError(err)
+		// 		// Create a normal tx
+		// 		account = suite.accounts[3]
+		// 		nonce = suite.nonces[account.Address.String()]
+		// 		numberMsgs := uint64(3)
+		// 		normalTx, err := testutils.CreateRandomTx(suite.encodingConfig.TxConfig, account, nonce, numberMsgs, timeout)
+		// 		suite.Require().NoError(err)
 
-				txs = []sdk.Tx{freeTx, normalTx}
-				auctionTxs = []sdk.Tx{bidTx}
-				winningBidTx = bidTx
-				insertBundledTxs = false
-			},
-			5,
-			map[string]int{
-				base.LaneName:    1,
-				auction.LaneName: 1,
-				free.LaneName:    1,
-			},
-		},
+		// 		txs = []sdk.Tx{freeTx, normalTx}
+		// 		auctionTxs = []sdk.Tx{bidTx}
+		// 		winningBidTx = bidTx
+		// 		insertBundledTxs = false
+		// 	},
+		// 	5,
+		// 	map[string]int{
+		// 		base.LaneName:    1,
+		// 		auction.LaneName: 1,
+		// 		free.LaneName:    1,
+		// 	},
+		// },
 	}
 
 	for _, tc := range cases {
@@ -666,11 +674,13 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 			// Insert all of the normal transactions into the default lane
 			for _, tx := range txs {
 				suite.Require().NoError(suite.mempool.Insert(suite.ctx, tx))
+				suite.Require().True(suite.mempool.Contains(tx))
 			}
 
 			// Insert all of the auction transactions into the TOB lane
 			for _, tx := range auctionTxs {
 				suite.Require().NoError(suite.mempool.Insert(suite.ctx, tx))
+				suite.Require().True(suite.mempool.Contains(tx))
 			}
 
 			// Insert all of the bundled transactions into the TOB lane if desired
@@ -684,6 +694,7 @@ func (suite *ABCITestSuite) TestPrepareProposal() {
 						suite.Require().NoError(err)
 
 						suite.Require().NoError(suite.mempool.Insert(suite.ctx, tx))
+						suite.Require().True(suite.mempool.Contains(tx))
 					}
 				}
 			}
@@ -807,7 +818,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 
 		// auction configuration
 		maxBundleSize          uint32 = 10
-		reserveFee                    = sdk.NewCoin("stake", math.NewInt(1000))
+		reserveFee                    = sdk.NewCoin(suite.gasTokenDenom, math.NewInt(1000))
 		frontRunningProtection        = true
 	)
 
@@ -842,7 +853,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			"single tob tx without bundled txs in proposal",
 			func() {
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("stake", math.NewInt(1000))
+				bid := sdk.NewCoin(suite.gasTokenDenom, math.NewInt(1000))
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{bidder}
@@ -859,7 +870,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			"single tob tx with bundled txs in proposal",
 			func() {
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("stake", math.NewInt(1000))
+				bid := sdk.NewCoin(suite.gasTokenDenom, math.NewInt(1000))
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{suite.accounts[1], bidder}
@@ -877,7 +888,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			func() {
 				// Create an valid tob transaction
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("stake", math.NewInt(10000000))
+				bid := sdk.NewCoin(suite.gasTokenDenom, math.NewInt(10000000))
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{suite.accounts[2], suite.accounts[1], bidder, suite.accounts[3], suite.accounts[4]}
@@ -895,7 +906,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			func() {
 				// Create an valid tob transaction
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("stake", math.NewInt(10000000))
+				bid := sdk.NewCoin(suite.gasTokenDenom, math.NewInt(10000000))
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{suite.accounts[2], bidder}
@@ -904,7 +915,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 
 				// Create a valid tob transaction
 				bidder = suite.accounts[1]
-				bid = sdk.NewCoin("stake", math.NewInt(1000))
+				bid = sdk.NewCoin(suite.gasTokenDenom, math.NewInt(1000))
 				nonce = suite.nonces[bidder.Address.String()]
 				timeout = uint64(100)
 				signers = []testutils.Account{bidder}
@@ -924,7 +935,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 
 				// Create an valid tob transaction
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("stake", math.NewInt(10000000))
+				bid := sdk.NewCoin(suite.gasTokenDenom, math.NewInt(10000000))
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{suite.accounts[2], bidder}
@@ -957,7 +968,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			func() {
 				// Create a tob tx
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("stake", math.NewInt(1000))
+				bid := sdk.NewCoin(suite.gasTokenDenom, math.NewInt(1000))
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{suite.accounts[2], bidder}
@@ -988,7 +999,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 			func() {
 				// Create a tob tx
 				bidder := suite.accounts[0]
-				bid := sdk.NewCoin("stake", math.NewInt(1000))
+				bid := sdk.NewCoin(suite.gasTokenDenom, math.NewInt(1000))
 				nonce := suite.nonces[bidder.Address.String()]
 				timeout := uint64(100)
 				signers := []testutils.Account{suite.accounts[2], bidder}

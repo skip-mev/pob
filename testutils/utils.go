@@ -84,7 +84,7 @@ func RandomAccounts(r *rand.Rand, n int) []Account {
 	return accs
 }
 
-func CreateTx(txCfg client.TxConfig, account Account, nonce, timeout uint64, msgs []sdk.Msg) (authsigning.Tx, error) {
+func CreateTx(txCfg client.TxConfig, account Account, nonce, timeout uint64, msgs []sdk.Msg, fees ...sdk.Coin) (authsigning.Tx, error) {
 	txBuilder := txCfg.NewTxBuilder()
 	if err := txBuilder.SetMsgs(msgs...); err != nil {
 		return nil, err
@@ -104,10 +104,12 @@ func CreateTx(txCfg client.TxConfig, account Account, nonce, timeout uint64, msg
 
 	txBuilder.SetTimeoutHeight(timeout)
 
+	txBuilder.SetFeeAmount(fees)
+
 	return txBuilder.GetTx(), nil
 }
 
-func CreateFreeTx(txCfg client.TxConfig, account Account, nonce, timeout uint64, validator string, amount sdk.Coin) (authsigning.Tx, error) {
+func CreateFreeTx(txCfg client.TxConfig, account Account, nonce, timeout uint64, validator string, amount sdk.Coin, fees ...sdk.Coin) (authsigning.Tx, error) {
 	msgs := []sdk.Msg{
 		&stakingtypes.MsgDelegate{
 			DelegatorAddress: account.Address.String(),
@@ -116,10 +118,10 @@ func CreateFreeTx(txCfg client.TxConfig, account Account, nonce, timeout uint64,
 		},
 	}
 
-	return CreateTx(txCfg, account, nonce, timeout, msgs)
+	return CreateTx(txCfg, account, nonce, timeout, msgs, fees...)
 }
 
-func CreateRandomTx(txCfg client.TxConfig, account Account, nonce, numberMsgs, timeout uint64) (authsigning.Tx, error) {
+func CreateRandomTx(txCfg client.TxConfig, account Account, nonce, numberMsgs, timeout uint64, fees ...sdk.Coin) (authsigning.Tx, error) {
 	msgs := make([]sdk.Msg, numberMsgs)
 	for i := 0; i < int(numberMsgs); i++ {
 		msgs[i] = &banktypes.MsgSend{
@@ -146,6 +148,8 @@ func CreateRandomTx(txCfg client.TxConfig, account Account, nonce, numberMsgs, t
 	}
 
 	txBuilder.SetTimeoutHeight(timeout)
+
+	txBuilder.SetFeeAmount(fees)
 
 	return txBuilder.GetTx(), nil
 }

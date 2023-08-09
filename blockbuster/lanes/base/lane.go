@@ -32,20 +32,24 @@ type DefaultLane struct {
 
 	// txPriority maintains how the mempool determines relative ordering
 	// of transactions
-	txPriority blockbuster.TxPriority[int64]
+	txPriority blockbuster.TxPriority[math.Int]
+
+	// gasTokenDenom defines the gas token denom.
+	gasTokenDenom string
 }
 
 // NewDefaultLane returns a new default lane.
-func NewDefaultLane(cfg blockbuster.BaseLaneConfig) *DefaultLane {
+func NewDefaultLane(cfg blockbuster.BaseLaneConfig, gasTokenDenom string) *DefaultLane {
 	if err := cfg.ValidateBasic(); err != nil {
 		panic(err)
 	}
 
 	lane := &DefaultLane{
-		Mempool:    NewDefaultMempool(cfg.TxEncoder),
-		Cfg:        cfg,
-		laneName:   LaneName,
-		txPriority: blockbuster.NewDefaultTxPriority(),
+		Mempool:       NewDefaultMempool(cfg.TxEncoder, cfg.MaxTxs, gasTokenDenom),
+		Cfg:           cfg,
+		laneName:      LaneName,
+		txPriority:    TxPriority(gasTokenDenom),
+		gasTokenDenom: gasTokenDenom,
 	}
 
 	return lane
@@ -63,6 +67,7 @@ func (l *DefaultLane) WithName(name string) *DefaultLane {
 func (l *DefaultLane) Compare(ctx sdk.Context, this sdk.Tx, other sdk.Tx) int {
 	firstPriority := l.txPriority.GetTxPriority(ctx, this)
 	secondPriority := l.txPriority.GetTxPriority(ctx, other)
+
 	return l.txPriority.Compare(firstPriority, secondPriority)
 }
 

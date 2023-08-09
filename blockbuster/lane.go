@@ -40,9 +40,13 @@ type (
 		// of the default lane. Otherwise, the transactions that belong to the free lane
 		// will be processed by the default lane.
 		IgnoreList []Lane
+
+		// MaxTxs defines the maximum number of transactions that can be retained by the lane's mempool.
+		MaxTxs int
 	}
 
 	// Lane defines an interface used for block construction
+	//go:generate mockery --name Lane --output ./utils/mocks --outpkg mocks --case underscore
 	Lane interface {
 		sdkmempool.Mempool
 

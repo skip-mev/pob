@@ -101,6 +101,7 @@ func (suite *ABCITestSuite) SetupTest() {
 	}
 	suite.baseLane = base.NewDefaultLane(
 		baseConfig,
+		"stake",
 	)
 
 	// Mempool set up
