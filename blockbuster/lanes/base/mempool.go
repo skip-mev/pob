@@ -52,7 +52,13 @@ func TxPriority(gasToken string) blockbuster.TxPriority[math.Int] {
 			}
 
 			fee := feeTx.GetFee()
-			return fee.AmountOf(gasToken)
+
+			found, coin := fee.Find(gasToken)
+			if !found {
+				return math.ZeroInt()
+			}
+
+			return coin.Amount
 		},
 		Compare: func(a, b math.Int) int {
 			switch {
