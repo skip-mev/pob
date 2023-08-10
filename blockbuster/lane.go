@@ -135,12 +135,16 @@ func (c *BaseLaneConfig) ValidateBasic() error {
 	return nil
 }
 
+// NoOpPrepareLanesHandler returns a no-op prepare lanes handler.
+// This should only be used for testing.
 func NoOpPrepareLanesHandler() PrepareLanesHandler {
 	return func(ctx sdk.Context, proposal BlockProposal) (BlockProposal, error) {
 		return proposal, nil
 	}
 }
 
+// NoOpProcessLanesHandler returns a no-op process lanes handler.
+// This should only be used for testing.
 func NoOpProcessLanesHandler() ProcessLanesHandler {
 	return func(ctx sdk.Context, txs []sdk.Tx) (sdk.Context, error) {
 		return ctx, nil

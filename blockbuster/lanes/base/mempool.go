@@ -40,8 +40,8 @@ type (
 	}
 )
 
-// TxPriority returns a TxPriority over auction bid transactions only. It
-// is to be used in the auction index only.
+// TxPriority returns a TxPriority over the base lane transactions. It prioritizes
+// transactions by their fee.
 func TxPriority() blockbuster.TxPriority[string] {
 	return blockbuster.TxPriority[string]{
 		GetTxPriority: func(goCtx context.Context, tx sdk.Tx) string {

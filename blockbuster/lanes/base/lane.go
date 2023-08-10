@@ -58,12 +58,10 @@ func (l *DefaultLane) WithName(name string) *DefaultLane {
 }
 
 // Compare determines the relative priority of two transactions belonging in the same lane.
-// In the default case, priority is determined by the priority of the context passed down
-// to the API.
+// In the default case, priority is determined by the fees of the transaction.
 func (l *DefaultLane) Compare(ctx sdk.Context, this sdk.Tx, other sdk.Tx) int {
 	firstPriority := l.txPriority.GetTxPriority(ctx, this)
 	secondPriority := l.txPriority.GetTxPriority(ctx, other)
-
 	return l.txPriority.Compare(firstPriority, secondPriority)
 }
 
