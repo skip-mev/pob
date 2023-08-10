@@ -42,7 +42,6 @@ type TOBLane struct {
 // NewTOBLane returns a new TOB lane.
 func NewTOBLane(
 	cfg blockbuster.BaseLaneConfig,
-	maxTx int,
 	factory Factory,
 ) *TOBLane {
 	if err := cfg.ValidateBasic(); err != nil {
@@ -50,16 +49,15 @@ func NewTOBLane(
 	}
 
 	return &TOBLane{
-		Mempool:     NewMempool(cfg.TxEncoder, maxTx, factory),
+		Mempool:     NewMempool(cfg.TxEncoder, cfg.MaxTxs, factory),
 		DefaultLane: base.NewDefaultLane(cfg).WithName(LaneName),
 		txPriority:  TxPriority(factory),
 		Factory:     factory,
 	}
 }
 
-// Compare determines the relative priority of two transactions belonging in the same lane.
-// In the default case, priority is determined by the priority of the context passed down
-// to the API.
+// Compare determines the relative priority of two transactions belonging in the top of block lane.
+// In this case, transactions are ordered by their bid.
 func (l *TOBLane) Compare(ctx sdk.Context, this sdk.Tx, other sdk.Tx) int {
 	firstPriority := l.txPriority.GetTxPriority(ctx, this)
 	secondPriority := l.txPriority.GetTxPriority(ctx, other)

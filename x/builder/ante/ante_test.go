@@ -92,7 +92,6 @@ func (suite *AnteTestSuite) SetupTest() {
 	}
 	suite.tobLane = auction.NewTOBLane(
 		tobConfig,
-		0, // No bound on the number of transactions in the lane
 		auction.NewDefaultAuctionFactory(suite.encodingConfig.TxConfig.TxDecoder()),
 	)
 

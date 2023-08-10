@@ -272,7 +272,6 @@ func New(
 	}
 	tobLane := auction.NewTOBLane(
 		tobConfig,
-		0,
 		auction.NewDefaultAuctionFactory(app.txConfig.TxDecoder()),
 	)
 

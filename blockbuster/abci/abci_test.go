@@ -89,7 +89,6 @@ func (suite *ABCITestSuite) SetupTest() {
 	}
 	suite.tobLane = auction.NewTOBLane(
 		suite.tobConfig,
-		0, // No bound on the number of transactions in the lane
 		auction.NewDefaultAuctionFactory(suite.encodingConfig.TxConfig.TxDecoder()),
 	)
 
@@ -176,7 +175,6 @@ func (suite *ABCITestSuite) resetLanesWithNewConfig() {
 	// Top of block lane set up
 	suite.tobLane = auction.NewTOBLane(
 		suite.tobConfig,
-		1000,
 		auction.NewDefaultAuctionFactory(suite.encodingConfig.TxConfig.TxDecoder()),
 	)
 

@@ -41,7 +41,13 @@ type (
 		// will be processed by the default lane.
 		IgnoreList []Lane
 
-		// MaxTxs defines the maximum number of transactions that can be retained by the lane's mempool.
+		// MaxTxs sets the maximum number of transactions allowed in the mempool with
+		// the semantics:
+		// - if MaxTx == 0, there is no cap on the number of transactions in the mempool
+		// - if MaxTx > 0, the mempool will cap the number of transactions it stores,
+		//   and will prioritize transactions by their priority and sender-nonce
+		//   (sequence number) when evicting transactions.
+		// - if MaxTx < 0, `Insert` is a no-op.
 		MaxTxs int
 	}
 
