@@ -63,5 +63,11 @@ func NewTOBLane(
 	// Set the prepare lane handler to the TOB one
 	lane.SetPrepareLaneHandler(lane.PrepareLaneHandler())
 
+	// Set the process lane handler to the TOB one
+	lane.SetProcessLaneHandler(lane.ProcessLaneHandler())
+
+	// Set the process lane basic handler to the TOB one
+	lane.SetProcessLaneBasicHandler(lane.ProcessLaneBasicHandler())
+
 	return lane
 }

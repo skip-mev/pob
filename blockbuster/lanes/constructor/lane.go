@@ -13,8 +13,10 @@ type LaneConstructor[C comparable] struct {
 	Cfg      blockbuster.BaseLaneConfig
 	laneName string
 	blockbuster.LaneMempool
-	matchHandler       blockbuster.MatchHandler
-	prepareLaneHandler blockbuster.PrepareLaneHandler
+	matchHandler            blockbuster.MatchHandler
+	prepareLaneHandler      blockbuster.PrepareLaneHandler
+	processLaneHandler      blockbuster.ProcessLaneHandler
+	processLaneBasicHandler blockbuster.ProcessLaneBasicHandler
 }
 
 func NewLaneConstructor[C comparable](
@@ -54,8 +56,17 @@ func (l *LaneConstructor[C]) ValidateBasic() error {
 		return fmt.Errorf("match handler cannot be nil")
 	}
 
+	// TODO: This is sort of redundant rn
 	if l.prepareLaneHandler == nil {
 		l.prepareLaneHandler = l.DefaultPrepareLaneHandler()
+	}
+
+	if l.processLaneHandler == nil {
+		l.processLaneHandler = l.DefaultProcessLaneHandler()
+	}
+
+	if l.processLaneBasicHandler == nil {
+		l.processLaneBasicHandler = l.DefaultProcessLaneBasicHandler()
 	}
 
 	return nil
@@ -63,6 +74,14 @@ func (l *LaneConstructor[C]) ValidateBasic() error {
 
 func (l *LaneConstructor[C]) SetPrepareLaneHandler(prepareLaneHandler blockbuster.PrepareLaneHandler) {
 	l.prepareLaneHandler = prepareLaneHandler
+}
+
+func (l *LaneConstructor[C]) SetProcessLaneHandler(processLaneHandler blockbuster.ProcessLaneHandler) {
+	l.processLaneHandler = processLaneHandler
+}
+
+func (l *LaneConstructor[C]) SetProcessLaneBasicHandler(processLaneBasicHandler blockbuster.ProcessLaneBasicHandler) {
+	l.processLaneBasicHandler = processLaneBasicHandler
 }
 
 func (l *LaneConstructor[C]) Match(ctx sdk.Context, tx sdk.Tx) bool {

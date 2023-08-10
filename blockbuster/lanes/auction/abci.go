@@ -145,26 +145,28 @@ func (l *TOBLane) PrepareLaneHandler() blockbuster.PrepareLaneHandler {
 
 // ProcessLane will ensure that block proposals that include transactions from
 // the top-of-block auction lane are valid.
-func (l *TOBLane) ProcessLane(ctx sdk.Context, txs []sdk.Tx, next blockbuster.ProcessLanesHandler) (sdk.Context, error) {
-	if len(txs) == 0 {
-		return next(ctx, txs)
-	}
+func (l *TOBLane) ProcessLaneHandler() blockbuster.ProcessLaneHandler {
+	return func(ctx sdk.Context, txs []sdk.Tx) ([]sdk.Tx, error) {
+		if len(txs) == 0 {
+			return txs, nil
+		}
 
-	bidTx := txs[0]
-	if !l.Match(ctx, bidTx) {
-		return next(ctx, txs)
-	}
+		bidTx := txs[0]
+		if !l.Match(ctx, bidTx) {
+			return txs, nil
+		}
 
-	bidInfo, err := l.GetAuctionBidInfo(bidTx)
-	if err != nil {
-		return ctx, fmt.Errorf("failed to get bid info for lane %s: %w", l.Name(), err)
-	}
+		bidInfo, err := l.GetAuctionBidInfo(bidTx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get bid info for lane %s: %w", l.Name(), err)
+		}
 
-	if err := l.VerifyTx(ctx, bidTx); err != nil {
-		return ctx, fmt.Errorf("invalid bid tx: %w", err)
-	}
+		if err := l.VerifyTx(ctx, bidTx); err != nil {
+			return nil, fmt.Errorf("invalid bid tx: %w", err)
+		}
 
-	return next(ctx, txs[len(bidInfo.Transactions)+1:])
+		return txs[len(bidInfo.Transactions)+1:], nil
+	}
 }
 
 // ProcessLaneBasic ensures that if a bid transaction is present in a proposal,
@@ -172,57 +174,59 @@ func (l *TOBLane) ProcessLane(ctx sdk.Context, txs []sdk.Tx, next blockbuster.Pr
 //   - all of the bundled transactions are included after the bid transaction in the order
 //     they were included in the bid transaction.
 //   - there are no other bid transactions in the proposal
-func (l *TOBLane) ProcessLaneBasic(ctx sdk.Context, txs []sdk.Tx) error {
-	if len(txs) == 0 {
-		return nil
-	}
+func (l *TOBLane) ProcessLaneBasicHandler() blockbuster.ProcessLaneBasicHandler {
+	return func(ctx sdk.Context, txs []sdk.Tx) error {
+		if len(txs) == 0 {
+			return nil
+		}
 
-	bidTx := txs[0]
+		bidTx := txs[0]
 
-	// If there is a bid transaction, it must be the first transaction in the block proposal.
-	if !l.Match(ctx, bidTx) {
-		for _, tx := range txs[1:] {
+		// If there is a bid transaction, it must be the first transaction in the block proposal.
+		if !l.Match(ctx, bidTx) {
+			for _, tx := range txs[1:] {
+				if l.Match(ctx, tx) {
+					return fmt.Errorf("misplaced bid transactions in lane %s", l.Name())
+				}
+			}
+
+			return nil
+		}
+
+		bidInfo, err := l.GetAuctionBidInfo(bidTx)
+		if err != nil {
+			return fmt.Errorf("failed to get bid info for lane %s: %w", l.Name(), err)
+		}
+
+		if len(txs) < len(bidInfo.Transactions)+1 {
+			return fmt.Errorf("invalid number of transactions in lane %s; expected at least %d, got %d", l.Name(), len(bidInfo.Transactions)+1, len(txs))
+		}
+
+		// Ensure that the order of transactions in the bundle is preserved.
+		for i, bundleTx := range txs[1 : len(bidInfo.Transactions)+1] {
+			if l.Match(ctx, bundleTx) {
+				return fmt.Errorf("multiple bid transactions in lane %s", l.Name())
+			}
+
+			txBz, err := l.Cfg.TxEncoder(bundleTx)
+			if err != nil {
+				return fmt.Errorf("failed to encode bundled tx in lane %s: %w", l.Name(), err)
+			}
+
+			if !bytes.Equal(txBz, bidInfo.Transactions[i]) {
+				return fmt.Errorf("invalid order of transactions in lane %s", l.Name())
+			}
+		}
+
+		// Ensure that there are no more bid transactions in the block proposal.
+		for _, tx := range txs[len(bidInfo.Transactions)+1:] {
 			if l.Match(ctx, tx) {
-				return fmt.Errorf("misplaced bid transactions in lane %s", l.Name())
+				return fmt.Errorf("multiple bid transactions in lane %s", l.Name())
 			}
 		}
 
 		return nil
 	}
-
-	bidInfo, err := l.GetAuctionBidInfo(bidTx)
-	if err != nil {
-		return fmt.Errorf("failed to get bid info for lane %s: %w", l.Name(), err)
-	}
-
-	if len(txs) < len(bidInfo.Transactions)+1 {
-		return fmt.Errorf("invalid number of transactions in lane %s; expected at least %d, got %d", l.Name(), len(bidInfo.Transactions)+1, len(txs))
-	}
-
-	// Ensure that the order of transactions in the bundle is preserved.
-	for i, bundleTx := range txs[1 : len(bidInfo.Transactions)+1] {
-		if l.Match(ctx, bundleTx) {
-			return fmt.Errorf("multiple bid transactions in lane %s", l.Name())
-		}
-
-		txBz, err := l.Cfg.TxEncoder(bundleTx)
-		if err != nil {
-			return fmt.Errorf("failed to encode bundled tx in lane %s: %w", l.Name(), err)
-		}
-
-		if !bytes.Equal(txBz, bidInfo.Transactions[i]) {
-			return fmt.Errorf("invalid order of transactions in lane %s", l.Name())
-		}
-	}
-
-	// Ensure that there are no more bid transactions in the block proposal.
-	for _, tx := range txs[len(bidInfo.Transactions)+1:] {
-		if l.Match(ctx, tx) {
-			return fmt.Errorf("multiple bid transactions in lane %s", l.Name())
-		}
-	}
-
-	return nil
 }
 
 // VerifyTx will verify that the bid transaction and all of its bundled
