@@ -99,10 +99,7 @@ func (suite *ABCITestSuite) SetupTest() {
 		MaxBlockSpace: math.LegacyZeroDec(),
 		IgnoreList:    []blockbuster.Lane{suite.tobLane},
 	}
-	suite.baseLane = base.NewDefaultLane(
-		baseConfig,
-		"stake",
-	)
+	suite.baseLane = base.NewDefaultLane(baseConfig)
 
 	// Mempool set up
 	suite.mempool = blockbuster.NewMempool(

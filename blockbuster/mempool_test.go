@@ -84,7 +84,6 @@ func (suite *BlockBusterTestSuite) SetupTest() {
 	suite.freeLane = free.NewFreeLane(
 		freeConfig,
 		free.NewDefaultFreeFactory(suite.encodingConfig.TxConfig.TxDecoder()),
-		suite.gasTokenDenom,
 	)
 
 	// Base lane set up
@@ -101,7 +100,6 @@ func (suite *BlockBusterTestSuite) SetupTest() {
 	}
 	suite.baseLane = base.NewDefaultLane(
 		baseConfig,
-		suite.gasTokenDenom,
 	)
 
 	// Mempool set up

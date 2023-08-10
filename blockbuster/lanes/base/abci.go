@@ -23,12 +23,10 @@ func (l *DefaultLane) PrepareLane(
 		txs         [][]byte
 		txsToRemove = make(map[sdk.Tx]struct{}, 0)
 	)
-	fmt.Println("still hit this line", l.Name(), l.Mempool.Select(ctx, nil))
 
 	// Select all transactions in the mempool that are valid and not already in the
 	// partial proposal.
 	for iterator := l.Mempool.Select(ctx, nil); iterator != nil; iterator = iterator.Next() {
-		fmt.Println("we out in the iterator")
 		tx := iterator.Tx()
 
 		txBytes, hash, err := utils.GetTxHashStr(l.Cfg.TxEncoder, tx)
@@ -72,7 +70,6 @@ func (l *DefaultLane) PrepareLane(
 		totalSize += txSize
 		txs = append(txs, txBytes)
 	}
-	fmt.Println("still hit this line", l.Name())
 
 	// Remove all transactions that were invalid during the creation of the partial proposal.
 	if err := utils.RemoveTxsFromLane(txsToRemove, l.Mempool); err != nil {
@@ -83,7 +80,6 @@ func (l *DefaultLane) PrepareLane(
 
 		return proposal, err
 	}
-	fmt.Println("still hit this line", l.Name())
 
 	// Update the partial proposal with the selected transactions. If the proposal is unable to
 	// be updated, we return an error. The proposal will only be modified if it passes all

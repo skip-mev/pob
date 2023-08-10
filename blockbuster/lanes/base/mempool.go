@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	"github.com/skip-mev/pob/blockbuster"
@@ -43,40 +42,36 @@ type (
 
 // TxPriority returns a TxPriority over auction bid transactions only. It
 // is to be used in the auction index only.
-func TxPriority(gasToken string) blockbuster.TxPriority[math.Int] {
-	return blockbuster.TxPriority[math.Int]{
-		GetTxPriority: func(goCtx context.Context, tx sdk.Tx) math.Int {
+func TxPriority() blockbuster.TxPriority[string] {
+	return blockbuster.TxPriority[string]{
+		GetTxPriority: func(goCtx context.Context, tx sdk.Tx) string {
 			feeTx, ok := tx.(sdk.FeeTx)
 			if !ok {
-				panic(fmt.Errorf("tx is not a FeeTx: %T", tx))
+				return ""
 			}
 
-			fee := feeTx.GetFee()
-
-			found, coin := fee.Find(gasToken)
-			if !found {
-				return math.ZeroInt()
-			}
-
-			return coin.Amount
+			return feeTx.GetFee().String()
 		},
-		Compare: func(a, b math.Int) int {
+		Compare: func(a, b string) int {
+			aCoins, _ := sdk.ParseCoinsNormalized(a)
+			bCoins, _ := sdk.ParseCoinsNormalized(b)
+
 			switch {
-			case a.IsNil() && b.IsNil():
+			case aCoins == nil && bCoins == nil:
 				return 0
 
-			case a.IsNil():
+			case aCoins == nil:
 				return -1
 
-			case b.IsNil():
+			case bCoins == nil:
 				return 1
 
 			default:
 				switch {
-				case a.GT(b):
+				case aCoins.IsAllGT(bCoins):
 					return 1
 
-				case b.GT(a):
+				case aCoins.IsAllLT(bCoins):
 					return -1
 
 				default:
@@ -84,17 +79,17 @@ func TxPriority(gasToken string) blockbuster.TxPriority[math.Int] {
 				}
 			}
 		},
-		MinValue: math.ZeroInt(),
+		MinValue: "",
 	}
 }
 
 // NewDefaultMempool returns a new default mempool instance. The default mempool
 // orders transactions by the sdk.Context priority.
-func NewDefaultMempool(txEncoder sdk.TxEncoder, maxTx int, gasToken string) *DefaultMempool {
+func NewDefaultMempool(txEncoder sdk.TxEncoder, maxTx int) *DefaultMempool {
 	return &DefaultMempool{
 		index: blockbuster.NewPriorityMempool(
-			blockbuster.PriorityNonceMempoolConfig[math.Int]{
-				TxPriority: TxPriority(gasToken),
+			blockbuster.PriorityNonceMempoolConfig[string]{
+				TxPriority: TxPriority(),
 				MaxTx:      maxTx,
 			},
 		),

@@ -8,7 +8,7 @@ import (
 )
 
 func (s *BaseTestSuite) TestGetTxPriority() {
-	txPriority := base.TxPriority(s.gasTokenDenom)
+	txPriority := base.TxPriority()
 
 	s.Run("should be able to get the priority off a normal transaction with fees", func() {
 		tx, err := testutils.CreateRandomTx(
@@ -22,7 +22,7 @@ func (s *BaseTestSuite) TestGetTxPriority() {
 		s.Require().NoError(err)
 
 		priority := txPriority.GetTxPriority(sdk.Context{}, tx)
-		s.Require().Equal(math.NewInt(100), priority)
+		s.Require().Equal(sdk.NewCoin(s.gasTokenDenom, math.NewInt(100)).String(), priority)
 	})
 
 	s.Run("should not get a priority when the transaction does not have a fee", func() {
@@ -36,10 +36,10 @@ func (s *BaseTestSuite) TestGetTxPriority() {
 		s.Require().NoError(err)
 
 		priority := txPriority.GetTxPriority(sdk.Context{}, tx)
-		s.Require().Equal(math.ZeroInt(), priority)
+		s.Require().Equal("", priority)
 	})
 
-	s.Run("should not get a priority when the gas token is different", func() {
+	s.Run("should get a priority when the gas token is different", func() {
 		tx, err := testutils.CreateRandomTx(
 			s.encodingConfig.TxConfig,
 			s.accounts[0],
@@ -51,32 +51,40 @@ func (s *BaseTestSuite) TestGetTxPriority() {
 		s.Require().NoError(err)
 
 		priority := txPriority.GetTxPriority(sdk.Context{}, tx)
-		s.Require().Equal(math.ZeroInt(), priority)
+		s.Require().Equal(sdk.NewCoin("random", math.NewInt(100)).String(), priority)
 	})
 }
 
 func (s *BaseTestSuite) TestCompareTxPriority() {
-	txPriority := base.TxPriority(s.gasTokenDenom)
+	txPriority := base.TxPriority()
 
 	s.Run("should return 0 when both priorities are nil", func() {
-		s.Require().Equal(0, txPriority.Compare(math.ZeroInt(), math.ZeroInt()))
+		a := sdk.NewCoin(s.gasTokenDenom, math.NewInt(0)).String()
+		b := sdk.NewCoin(s.gasTokenDenom, math.NewInt(0)).String()
+		s.Require().Equal(0, txPriority.Compare(a, b))
 	})
 
 	s.Run("should return 1 when the first priority is greater", func() {
-		s.Require().Equal(1, txPriority.Compare(math.NewInt(100), math.NewInt(1)))
+		a := sdk.NewCoin(s.gasTokenDenom, math.NewInt(100)).String()
+		b := sdk.NewCoin(s.gasTokenDenom, math.NewInt(1)).String()
+		s.Require().Equal(1, txPriority.Compare(a, b))
 	})
 
 	s.Run("should return -1 when the second priority is greater", func() {
-		s.Require().Equal(-1, txPriority.Compare(math.NewInt(1), math.NewInt(100)))
+		a := sdk.NewCoin(s.gasTokenDenom, math.NewInt(1)).String()
+		b := sdk.NewCoin(s.gasTokenDenom, math.NewInt(100)).String()
+		s.Require().Equal(-1, txPriority.Compare(a, b))
 	})
 
 	s.Run("should return 0 when both priorities are equal", func() {
-		s.Require().Equal(0, txPriority.Compare(math.NewInt(100), math.NewInt(100)))
+		a := sdk.NewCoin(s.gasTokenDenom, math.NewInt(100)).String()
+		b := sdk.NewCoin(s.gasTokenDenom, math.NewInt(100)).String()
+		s.Require().Equal(0, txPriority.Compare(a, b))
 	})
 }
 
 func (s *BaseTestSuite) TestInsert() {
-	mempool := base.NewDefaultMempool(s.encodingConfig.TxConfig.TxEncoder(), 3, s.gasTokenDenom)
+	mempool := base.NewDefaultMempool(s.encodingConfig.TxConfig.TxEncoder(), 3)
 
 	s.Run("should be able to insert a transaction", func() {
 		tx, err := testutils.CreateRandomTx(
@@ -128,7 +136,7 @@ func (s *BaseTestSuite) TestInsert() {
 }
 
 func (s *BaseTestSuite) TestRemove() {
-	mempool := base.NewDefaultMempool(s.encodingConfig.TxConfig.TxEncoder(), 3, s.gasTokenDenom)
+	mempool := base.NewDefaultMempool(s.encodingConfig.TxConfig.TxEncoder(), 3)
 
 	s.Run("should be able to remove a transaction", func() {
 		tx, err := testutils.CreateRandomTx(
@@ -165,10 +173,9 @@ func (s *BaseTestSuite) TestRemove() {
 }
 
 func (s *BaseTestSuite) TestSelect() {
-	mempool := base.NewDefaultMempool(s.encodingConfig.TxConfig.TxEncoder(), 3, s.gasTokenDenom)
-	// txPriority := base.TxPriority(s.gasTokenDenom)
-
 	s.Run("should be able to select transactions in the correct order", func() {
+		mempool := base.NewDefaultMempool(s.encodingConfig.TxConfig.TxEncoder(), 3)
+
 		tx1, err := testutils.CreateRandomTx(
 			s.encodingConfig.TxConfig,
 			s.accounts[0],
@@ -203,5 +210,31 @@ func (s *BaseTestSuite) TestSelect() {
 		iterator = iterator.Next()
 		s.Require().NotNil(iterator)
 		s.Require().Equal(tx1, iterator.Tx())
+	})
+
+	s.Run("should be able to select a single transaction", func() {
+		mempool := base.NewDefaultMempool(s.encodingConfig.TxConfig.TxEncoder(), 3)
+
+		tx1, err := testutils.CreateRandomTx(
+			s.encodingConfig.TxConfig,
+			s.accounts[0],
+			0,
+			0,
+			0,
+			sdk.NewCoin(s.gasTokenDenom, math.NewInt(100)),
+		)
+		s.Require().NoError(err)
+
+		// Insert the transactions into the mempool
+		s.Require().NoError(mempool.Insert(sdk.Context{}, tx1))
+		s.Require().Equal(1, mempool.CountTx())
+
+		// Check that the transactions are in the correct order
+		iterator := mempool.Select(sdk.Context{}, nil)
+		s.Require().NotNil(iterator)
+		s.Require().Equal(tx1, iterator.Tx())
+
+		iterator = iterator.Next()
+		s.Require().Nil(iterator)
 	})
 }

@@ -51,7 +51,7 @@ func NewTOBLane(
 
 	return &TOBLane{
 		Mempool:     NewMempool(cfg.TxEncoder, maxTx, factory),
-		DefaultLane: base.NewDefaultLane(cfg, "").WithName(LaneName),
+		DefaultLane: base.NewDefaultLane(cfg).WithName(LaneName),
 		txPriority:  TxPriority(factory),
 		Factory:     factory,
 	}

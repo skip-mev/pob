@@ -289,7 +289,6 @@ func New(
 	freeLane := free.NewFreeLane(
 		freeConfig,
 		free.NewDefaultFreeFactory(app.txConfig.TxDecoder()),
-		BondDenom,
 	)
 
 	// Default lane accepts all other transactions.
@@ -303,7 +302,7 @@ func New(
 			freeLane,
 		},
 	}
-	defaultLane := base.NewDefaultLane(defaultConfig, BondDenom)
+	defaultLane := base.NewDefaultLane(defaultConfig)
 
 	// Set the lanes into the mempool.
 	lanes := []blockbuster.Lane{

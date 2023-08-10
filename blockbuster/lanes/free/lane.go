@@ -20,13 +20,13 @@ type Lane struct {
 }
 
 // NewFreeLane returns a new free lane.
-func NewFreeLane(cfg blockbuster.BaseLaneConfig, factory Factory, gasTokenDenom string) *Lane {
+func NewFreeLane(cfg blockbuster.BaseLaneConfig, factory Factory) *Lane {
 	if err := cfg.ValidateBasic(); err != nil {
 		panic(err)
 	}
 
 	return &Lane{
-		DefaultLane: base.NewDefaultLane(cfg, gasTokenDenom).WithName(LaneName),
+		DefaultLane: base.NewDefaultLane(cfg).WithName(LaneName),
 		Factory:     factory,
 	}
 }

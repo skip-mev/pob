@@ -524,5 +524,5 @@ func (s *BaseTestSuite) initLane(
 		maxBlockSpace,
 	)
 
-	return base.NewDefaultLane(config, s.gasTokenDenom)
+	return base.NewDefaultLane(config)
 }

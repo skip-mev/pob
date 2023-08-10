@@ -32,24 +32,20 @@ type DefaultLane struct {
 
 	// txPriority maintains how the mempool determines relative ordering
 	// of transactions
-	txPriority blockbuster.TxPriority[math.Int]
-
-	// gasTokenDenom defines the gas token denom.
-	gasTokenDenom string
+	txPriority blockbuster.TxPriority[string]
 }
 
 // NewDefaultLane returns a new default lane.
-func NewDefaultLane(cfg blockbuster.BaseLaneConfig, gasTokenDenom string) *DefaultLane {
+func NewDefaultLane(cfg blockbuster.BaseLaneConfig) *DefaultLane {
 	if err := cfg.ValidateBasic(); err != nil {
 		panic(err)
 	}
 
 	lane := &DefaultLane{
-		Mempool:       NewDefaultMempool(cfg.TxEncoder, cfg.MaxTxs, gasTokenDenom),
-		Cfg:           cfg,
-		laneName:      LaneName,
-		txPriority:    TxPriority(gasTokenDenom),
-		gasTokenDenom: gasTokenDenom,
+		Mempool:    NewDefaultMempool(cfg.TxEncoder, cfg.MaxTxs),
+		Cfg:        cfg,
+		laneName:   LaneName,
+		txPriority: TxPriority(),
 	}
 
 	return lane
