@@ -46,19 +46,22 @@ func NewTOBLane(
 	cfg blockbuster.BaseLaneConfig,
 	factory Factory,
 ) *TOBLane {
-	lane := constructor.NewLaneConstructor[string](
-		cfg,
-		LaneName,
-		constructor.NewConstructorMempool[string](
-			TxPriority(factory),
-			cfg.TxEncoder,
-			cfg.MaxTxs,
+	lane := &TOBLane{
+		LaneConstructor: constructor.NewLaneConstructor[string](
+			cfg,
+			LaneName,
+			constructor.NewConstructorMempool[string](
+				TxPriority(factory),
+				cfg.TxEncoder,
+				cfg.MaxTxs,
+			),
+			factory.MatchHandler(),
 		),
-		factory.MatchHandler(),
-	)
-
-	return &TOBLane{
-		LaneConstructor: lane,
-		Factory:         factory,
+		Factory: factory,
 	}
+
+	// Set the prepare lane handler to the TOB one
+	lane.SetPrepareLaneHandler(lane.PrepareLaneHandler())
+
+	return lane
 }

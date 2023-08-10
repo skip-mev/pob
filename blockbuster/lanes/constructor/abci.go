@@ -8,6 +8,65 @@ import (
 	"github.com/skip-mev/pob/blockbuster/utils"
 )
 
+func (l *LaneConstructor[C]) DefaultPrepareLaneHandler() blockbuster.PrepareLaneHandler {
+	return func(ctx sdk.Context, proposal blockbuster.BlockProposal, maxTxBytes int64) ([][]byte, []sdk.Tx, error) {
+		var (
+			totalSize   int64
+			txs         [][]byte
+			txsToRemove []sdk.Tx
+		)
+
+		// Select all transactions in the mempool that are valid and not already in the
+		// partial proposal.
+		for iterator := l.Select(ctx, nil); iterator != nil; iterator = iterator.Next() {
+			tx := iterator.Tx()
+
+			txBytes, hash, err := utils.GetTxHashStr(l.Cfg.TxEncoder, tx)
+			if err != nil {
+				l.Logger().Info("failed to get hash of tx", "err", err)
+
+				txsToRemove = append(txsToRemove, tx)
+				continue
+			}
+
+			// if the transaction is already in the (partial) block proposal, we skip it.
+			if proposal.Contains(txBytes) {
+				l.Logger().Info(
+					"failed to select tx for lane; tx is already in proposal",
+					"tx_hash", hash,
+					"lane", l.Name(),
+				)
+
+				continue
+			}
+
+			// If the transaction is too large, we break and do not attempt to include more txs.
+			txSize := int64(len(txBytes))
+			if updatedSize := totalSize + txSize; updatedSize > maxTxBytes {
+				l.Logger().Info("maximum tx bytes reached", "lane", l.Name())
+				break
+			}
+
+			// Verify the transaction.
+			if err := l.VerifyTx(ctx, tx); err != nil {
+				l.Logger().Info(
+					"failed to verify tx",
+					"tx_hash", hash,
+					"err", err,
+				)
+
+				txsToRemove = append(txsToRemove, tx)
+				continue
+			}
+
+			totalSize += txSize
+			txs = append(txs, txBytes)
+		}
+
+		return txs, txsToRemove, nil
+	}
+}
+
 // PrepareLane will prepare a partial proposal for the default lane. It will select and include
 // all valid transactions in the mempool that are not already in the partial proposal.
 // The default lane orders transactions by the sdk.Context priority.
@@ -17,58 +76,9 @@ func (l *LaneConstructor[C]) PrepareLane(
 	maxTxBytes int64,
 	next blockbuster.PrepareLanesHandler,
 ) (blockbuster.BlockProposal, error) {
-	// Define all of the info we need to select transactions for the partial proposal.
-	var (
-		totalSize   int64
-		txs         [][]byte
-		txsToRemove = make(map[sdk.Tx]struct{}, 0)
-	)
-
-	// Select all transactions in the mempool that are valid and not already in the
-	// partial proposal.
-	for iterator := l.LaneMempool.Select(ctx, nil); iterator != nil; iterator = iterator.Next() {
-		tx := iterator.Tx()
-
-		txBytes, hash, err := utils.GetTxHashStr(l.Cfg.TxEncoder, tx)
-		if err != nil {
-			l.Logger().Info("failed to get hash of tx", "err", err)
-
-			txsToRemove[tx] = struct{}{}
-			continue
-		}
-
-		// if the transaction is already in the (partial) block proposal, we skip it.
-		if proposal.Contains(txBytes) {
-			l.Logger().Info(
-				"failed to select tx for lane; tx is already in proposal",
-				"tx_hash", hash,
-				"lane", l.Name(),
-			)
-
-			continue
-		}
-
-		// If the transaction is too large, we break and do not attempt to include more txs.
-		txSize := int64(len(txBytes))
-		if updatedSize := totalSize + txSize; updatedSize > maxTxBytes {
-			l.Logger().Info("maximum tx bytes reached", "lane", l.Name())
-			break
-		}
-
-		// Verify the transaction.
-		if err := l.VerifyTx(ctx, tx); err != nil {
-			l.Logger().Info(
-				"failed to verify tx",
-				"tx_hash", hash,
-				"err", err,
-			)
-
-			txsToRemove[tx] = struct{}{}
-			continue
-		}
-
-		totalSize += txSize
-		txs = append(txs, txBytes)
+	txs, txsToRemove, err := l.prepareLaneHandler(ctx, proposal, maxTxBytes)
+	if err != nil {
+		return proposal, err
 	}
 
 	// Remove all transactions that were invalid during the creation of the partial proposal.

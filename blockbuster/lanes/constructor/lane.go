@@ -13,7 +13,8 @@ type LaneConstructor[C comparable] struct {
 	Cfg      blockbuster.BaseLaneConfig
 	laneName string
 	blockbuster.LaneMempool
-	matchHandler blockbuster.MatchHandler
+	matchHandler       blockbuster.MatchHandler
+	prepareLaneHandler blockbuster.PrepareLaneHandler
 }
 
 func NewLaneConstructor[C comparable](
@@ -53,7 +54,15 @@ func (l *LaneConstructor[C]) ValidateBasic() error {
 		return fmt.Errorf("match handler cannot be nil")
 	}
 
+	if l.prepareLaneHandler == nil {
+		l.prepareLaneHandler = l.DefaultPrepareLaneHandler()
+	}
+
 	return nil
+}
+
+func (l *LaneConstructor[C]) SetPrepareLaneHandler(prepareLaneHandler blockbuster.PrepareLaneHandler) {
+	l.prepareLaneHandler = prepareLaneHandler
 }
 
 func (l *LaneConstructor[C]) Match(ctx sdk.Context, tx sdk.Tx) bool {
