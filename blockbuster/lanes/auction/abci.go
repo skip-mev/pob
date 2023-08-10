@@ -144,7 +144,7 @@ selectBidTxLoop:
 	}
 
 	// Remove all transactions that were invalid during the creation of the partial proposal.
-	if err := utils.RemoveTxsFromLane(txsToRemove, l.Mempool); err != nil {
+	if err := utils.RemoveTxsFromLane(txsToRemove, l.LaneConstructor.LaneMempool); err != nil {
 		l.Logger().Error(
 			"failed to remove transactions from lane",
 			"lane", l.Name(),
@@ -256,8 +256,7 @@ func (l *TOBLane) VerifyTx(ctx sdk.Context, bidTx sdk.Tx) error {
 	}
 
 	// verify the top-level bid transaction
-	ctx, err = l.verifyTx(ctx, bidTx)
-	if err != nil {
+	if err = l.LaneConstructor.VerifyTx(ctx, bidTx); err != nil {
 		return fmt.Errorf("invalid bid tx; failed to execute ante handler: %w", err)
 	}
 
@@ -274,21 +273,10 @@ func (l *TOBLane) VerifyTx(ctx sdk.Context, bidTx sdk.Tx) error {
 			return fmt.Errorf("invalid bid tx; bundled tx cannot be a bid tx")
 		}
 
-		if ctx, err = l.verifyTx(ctx, bundledTx); err != nil {
+		if err = l.LaneConstructor.VerifyTx(ctx, bidTx); err != nil {
 			return fmt.Errorf("invalid bid tx; failed to execute bundled transaction: %w", err)
 		}
 	}
 
 	return nil
-}
-
-// verifyTx will execute the ante handler on the transaction and return the
-// resulting context and error.
-func (l *TOBLane) verifyTx(ctx sdk.Context, tx sdk.Tx) (sdk.Context, error) {
-	if l.Cfg.AnteHandler != nil {
-		newCtx, err := l.Cfg.AnteHandler(ctx, tx, false)
-		return newCtx, err
-	}
-
-	return ctx, nil
 }

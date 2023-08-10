@@ -1,9 +1,11 @@
 package auction
 
 import (
+	"context"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/blockbuster"
-	"github.com/skip-mev/pob/blockbuster/lanes/base"
+	"github.com/skip-mev/pob/blockbuster/lanes/constructor"
 )
 
 const (
@@ -12,8 +14,7 @@ const (
 )
 
 var (
-	_ blockbuster.Lane = (*TOBLane)(nil)
-	_ Factory          = (*TOBLane)(nil)
+	_ TOBLaneI = (*TOBLane)(nil)
 )
 
 // TOBLane defines a top-of-block auction lane. The top of block auction lane
@@ -22,55 +23,42 @@ var (
 // their bid price. The highest valid bid transaction is selected for inclusion in the
 // next block. The bundled transactions of the selected bid transaction are also
 // included in the next block.
-type TOBLane struct {
-	// Mempool defines the mempool for the lane.
-	Mempool
+type (
+	TOBLaneI interface {
+		blockbuster.Lane
+		Factory
+		GetTopAuctionTx(ctx context.Context) sdk.Tx
+	}
 
-	// LaneConfig defines the base lane configuration.
-	*base.DefaultLane
+	TOBLane struct {
+		// LaneConfig defines the base lane configuration.
+		*constructor.LaneConstructor[string]
 
-	// Factory defines the API/functionality which is responsible for determining
-	// if a transaction is a bid transaction and how to extract relevant
-	// information from the transaction (bid, timeout, bidder, etc.).
-	Factory
-
-	// txPriority maintains how the mempool determines relative ordering
-	// of transactions
-	txPriority blockbuster.TxPriority[string]
-}
+		// Factory defines the API/functionality which is responsible for determining
+		// if a transaction is a bid transaction and how to extract relevant
+		// information from the transaction (bid, timeout, bidder, etc.).
+		Factory
+	}
+)
 
 // NewTOBLane returns a new TOB lane.
 func NewTOBLane(
 	cfg blockbuster.BaseLaneConfig,
 	factory Factory,
 ) *TOBLane {
-	if err := cfg.ValidateBasic(); err != nil {
-		panic(err)
-	}
+	lane := constructor.NewLaneConstructor[string](
+		cfg,
+		LaneName,
+		constructor.NewConstructorMempool[string](
+			TxPriority(factory),
+			cfg.TxEncoder,
+			cfg.MaxTxs,
+		),
+		factory.MatchHandler(),
+	)
 
 	return &TOBLane{
-		Mempool:     NewMempool(cfg.TxEncoder, cfg.MaxTxs, factory),
-		DefaultLane: base.NewDefaultLane(cfg).WithName(LaneName),
-		txPriority:  TxPriority(factory),
-		Factory:     factory,
+		LaneConstructor: lane,
+		Factory:         factory,
 	}
-}
-
-// Compare determines the relative priority of two transactions belonging in the top of block lane.
-// In this case, transactions are ordered by their bid.
-func (l *TOBLane) Compare(ctx sdk.Context, this sdk.Tx, other sdk.Tx) int {
-	firstPriority := l.txPriority.GetTxPriority(ctx, this)
-	secondPriority := l.txPriority.GetTxPriority(ctx, other)
-	return l.txPriority.Compare(firstPriority, secondPriority)
-}
-
-// Match returns true if the transaction is a bid transaction. This is determined
-// by the AuctionFactory.
-func (l *TOBLane) Match(ctx sdk.Context, tx sdk.Tx) bool {
-	if l.MatchIgnoreList(ctx, tx) {
-		return false
-	}
-
-	bidInfo, err := l.GetAuctionBidInfo(tx)
-	return bidInfo != nil && err == nil
 }

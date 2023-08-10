@@ -18,12 +18,10 @@ type FreeLane struct {
 }
 
 // NewFreeLane returns a new free lane.
-func NewFreeLane(cfg blockbuster.BaseLaneConfig) *FreeLane {
+func NewFreeLane(cfg blockbuster.BaseLaneConfig, factory Factory) *FreeLane {
 	if err := cfg.ValidateBasic(); err != nil {
 		panic(err)
 	}
-
-	factory := NewDefaultFreeFactory(cfg.TxDecoder)
 
 	lane := constructor.NewLaneConstructor[string](
 		cfg,

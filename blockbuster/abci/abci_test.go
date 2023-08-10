@@ -37,7 +37,7 @@ type ABCITestSuite struct {
 	tobLane   *auction.TOBLane
 
 	freeConfig blockbuster.BaseLaneConfig
-	freeLane   *free.Lane
+	freeLane   *free.FreeLane
 
 	baseConfig blockbuster.BaseLaneConfig
 	baseLane   *base.DefaultLane

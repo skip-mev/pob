@@ -29,7 +29,7 @@ type BlockBusterTestSuite struct {
 	// Define all of the lanes utilized in the test suite
 	tobLane       *auction.TOBLane
 	baseLane      *base.DefaultLane
-	freeLane      *free.Lane
+	freeLane      *free.FreeLane
 	gasTokenDenom string
 
 	lanes   []blockbuster.Lane
