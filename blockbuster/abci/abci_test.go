@@ -1013,7 +1013,7 @@ func (suite *ABCITestSuite) TestProcessProposal() {
 				auctionTxs = []sdk.Tx{bidTx}
 				insertRefTxs = true
 			},
-			abcitypes.ResponseProcessProposal_ACCEPT,
+			abcitypes.ResponseProcessProposal_REJECT,
 		},
 	}
 
