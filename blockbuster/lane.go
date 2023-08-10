@@ -51,25 +51,21 @@ type (
 		MaxTxs int
 	}
 
-	// Lane defines an interface used for block construction
-	//go:generate mockery --name Lane --output ./utils/mocks --outpkg mocks --case underscore
-	Lane interface {
+	// LaneMempool defines the mempool for a lane.
+	LaneMempool interface {
 		sdkmempool.Mempool
-
-		// Name returns the name of the lane.
-		Name() string
 
 		// Compare determines the relative priority of two transactions belonging in the same lane.
 		Compare(ctx sdk.Context, this, other sdk.Tx) int
 
-		// Match determines if a transaction belongs to this lane.
-		Match(ctx sdk.Context, tx sdk.Tx) bool
+		// Contains returns true if the transaction is contained in the mempool.
+		Contains(tx sdk.Tx) bool
+	}
 
+	// LaneProposals defines the API for a lane's proposals.
+	LaneProposals interface {
 		// VerifyTx verifies the transaction belonging to this lane.
 		VerifyTx(ctx sdk.Context, tx sdk.Tx) error
-
-		// Contains returns true if the mempool/lane contains the given transaction.
-		Contains(tx sdk.Tx) bool
 
 		// PrepareLane builds a portion of the block. It inputs the maxTxBytes that can be
 		// included in the proposal for the given lane, the partial proposal, and a function
@@ -89,11 +85,24 @@ type (
 		// SetAnteHandler sets the lane's antehandler.
 		SetAnteHandler(antehander sdk.AnteHandler)
 
-		// Logger returns the lane's logger.
-		Logger() log.Logger
-
 		// GetMaxBlockSpace returns the max block space for the lane as a relative percentage.
 		GetMaxBlockSpace() math.LegacyDec
+	}
+
+	// Lane defines an interface used for block construction
+	//go:generate mockery --name Lane --output ./utils/mocks --outpkg mocks --case underscore
+	Lane interface {
+		LaneMempool
+		LaneProposals
+
+		// Name returns the name of the lane.
+		Name() string
+
+		// Match determines if a transaction belongs to this lane.
+		Match(ctx sdk.Context, tx sdk.Tx) bool
+
+		// Logger returns the lane's logger.
+		Logger() log.Logger
 	}
 )
 
