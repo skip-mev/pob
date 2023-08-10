@@ -1,4 +1,4 @@
-package base_test
+package constructor_test
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ import (
 	testutils "github.com/skip-mev/pob/testutils"
 )
 
-func (s *BaseTestSuite) TestPrepareLane() {
+func (s *ConstructorTestSuite) TestPrepareLane() {
 	s.Run("should not build a proposal when amount configured to lane is too small", func() {
 		// Create a basic transaction that should not in the proposal
 		tx, err := testutils.CreateRandomTx(
@@ -302,7 +302,7 @@ func (s *BaseTestSuite) TestPrepareLane() {
 	})
 }
 
-func (s *BaseTestSuite) TestProcessLane() {
+func (s *ConstructorTestSuite) TestProcessLane() {
 	s.Run("should accept a proposal with valid transactions", func() {
 		tx1, err := testutils.CreateRandomTx(
 			s.encodingConfig.TxConfig,
@@ -392,7 +392,7 @@ func (s *BaseTestSuite) TestProcessLane() {
 	})
 }
 
-func (s *BaseTestSuite) TestProcessLaneBasic() {
+func (s *ConstructorTestSuite) TestProcessLaneBasic() {
 	s.Run("should accept proposal with transactions in correct order", func() {
 		tx1, err := testutils.CreateRandomTx(
 			s.encodingConfig.TxConfig,
@@ -496,7 +496,7 @@ func (s *BaseTestSuite) TestProcessLaneBasic() {
 	})
 }
 
-func (s *BaseTestSuite) initLane(
+func (s *ConstructorTestSuite) initLane(
 	maxBlockSpace math.LegacyDec,
 	expectedExecution map[sdk.Tx]bool,
 ) *base.DefaultLane {

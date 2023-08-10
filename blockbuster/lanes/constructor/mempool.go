@@ -36,8 +36,9 @@ func NewConstructorMempool[C comparable](txPriority blockbuster.TxPriority[C], t
 				MaxTx:      maxTx,
 			},
 		),
-		txEncoder: txEncoder,
-		txCache:   make(map[string]struct{}),
+		txPriority: txPriority,
+		txEncoder:  txEncoder,
+		txCache:    make(map[string]struct{}),
 	}
 }
 

@@ -3,6 +3,7 @@ package free
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/staking/types"
+	"github.com/skip-mev/pob/blockbuster"
 )
 
 type (
@@ -12,6 +13,9 @@ type (
 	Factory interface {
 		// IsFreeTx defines a function that checks if a transaction qualifies as free.
 		IsFreeTx(tx sdk.Tx) bool
+
+		// MatchHandler defines a function that checks if a transaction matches the free lane.
+		MatchHandler() blockbuster.MatchHandler
 	}
 
 	// DefaultFreeFactory defines a default implmentation for the free factory interface for processing free transactions.
@@ -44,4 +48,10 @@ func (config *DefaultFreeFactory) IsFreeTx(tx sdk.Tx) bool {
 	}
 
 	return false
+}
+
+func (config *DefaultFreeFactory) MatchHandler() blockbuster.MatchHandler {
+	return func(ctx sdk.Context, tx sdk.Tx) bool {
+		return config.IsFreeTx(tx)
+	}
 }

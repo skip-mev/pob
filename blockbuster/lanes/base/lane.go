@@ -1,10 +1,8 @@
 package base
 
 import (
-	"cosmossdk.io/log"
-	"cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/blockbuster"
+	"github.com/skip-mev/pob/blockbuster/lanes/constructor"
 )
 
 const (
@@ -21,90 +19,23 @@ var _ blockbuster.Lane = (*DefaultLane)(nil)
 // own implements the same functionality as the pre v0.47.0 tendermint mempool and proposal
 // handlers.
 type DefaultLane struct {
-	// Mempool defines the mempool for the lane.
-	Mempool
-
-	// LaneConfig defines the base lane configuration.
-	Cfg blockbuster.BaseLaneConfig
-
-	// Name defines the name of the lane.
-	laneName string
-
-	// txPriority maintains how the mempool determines relative ordering
-	// of transactions
-	txPriority blockbuster.TxPriority[string]
+	*constructor.LaneConstructor[string]
 }
 
 // NewDefaultLane returns a new default lane.
 func NewDefaultLane(cfg blockbuster.BaseLaneConfig) *DefaultLane {
-	if err := cfg.ValidateBasic(); err != nil {
-		panic(err)
+	lane := constructor.NewLaneConstructor[string](
+		cfg,
+		LaneName,
+		constructor.NewConstructorMempool[string](
+			constructor.DefaultTxPriority(),
+			cfg.TxEncoder,
+			cfg.MaxTxs,
+		),
+		constructor.DefaultMatchHandler(),
+	)
+
+	return &DefaultLane{
+		LaneConstructor: lane,
 	}
-
-	lane := &DefaultLane{
-		Mempool:    NewDefaultMempool(cfg.TxEncoder, cfg.MaxTxs),
-		Cfg:        cfg,
-		laneName:   LaneName,
-		txPriority: TxPriority(),
-	}
-
-	return lane
-}
-
-// WithName returns a lane option that sets the lane's name.
-func (l *DefaultLane) WithName(name string) *DefaultLane {
-	l.laneName = name
-	return l
-}
-
-// Compare determines the relative priority of two transactions belonging in the same lane.
-// In the default case, priority is determined by the fees of the transaction.
-func (l *DefaultLane) Compare(ctx sdk.Context, this sdk.Tx, other sdk.Tx) int {
-	firstPriority := l.txPriority.GetTxPriority(ctx, this)
-	secondPriority := l.txPriority.GetTxPriority(ctx, other)
-	return l.txPriority.Compare(firstPriority, secondPriority)
-}
-
-// Match returns true if the transaction belongs to this lane. Since
-// this is the default lane, it always returns true except for transactions
-// that belong to lanes in the ignore list.
-func (l *DefaultLane) Match(ctx sdk.Context, tx sdk.Tx) bool {
-	return !l.MatchIgnoreList(ctx, tx)
-}
-
-// MatchIgnoreList returns true if any of the lanes that are in the ignore list
-// match the current transaction.
-func (l *DefaultLane) MatchIgnoreList(ctx sdk.Context, tx sdk.Tx) bool {
-	for _, lane := range l.Cfg.IgnoreList {
-		if lane.Match(ctx, tx) {
-			return true
-		}
-	}
-
-	return false
-}
-
-// Name returns the name of the lane.
-func (l *DefaultLane) Name() string {
-	return l.laneName
-}
-
-// Logger returns the lane's logger.
-func (l *DefaultLane) Logger() log.Logger {
-	return l.Cfg.Logger
-}
-
-// SetAnteHandler sets the lane's antehandler.
-func (l *DefaultLane) SetAnteHandler(anteHandler sdk.AnteHandler) {
-	l.Cfg.AnteHandler = anteHandler
-}
-
-// GetMaxBlockSpace returns the maximum block space for the lane as a relative percentage.
-func (l *DefaultLane) GetMaxBlockSpace() math.LegacyDec {
-	return l.Cfg.MaxBlockSpace
-}
-
-// GetIgnoreList returns the lane's ignore list.
-func (l *DefaultLane) GetIgnoreList() []blockbuster.Lane {
-	return l.Cfg.IgnoreList
 }

@@ -1,9 +1,8 @@
 package free
 
 import (
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/blockbuster"
-	"github.com/skip-mev/pob/blockbuster/lanes/base"
+	"github.com/skip-mev/pob/blockbuster/lanes/constructor"
 )
 
 const (
@@ -11,31 +10,37 @@ const (
 	LaneName = "free"
 )
 
-var _ blockbuster.Lane = (*Lane)(nil)
+var _ blockbuster.Lane = (*FreeLane)(nil)
 
 // FreeLane defines the lane that is responsible for processing free transactions.
-type Lane struct {
-	*base.DefaultLane
-	Factory
+type FreeLane struct {
+	*constructor.LaneConstructor[string]
 }
 
 // NewFreeLane returns a new free lane.
-func NewFreeLane(cfg blockbuster.BaseLaneConfig, factory Factory) *Lane {
+func NewFreeLane(cfg blockbuster.BaseLaneConfig) *FreeLane {
 	if err := cfg.ValidateBasic(); err != nil {
 		panic(err)
 	}
 
-	return &Lane{
-		DefaultLane: base.NewDefaultLane(cfg).WithName(LaneName),
-		Factory:     factory,
-	}
-}
+	factory := NewDefaultFreeFactory(cfg.TxDecoder)
 
-// Match returns true if the transaction is a free transaction.
-func (l *Lane) Match(ctx sdk.Context, tx sdk.Tx) bool {
-	if l.MatchIgnoreList(ctx, tx) {
-		return false
+	lane := constructor.NewLaneConstructor[string](
+		cfg,
+		LaneName,
+		constructor.NewConstructorMempool[string](
+			constructor.DefaultTxPriority(),
+			cfg.TxEncoder,
+			cfg.MaxTxs,
+		),
+		factory.MatchHandler(),
+	)
+
+	if err := lane.ValidateBasic(); err != nil {
+		panic(err)
 	}
 
-	return l.IsFreeTx(tx)
+	return &FreeLane{
+		LaneConstructor: lane,
+	}
 }

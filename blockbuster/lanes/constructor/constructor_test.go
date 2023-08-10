@@ -1,4 +1,4 @@
-package base_test
+package constructor_test
 
 import (
 	"math/rand"
@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-type BaseTestSuite struct {
+type ConstructorTestSuite struct {
 	suite.Suite
 
 	encodingConfig testutils.EncodingConfig
@@ -17,11 +17,11 @@ type BaseTestSuite struct {
 	gasTokenDenom  string
 }
 
-func TestBaseTestSuite(t *testing.T) {
-	suite.Run(t, new(BaseTestSuite))
+func TestConstructorTestSuite(t *testing.T) {
+	suite.Run(t, new(ConstructorTestSuite))
 }
 
-func (s *BaseTestSuite) SetupTest() {
+func (s *ConstructorTestSuite) SetupTest() {
 	// Set up basic TX encoding config.
 	s.encodingConfig = testutils.CreateTestEncodingConfig()
 

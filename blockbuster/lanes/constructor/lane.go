@@ -1,15 +1,12 @@
 package constructor
 
 import (
+	"fmt"
+
 	"cosmossdk.io/log"
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/blockbuster"
-)
-
-const (
-	// LaneName defines the name of the constructor lane.
-	LaneName = "constructor"
 )
 
 type LaneConstructor[C comparable] struct {
@@ -22,21 +19,41 @@ type LaneConstructor[C comparable] struct {
 func NewLaneConstructor[C comparable](
 	cfg blockbuster.BaseLaneConfig,
 	laneName string,
-	txPriority blockbuster.TxPriority[C],
+	laneMempool blockbuster.LaneMempool,
 	matchHandlerFn blockbuster.MatchHandler,
 ) *LaneConstructor[C] {
-	if err := cfg.ValidateBasic(); err != nil {
-		panic(err)
-	}
-
 	lane := &LaneConstructor[C]{
 		Cfg:          cfg,
-		laneName:     LaneName,
-		LaneMempool:  NewConstructorMempool[C](txPriority, cfg.TxEncoder, cfg.MaxTxs),
+		laneName:     laneName,
+		LaneMempool:  laneMempool,
 		matchHandler: matchHandlerFn,
 	}
 
+	if err := lane.ValidateBasic(); err != nil {
+		panic(err)
+	}
+
 	return lane
+}
+
+func (l *LaneConstructor[C]) ValidateBasic() error {
+	if err := l.Cfg.ValidateBasic(); err != nil {
+		return err
+	}
+
+	if l.laneName == "" {
+		return fmt.Errorf("lane name cannot be empty")
+	}
+
+	if l.LaneMempool == nil {
+		return fmt.Errorf("lane mempool cannot be nil")
+	}
+
+	if l.matchHandler == nil {
+		return fmt.Errorf("match handler cannot be nil")
+	}
+
+	return nil
 }
 
 func (l *LaneConstructor[C]) Match(ctx sdk.Context, tx sdk.Tx) bool {

@@ -1,14 +1,14 @@
-package base_test
+package constructor_test
 
 import (
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/skip-mev/pob/blockbuster/lanes/base"
+	"github.com/skip-mev/pob/blockbuster/lanes/constructor"
 	testutils "github.com/skip-mev/pob/testutils"
 )
 
-func (s *BaseTestSuite) TestGetTxPriority() {
-	txPriority := base.TxPriority()
+func (s *ConstructorTestSuite) TestGetTxPriority() {
+	txPriority := constructor.DefaultTxPriority()
 
 	s.Run("should be able to get the priority off a normal transaction with fees", func() {
 		tx, err := testutils.CreateRandomTx(
@@ -55,8 +55,8 @@ func (s *BaseTestSuite) TestGetTxPriority() {
 	})
 }
 
-func (s *BaseTestSuite) TestCompareTxPriority() {
-	txPriority := base.TxPriority()
+func (s *ConstructorTestSuite) TestCompareTxPriority() {
+	txPriority := constructor.DefaultTxPriority()
 
 	s.Run("should return 0 when both priorities are nil", func() {
 		a := sdk.NewCoin(s.gasTokenDenom, math.NewInt(0)).String()
@@ -83,8 +83,8 @@ func (s *BaseTestSuite) TestCompareTxPriority() {
 	})
 }
 
-func (s *BaseTestSuite) TestInsert() {
-	mempool := base.NewDefaultMempool(s.encodingConfig.TxConfig.TxEncoder(), 3)
+func (s *ConstructorTestSuite) TestInsert() {
+	mempool := constructor.NewConstructorMempool[string](constructor.DefaultTxPriority(), s.encodingConfig.TxConfig.TxEncoder(), 3)
 
 	s.Run("should be able to insert a transaction", func() {
 		tx, err := testutils.CreateRandomTx(
@@ -135,8 +135,8 @@ func (s *BaseTestSuite) TestInsert() {
 	})
 }
 
-func (s *BaseTestSuite) TestRemove() {
-	mempool := base.NewDefaultMempool(s.encodingConfig.TxConfig.TxEncoder(), 3)
+func (s *ConstructorTestSuite) TestRemove() {
+	mempool := constructor.NewConstructorMempool[string](constructor.DefaultTxPriority(), s.encodingConfig.TxConfig.TxEncoder(), 3)
 
 	s.Run("should be able to remove a transaction", func() {
 		tx, err := testutils.CreateRandomTx(
@@ -172,9 +172,9 @@ func (s *BaseTestSuite) TestRemove() {
 	})
 }
 
-func (s *BaseTestSuite) TestSelect() {
+func (s *ConstructorTestSuite) TestSelect() {
 	s.Run("should be able to select transactions in the correct order", func() {
-		mempool := base.NewDefaultMempool(s.encodingConfig.TxConfig.TxEncoder(), 3)
+		mempool := constructor.NewConstructorMempool[string](constructor.DefaultTxPriority(), s.encodingConfig.TxConfig.TxEncoder(), 3)
 
 		tx1, err := testutils.CreateRandomTx(
 			s.encodingConfig.TxConfig,
@@ -213,7 +213,7 @@ func (s *BaseTestSuite) TestSelect() {
 	})
 
 	s.Run("should be able to select a single transaction", func() {
-		mempool := base.NewDefaultMempool(s.encodingConfig.TxConfig.TxEncoder(), 3)
+		mempool := constructor.NewConstructorMempool[string](constructor.DefaultTxPriority(), s.encodingConfig.TxConfig.TxEncoder(), 3)
 
 		tx1, err := testutils.CreateRandomTx(
 			s.encodingConfig.TxConfig,
