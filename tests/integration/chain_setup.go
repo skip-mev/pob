@@ -182,10 +182,13 @@ func BroadcastTxs(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, 
 
 	for i, tx := range txs {
 		// broadcast tx
-		_, err := client.BroadcastTxSync(ctx, tx)
+		res, err := client.BroadcastTxSync(ctx, tx)
+		require.NoError(t, err)
 
 		// check execution was successful
-		require.Equal(t, msgsPerUser[i].ExpectFail, err != nil)
+		if !msgsPerUser[i].ExpectFail {
+			require.Equal(t, res.Code, uint32(0))
+		}
 
 	}
 

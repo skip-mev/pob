@@ -23,14 +23,17 @@ require (
 	cosmossdk.io/math v1.0.1 // indirect
 	cosmossdk.io/tools/rosetta v0.2.1 // indirect
 	github.com/cosmos/cosmos-sdk v0.47.4
-	github.com/skip-mev/pob v1.0.3
+	github.com/skip-mev/pob v1.0.3 // reference local
 	github.com/strangelove-ventures/interchaintest/v7 v7.0.0-20230721183422-fb937bb0e165
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.24.0
 	golang.org/x/sync v0.3.0
 )
 
-require github.com/cometbft/cometbft v0.37.2
+require (
+	github.com/cometbft/cometbft v0.37.2
+	google.golang.org/grpc v1.56.2
+)
 
 require (
 	cloud.google.com/go v0.110.4 // indirect
@@ -221,7 +224,6 @@ require (
 	google.golang.org/genproto v0.0.0-20230706204954-ccb25ca9f130 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20230629202037-9506855d4529 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230711160842-782d3b101e98 // indirect
-	google.golang.org/grpc v1.56.2 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
