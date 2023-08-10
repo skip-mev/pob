@@ -24,6 +24,7 @@ func (l *LaneConstructor[C]) PrepareLane(
 	if err := utils.RemoveTxsFromLane(txsToRemove, l.LaneMempool); err != nil {
 		l.Logger().Error(
 			"failed to remove transactions from lane",
+			"lane", l.Name(),
 			"err", err,
 		)
 
