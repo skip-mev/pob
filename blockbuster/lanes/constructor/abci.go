@@ -6,9 +6,10 @@ import (
 	"github.com/skip-mev/pob/blockbuster/utils"
 )
 
-// PrepareLane will prepare a partial proposal for the default lane. It will select and include
-// all valid transactions in the mempool that are not already in the partial proposal.
-// The default lane orders transactions by the sdk.Context priority.
+// PrepareLane will prepare a partial proposal for the lane. It will select transactions from the
+// lane respecting the selection logic of the prepareLaneHandler. It will then update the partial
+// proposal with the selected transactions. If the proposal is unable to be updated, we return an
+// error. The proposal will only be modified if it passes all of the invarient checks.
 func (l *LaneConstructor[C]) PrepareLane(
 	ctx sdk.Context,
 	proposal blockbuster.BlockProposal,
@@ -21,19 +22,15 @@ func (l *LaneConstructor[C]) PrepareLane(
 	}
 
 	// Remove all transactions that were invalid during the creation of the partial proposal.
-	if err := utils.RemoveTxsFromLane(txsToRemove, l.LaneMempool); err != nil {
+	if err := utils.RemoveTxsFromLane(txsToRemove, l); err != nil {
 		l.Logger().Error(
 			"failed to remove transactions from lane",
 			"lane", l.Name(),
 			"err", err,
 		)
-
-		return proposal, err
 	}
 
-	// Update the partial proposal with the selected transactions. If the proposal is unable to
-	// be updated, we return an error. The proposal will only be modified if it passes all
-	// of the invarient checks.
+	// Update the proposal with the selected transactions.
 	if err := proposal.UpdateProposal(l, txs); err != nil {
 		return proposal, err
 	}
@@ -41,9 +38,16 @@ func (l *LaneConstructor[C]) PrepareLane(
 	return next(ctx, proposal)
 }
 
-// ProcessLane verifies the default lane's portion of a block proposal. Since the default lane's
-// ProcessLaneBasic function ensures that all of the default transactions are in the correct order,
-// we only need to verify the contiguous set of transactions that match to the default lane.
+// CheckOrder checks that the ordering logic of the lane is respected given the set of transactions
+// in the block proposal. If the ordering logic is not respected, we return an error.
+func (l *LaneConstructor[C]) CheckOrder(ctx sdk.Context, txs []sdk.Tx) error {
+	return l.checkOrderHandler(ctx, txs)
+}
+
+// ProcessLane verifies that the transactions included in the block proposal are valid respecting
+// the verification logic of the lane (processLaneHandler). If the transactions are valid, we
+// return the transactions that do not belong to this lane to the next lane. If the transactions
+// are invalid, we return an error.
 func (l *LaneConstructor[C]) ProcessLane(ctx sdk.Context, txs []sdk.Tx, next blockbuster.ProcessLanesHandler) (sdk.Context, error) {
 	remainingTxs, err := l.processLaneHandler(ctx, txs)
 	if err != nil {
@@ -53,17 +57,11 @@ func (l *LaneConstructor[C]) ProcessLane(ctx sdk.Context, txs []sdk.Tx, next blo
 	return next(ctx, remainingTxs)
 }
 
-// transactions that belong to this lane are not misplaced in the block proposal i.e.
-// the proposal only contains contiguous transactions that belong to this lane - there
-// can be no interleaving of transactions from other lanes.
-func (l *LaneConstructor[C]) ProcessLaneBasic(ctx sdk.Context, txs []sdk.Tx) error {
-	return l.processLaneBasicHandler(ctx, txs)
-}
-
-// VerifyTx does basic verification of the transaction using the ante handler.
-func (l *LaneConstructor[C]) VerifyTx(ctx sdk.Context, tx sdk.Tx) error {
-	if l.Cfg.AnteHandler != nil {
-		_, err := l.Cfg.AnteHandler(ctx, tx, false)
+// AnteVerifyTx verifies that the transaction is valid respecting the ante verification logic of
+// of the antehandler chain.
+func (l *LaneConstructor[C]) AnteVerifyTx(ctx sdk.Context, tx sdk.Tx, simulate bool) error {
+	if l.cfg.AnteHandler != nil {
+		_, err := l.cfg.AnteHandler(ctx, tx, simulate)
 		return err
 	}
 

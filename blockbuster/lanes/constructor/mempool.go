@@ -12,10 +12,18 @@ import (
 )
 
 type (
+	// ConstructorMempool defines a mempool that orders transactions based on the
+	// txPriority. The mempool is a wrapper on top of the SDK's Priority Nonce mempool.
+	// It include's additional helper functions that allow users to determine if a
+	// transaction is already in the mempool and to compare the priority of two
+	// transactions.
 	ConstructorMempool[C comparable] struct {
 		// index defines an index transactions.
 		index sdkmempool.Mempool
 
+		// txPriority defines the transaction priority function. It is used to
+		// retrieve the priority of a given transaction and to compare the priority
+		// of two transactions.
 		txPriority blockbuster.TxPriority[C]
 
 		// txEncoder defines the sdk.Tx encoder that allows us to encode transactions
@@ -28,6 +36,7 @@ type (
 	}
 )
 
+// NewConstructorMempool returns a new ConstructorMempool.
 func NewConstructorMempool[C comparable](txPriority blockbuster.TxPriority[C], txEncoder sdk.TxEncoder, maxTx int) *ConstructorMempool[C] {
 	return &ConstructorMempool[C]{
 		index: blockbuster.NewPriorityMempool(
@@ -42,7 +51,7 @@ func NewConstructorMempool[C comparable](txPriority blockbuster.TxPriority[C], t
 	}
 }
 
-// Insert inserts a transaction into the mempool based on the transaction type (normal or auction).
+// Insert inserts a transaction into the mempool respecting the txPriority.
 func (cm *ConstructorMempool[C]) Insert(ctx context.Context, tx sdk.Tx) error {
 	if err := cm.index.Insert(ctx, tx); err != nil {
 		return fmt.Errorf("failed to insert tx into auction index: %w", err)
@@ -59,7 +68,7 @@ func (cm *ConstructorMempool[C]) Insert(ctx context.Context, tx sdk.Tx) error {
 	return nil
 }
 
-// Remove removes a transaction from the mempool based on the transaction type (normal or auction).
+// Remove removes a transaction from the mempool.
 func (cm *ConstructorMempool[C]) Remove(tx sdk.Tx) error {
 	if err := cm.index.Remove(tx); err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
 		return fmt.Errorf("failed to remove transaction from the mempool: %w", err)
@@ -75,10 +84,15 @@ func (cm *ConstructorMempool[C]) Remove(tx sdk.Tx) error {
 	return nil
 }
 
+// Select returns an iterator of all transactions in the mempool. NOTE: If you
+// remove a transaction from the mempool while iterating over the transactions,
+// the iterator will not be aware of the removal and will continue to iterate
+// over the removed transaction. Be sure to reset the iterator if you remove a transaction.
 func (cm *ConstructorMempool[C]) Select(ctx context.Context, txs [][]byte) sdkmempool.Iterator {
 	return cm.index.Select(ctx, txs)
 }
 
+// CountTx returns the number of transactions in the mempool.
 func (cm *ConstructorMempool[C]) CountTx() int {
 	return cm.index.CountTx()
 }
@@ -95,7 +109,6 @@ func (cm *ConstructorMempool[C]) Contains(tx sdk.Tx) bool {
 }
 
 // Compare determines the relative priority of two transactions belonging in the same lane.
-// In the default case, priority is determined by the fees of the transaction.
 func (cm *ConstructorMempool[C]) Compare(ctx sdk.Context, this sdk.Tx, other sdk.Tx) int {
 	firstPriority := cm.txPriority.GetTxPriority(ctx, this)
 	secondPriority := cm.txPriority.GetTxPriority(ctx, other)

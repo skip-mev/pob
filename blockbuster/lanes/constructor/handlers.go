@@ -9,6 +9,10 @@ import (
 	"github.com/skip-mev/pob/blockbuster/utils"
 )
 
+// DefaultPrepareLaneHandler returns a default implementation of the PrepareLaneHandler. It
+// selects all transactions in the mempool that are valid and not already in the partial
+// proposal. It will continue to reap transactions until the maximum block space for this
+// lane has been reached. Additionally, any transactions that are invalid will be returned.
 func (l *LaneConstructor[C]) DefaultPrepareLaneHandler() blockbuster.PrepareLaneHandler {
 	return func(ctx sdk.Context, proposal blockbuster.BlockProposal, maxTxBytes int64) ([][]byte, []sdk.Tx, error) {
 		var (
@@ -22,7 +26,7 @@ func (l *LaneConstructor[C]) DefaultPrepareLaneHandler() blockbuster.PrepareLane
 		for iterator := l.Select(ctx, nil); iterator != nil; iterator = iterator.Next() {
 			tx := iterator.Tx()
 
-			txBytes, hash, err := utils.GetTxHashStr(l.Cfg.TxEncoder, tx)
+			txBytes, hash, err := utils.GetTxHashStr(l.TxEncoder(), tx)
 			if err != nil {
 				l.Logger().Info("failed to get hash of tx", "err", err)
 
@@ -49,7 +53,7 @@ func (l *LaneConstructor[C]) DefaultPrepareLaneHandler() blockbuster.PrepareLane
 			}
 
 			// Verify the transaction.
-			if err := l.VerifyTx(ctx, tx); err != nil {
+			if err := l.AnteVerifyTx(ctx, tx, false); err != nil {
 				l.Logger().Info(
 					"failed to verify tx",
 					"tx_hash", hash,
@@ -68,11 +72,17 @@ func (l *LaneConstructor[C]) DefaultPrepareLaneHandler() blockbuster.PrepareLane
 	}
 }
 
+// DefaultProcessLaneHandler returns a default implementation of the ProcessLaneHandler. It
+// verifies all transactions in the lane that match the lane's matcher. If any transaction
+// fails to verify, the entire proposal is rejected. If the handler comes across a transaction
+// that does not match the lane's matcher, it will return the remaining transactions in the
+// proposal.
 func (l *LaneConstructor[C]) DefaultProcessLaneHandler() blockbuster.ProcessLaneHandler {
 	return func(ctx sdk.Context, txs []sdk.Tx) ([]sdk.Tx, error) {
+		// Process all transactions that match the lane's matcher.
 		for index, tx := range txs {
 			if l.Match(ctx, tx) {
-				if err := l.VerifyTx(ctx, tx); err != nil {
+				if err := l.AnteVerifyTx(ctx, tx, false); err != nil {
 					return nil, fmt.Errorf("failed to verify tx: %w", err)
 				}
 			} else {
@@ -85,7 +95,14 @@ func (l *LaneConstructor[C]) DefaultProcessLaneHandler() blockbuster.ProcessLane
 	}
 }
 
-func (l *LaneConstructor[C]) DefaultProcessLaneBasicHandler() blockbuster.ProcessLaneBasicHandler {
+// DefaultCheckOrderHandler returns a default implementation of the CheckOrderHandler. It
+// ensures the following invariants:
+//
+//  1. All transactions that belong to this lane respect the ordering logic defined by the
+//     lane.
+//  2. Transactions that belong to other lanes cannot be interleaved with transactions that
+//     belong to this lane.
+func (l *LaneConstructor[C]) DefaultCheckOrderHandler() blockbuster.CheckOrderHandler {
 	return func(ctx sdk.Context, txs []sdk.Tx) error {
 		seenOtherLaneTx := false
 
@@ -109,13 +126,15 @@ func (l *LaneConstructor[C]) DefaultProcessLaneBasicHandler() blockbuster.Proces
 	}
 }
 
+// DefaultMatchHandler returns a default implementation of the MatchHandler. It matches all
+// transactions.
 func DefaultMatchHandler() blockbuster.MatchHandler {
 	return func(ctx sdk.Context, tx sdk.Tx) bool {
 		return true
 	}
 }
 
-// TxPriority returns a TxPriority over the base lane transactions. It prioritizes
+// DefaultTxPriority returns a default implementation of the TxPriority. It prioritizes
 // transactions by their fee.
 func DefaultTxPriority() blockbuster.TxPriority[string] {
 	return blockbuster.TxPriority[string]{

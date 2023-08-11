@@ -9,9 +9,10 @@ import (
 	"github.com/skip-mev/pob/blockbuster/utils"
 )
 
-// PrepareLane will attempt to select the highest bid transaction that is valid
+// PrepareLaneHandler will attempt to select the highest bid transaction that is valid
 // and whose bundled transactions are valid and include them in the proposal. It
-// will return an empty partial proposal if no valid bids are found.
+// will return no transactions if no valid bids are found. If any of the bids are invalid,
+// it will return them and will only remove the bids and not the bundled transactions.
 func (l *TOBLane) PrepareLaneHandler() blockbuster.PrepareLaneHandler {
 	return func(ctx sdk.Context, proposal blockbuster.BlockProposal, maxTxBytes int64) ([][]byte, []sdk.Tx, error) {
 		// Define all of the info we need to select transactions for the partial proposal.
@@ -28,7 +29,7 @@ func (l *TOBLane) PrepareLaneHandler() blockbuster.PrepareLaneHandler {
 			cacheCtx, write := ctx.CacheContext()
 			tmpBidTx := bidTxIterator.Tx()
 
-			bidTxBz, hash, err := utils.GetTxHashStr(l.Cfg.TxEncoder, tmpBidTx)
+			bidTxBz, hash, err := utils.GetTxHashStr(l.TxEncoder(), tmpBidTx)
 			if err != nil {
 				l.Logger().Info("failed to get hash of auction bid tx", "err", err)
 
@@ -91,7 +92,7 @@ func (l *TOBLane) PrepareLaneHandler() blockbuster.PrepareLaneHandler {
 						continue selectBidTxLoop
 					}
 
-					sdkTxBz, _, err := utils.GetTxHashStr(l.Cfg.TxEncoder, sdkTx)
+					sdkTxBz, _, err := utils.GetTxHashStr(l.TxEncoder(), sdkTx)
 					if err != nil {
 						l.Logger().Info(
 							"failed to get hash of bundled tx",
@@ -143,7 +144,7 @@ func (l *TOBLane) PrepareLaneHandler() blockbuster.PrepareLaneHandler {
 	}
 }
 
-// ProcessLane will ensure that block proposals that include transactions from
+// ProcessLaneHandler will ensure that block proposals that include transactions from
 // the top-of-block auction lane are valid.
 func (l *TOBLane) ProcessLaneHandler() blockbuster.ProcessLaneHandler {
 	return func(ctx sdk.Context, txs []sdk.Tx) ([]sdk.Tx, error) {
@@ -169,12 +170,14 @@ func (l *TOBLane) ProcessLaneHandler() blockbuster.ProcessLaneHandler {
 	}
 }
 
-// ProcessLaneBasic ensures that if a bid transaction is present in a proposal,
+// CheckOrderHandler ensures that if a bid transaction is present in a proposal,
 //   - it is the first transaction in the partial proposal
 //   - all of the bundled transactions are included after the bid transaction in the order
 //     they were included in the bid transaction.
 //   - there are no other bid transactions in the proposal
-func (l *TOBLane) ProcessLaneBasicHandler() blockbuster.ProcessLaneBasicHandler {
+//   - transactions from other lanes are not interleaved with transactions from the bid
+//     transaction.
+func (l *TOBLane) CheckOrderHandler() blockbuster.CheckOrderHandler {
 	return func(ctx sdk.Context, txs []sdk.Tx) error {
 		if len(txs) == 0 {
 			return nil
@@ -199,7 +202,12 @@ func (l *TOBLane) ProcessLaneBasicHandler() blockbuster.ProcessLaneBasicHandler 
 		}
 
 		if len(txs) < len(bidInfo.Transactions)+1 {
-			return fmt.Errorf("invalid number of transactions in lane %s; expected at least %d, got %d", l.Name(), len(bidInfo.Transactions)+1, len(txs))
+			return fmt.Errorf(
+				"invalid number of transactions in lane %s; expected at least %d, got %d",
+				l.Name(),
+				len(bidInfo.Transactions)+1,
+				len(txs),
+			)
 		}
 
 		// Ensure that the order of transactions in the bundle is preserved.
@@ -208,7 +216,7 @@ func (l *TOBLane) ProcessLaneBasicHandler() blockbuster.ProcessLaneBasicHandler 
 				return fmt.Errorf("multiple bid transactions in lane %s", l.Name())
 			}
 
-			txBz, err := l.Cfg.TxEncoder(bundleTx)
+			txBz, err := l.TxEncoder()(bundleTx)
 			if err != nil {
 				return fmt.Errorf("failed to encode bundled tx in lane %s: %w", l.Name(), err)
 			}
@@ -239,7 +247,7 @@ func (l *TOBLane) VerifyTx(ctx sdk.Context, bidTx sdk.Tx) error {
 	}
 
 	// verify the top-level bid transaction
-	if err = l.LaneConstructor.VerifyTx(ctx, bidTx); err != nil {
+	if err = l.AnteVerifyTx(ctx, bidTx, false); err != nil {
 		return fmt.Errorf("invalid bid tx; failed to execute ante handler: %w", err)
 	}
 
@@ -256,7 +264,7 @@ func (l *TOBLane) VerifyTx(ctx sdk.Context, bidTx sdk.Tx) error {
 			return fmt.Errorf("invalid bid tx; bundled tx cannot be a bid tx")
 		}
 
-		if err = l.LaneConstructor.VerifyTx(ctx, bidTx); err != nil {
+		if err = l.AnteVerifyTx(ctx, bidTx, false); err != nil {
 			return fmt.Errorf("invalid bid tx; failed to execute bundled transaction: %w", err)
 		}
 	}

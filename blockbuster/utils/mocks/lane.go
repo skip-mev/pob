@@ -23,6 +23,20 @@ type Lane struct {
 	mock.Mock
 }
 
+// CheckOrder provides a mock function with given fields: ctx, txs
+func (_m *Lane) CheckOrder(ctx types.Context, txs []types.Tx) error {
+	ret := _m.Called(ctx, txs)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(types.Context, []types.Tx) error); ok {
+		r0 = rf(ctx, txs)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // Compare provides a mock function with given fields: ctx, this, other
 func (_m *Lane) Compare(ctx types.Context, this types.Tx, other types.Tx) int {
 	ret := _m.Called(ctx, this, other)
@@ -187,20 +201,6 @@ func (_m *Lane) ProcessLane(ctx types.Context, proposalTxs []types.Tx, next bloc
 	return r0, r1
 }
 
-// ProcessLaneBasic provides a mock function with given fields: ctx, txs
-func (_m *Lane) ProcessLaneBasic(ctx types.Context, txs []types.Tx) error {
-	ret := _m.Called(ctx, txs)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(types.Context, []types.Tx) error); ok {
-		r0 = rf(ctx, txs)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // Remove provides a mock function with given fields: _a0
 func (_m *Lane) Remove(_a0 types.Tx) error {
 	ret := _m.Called(_a0)
@@ -236,18 +236,9 @@ func (_m *Lane) SetAnteHandler(antehander types.AnteHandler) {
 	_m.Called(antehander)
 }
 
-// VerifyTx provides a mock function with given fields: ctx, tx
-func (_m *Lane) VerifyTx(ctx types.Context, tx types.Tx) error {
-	ret := _m.Called(ctx, tx)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(types.Context, types.Tx) error); ok {
-		r0 = rf(ctx, tx)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
+// SetIgnoreList provides a mock function with given fields: ignoreList
+func (_m *Lane) SetIgnoreList(ignoreList []blockbuster.Lane) {
+	_m.Called(ignoreList)
 }
 
 // NewLane creates a new instance of Lane. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

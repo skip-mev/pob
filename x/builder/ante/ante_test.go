@@ -108,7 +108,7 @@ func (suite *AnteTestSuite) SetupTest() {
 
 	// Mempool set up
 	suite.lanes = []blockbuster.Lane{suite.tobLane, suite.baseLane}
-	suite.mempool = blockbuster.NewMempool(log.NewTestLogger(suite.T()), suite.lanes...)
+	suite.mempool = blockbuster.NewMempool(log.NewTestLogger(suite.T()), true, suite.lanes...)
 }
 
 func (suite *AnteTestSuite) anteHandler(ctx sdk.Context, tx sdk.Tx, _ bool) (sdk.Context, error) {

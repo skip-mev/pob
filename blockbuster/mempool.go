@@ -31,11 +31,15 @@ type (
 		GetLane(name string) (Lane, error)
 	}
 
-	// Mempool defines the Blockbuster mempool implement. It contains a registry
+	// BBMempool defines the Blockbuster mempool implement. It contains a registry
 	// of lanes, which allows for customizable block proposal construction.
 	BBMempool struct {
+		logger log.Logger
+
+		// registry contains the lanes in the mempool. The lanes are ordered
+		// according to their priority. The first lane in the registry has the
+		// highest priority and the last lane has the lowest priority.
 		registry []Lane
-		logger   log.Logger
 	}
 )
 
@@ -47,8 +51,10 @@ type (
 // registry. Each transaction should only belong in one lane but this is NOT enforced.
 // To enforce that each transaction belong to a single lane, you must configure the
 // ignore list of each lane to include all preceding lanes. Basic mempool API will
-// attempt to insert, remove transactions from all lanes it belongs to.
-func NewMempool(logger log.Logger, lanes ...Lane) *BBMempool {
+// attempt to insert, remove transactions from all lanes it belongs to. It is recommended,
+// that mutex is set to true when creating the mempool. This will ensure that each
+// transaction cannot be inserted into the lanes before it.
+func NewMempool(logger log.Logger, mutex bool, lanes ...Lane) *BBMempool {
 	mempool := &BBMempool{
 		logger:   logger,
 		registry: lanes,
@@ -56,6 +62,16 @@ func NewMempool(logger log.Logger, lanes ...Lane) *BBMempool {
 
 	if err := mempool.ValidateBasic(); err != nil {
 		panic(err)
+	}
+
+	// Set the ignore list for each lane
+	if mutex {
+		registry := mempool.registry
+		for index, lane := range mempool.registry {
+			if index > 0 {
+				lane.SetIgnoreList(registry[:index])
+			}
+		}
 	}
 
 	return mempool
@@ -164,7 +180,10 @@ func (m *BBMempool) Registry() []Lane {
 	return m.registry
 }
 
-// ValidateBasic validates the mempools configuration.
+// ValidateBasic validates the mempools configuration. ValidateBasic ensures
+// the following:
+// - The sum of the lane max block space percentages is less than or equal to 1.
+// - There is no unused block space.
 func (m *BBMempool) ValidateBasic() error {
 	sum := math.LegacyZeroDec()
 	seenZeroMaxBlockSpace := false

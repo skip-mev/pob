@@ -2,7 +2,6 @@ package terminator
 
 import (
 	"context"
-	"fmt"
 
 	"cosmossdk.io/log"
 	"cosmossdk.io/math"
@@ -40,9 +39,24 @@ func (t Terminator) PrepareLane(_ sdk.Context, proposal blockbuster.BlockProposa
 	return proposal, nil
 }
 
+// ValidateLaneBasic is a no-op
+func (t Terminator) CheckOrder(sdk.Context, []sdk.Tx) error {
+	return nil
+}
+
 // ProcessLane is a no-op
 func (t Terminator) ProcessLane(ctx sdk.Context, _ []sdk.Tx, _ blockbuster.ProcessLanesHandler) (sdk.Context, error) {
 	return ctx, nil
+}
+
+// GetMaxBlockSpace is a no-op
+func (t Terminator) GetMaxBlockSpace() math.LegacyDec {
+	return math.LegacyZeroDec()
+}
+
+// Logger is a no-op
+func (t Terminator) Logger() log.Logger {
+	return log.NewNopLogger()
 }
 
 // Name returns the name of the lane
@@ -50,14 +64,15 @@ func (t Terminator) Name() string {
 	return "Terminator"
 }
 
+// SetAnteHandler is a no-op
+func (t Terminator) SetAnteHandler(sdk.AnteHandler) {}
+
+// SetIgnoreList is a no-op
+func (t Terminator) SetIgnoreList([]blockbuster.Lane) {}
+
 // Match is a no-op
 func (t Terminator) Match(sdk.Context, sdk.Tx) bool {
 	return false
-}
-
-// VerifyTx is a no-op
-func (t Terminator) VerifyTx(sdk.Context, sdk.Tx) error {
-	return fmt.Errorf("Terminator lane should not be called")
 }
 
 // Contains is a no-op
@@ -88,22 +103,4 @@ func (t Terminator) Select(context.Context, [][]byte) sdkmempool.Iterator {
 // HasHigherPriority is a no-op
 func (t Terminator) Compare(sdk.Context, sdk.Tx, sdk.Tx) int {
 	return 0
-}
-
-// ValidateLaneBasic is a no-op
-func (t Terminator) ProcessLaneBasic(sdk.Context, []sdk.Tx) error {
-	return nil
-}
-
-// SetLaneConfig is a no-op
-func (t Terminator) SetAnteHandler(sdk.AnteHandler) {}
-
-// Logger is a no-op
-func (t Terminator) Logger() log.Logger {
-	return log.NewNopLogger()
-}
-
-// GetMaxBlockSpace is a no-op
-func (t Terminator) GetMaxBlockSpace() math.LegacyDec {
-	return math.LegacyZeroDec()
 }

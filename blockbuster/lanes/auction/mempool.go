@@ -2,7 +2,6 @@ package auction
 
 import (
 	"context"
-	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/blockbuster"
@@ -51,17 +50,8 @@ func TxPriority(config Factory) blockbuster.TxPriority[string] {
 	}
 }
 
-// Insert inserts a transaction into the auction mempool.
-func (l *TOBLane) Insert(ctx context.Context, tx sdk.Tx) error {
-	unwrappedCtx := sdk.UnwrapSDKContext(ctx)
-	if !l.Match(unwrappedCtx, tx) {
-		return fmt.Errorf("transaction does not match lane")
-	}
-
-	return l.LaneConstructor.Insert(ctx, tx)
-}
-
 // GetTopAuctionTx returns the highest bidding transaction in the auction mempool.
+// This is primarily a helper function for the x/builder module.
 func (l *TOBLane) GetTopAuctionTx(ctx context.Context) sdk.Tx {
 	iterator := l.Select(ctx, nil)
 	if iterator == nil {

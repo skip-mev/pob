@@ -13,6 +13,7 @@ import (
 	"github.com/skip-mev/pob/blockbuster"
 	"github.com/skip-mev/pob/blockbuster/lanes/auction"
 	"github.com/skip-mev/pob/blockbuster/lanes/base"
+	"github.com/skip-mev/pob/blockbuster/lanes/constructor"
 	"github.com/skip-mev/pob/blockbuster/lanes/free"
 	testutils "github.com/skip-mev/pob/testutils"
 	buildertypes "github.com/skip-mev/pob/x/builder/types"
@@ -76,13 +77,11 @@ func (suite *BlockBusterTestSuite) SetupTest() {
 		TxDecoder:     suite.encodingConfig.TxConfig.TxDecoder(),
 		AnteHandler:   nil,
 		MaxBlockSpace: math.LegacyZeroDec(),
-		IgnoreList: []blockbuster.Lane{
-			suite.tobLane,
-		},
 	}
 	suite.freeLane = free.NewFreeLane(
 		freeConfig,
-		free.NewDefaultFreeFactory(suite.encodingConfig.TxConfig.TxDecoder()),
+		constructor.DefaultTxPriority(),
+		free.DefaultMatchHandler(),
 	)
 
 	// Base lane set up
@@ -92,10 +91,6 @@ func (suite *BlockBusterTestSuite) SetupTest() {
 		TxDecoder:     suite.encodingConfig.TxConfig.TxDecoder(),
 		AnteHandler:   nil,
 		MaxBlockSpace: math.LegacyZeroDec(),
-		IgnoreList: []blockbuster.Lane{
-			suite.tobLane,
-			suite.freeLane,
-		},
 	}
 	suite.baseLane = base.NewDefaultLane(
 		baseConfig,
@@ -103,7 +98,7 @@ func (suite *BlockBusterTestSuite) SetupTest() {
 
 	// Mempool set up
 	suite.lanes = []blockbuster.Lane{suite.tobLane, suite.freeLane, suite.baseLane}
-	suite.mempool = blockbuster.NewMempool(log.NewTestLogger(suite.T()), suite.lanes...)
+	suite.mempool = blockbuster.NewMempool(log.NewTestLogger(suite.T()), true, suite.lanes...)
 
 	// Accounts set up
 	suite.accounts = testutils.RandomAccounts(suite.random, 10)

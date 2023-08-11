@@ -423,7 +423,7 @@ func (s *ConstructorTestSuite) TestProcessLaneBasic() {
 			tx1: true,
 			tx2: true,
 		})
-		s.Require().NoError(lane.ProcessLaneBasic(sdk.Context{}, proposal))
+		s.Require().NoError(lane.CheckOrder(sdk.Context{}, proposal))
 	})
 
 	s.Run("should not accept a proposal with transactions that are not in the correct order", func() {
@@ -456,7 +456,7 @@ func (s *ConstructorTestSuite) TestProcessLaneBasic() {
 			tx1: true,
 			tx2: true,
 		})
-		s.Require().Error(lane.ProcessLaneBasic(sdk.Context{}, proposal))
+		s.Require().Error(lane.CheckOrder(sdk.Context{}, proposal))
 	})
 
 	s.Run("should not accept a proposal where transactions are out of order relative to other lanes", func() {
@@ -485,14 +485,14 @@ func (s *ConstructorTestSuite) TestProcessLaneBasic() {
 		mocklane.On("Match", sdk.Context{}, tx2).Return(false)
 
 		lane := s.initLane(math.LegacyMustNewDecFromStr("1"), nil)
-		lane.Cfg.IgnoreList = []blockbuster.Lane{mocklane}
+		lane.SetIgnoreList([]blockbuster.Lane{mocklane})
 
 		proposal := []sdk.Tx{
 			tx1,
 			tx2,
 		}
 
-		s.Require().Error(lane.ProcessLaneBasic(sdk.Context{}, proposal))
+		s.Require().Error(lane.CheckOrder(sdk.Context{}, proposal))
 	})
 }
 

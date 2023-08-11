@@ -13,11 +13,11 @@ const (
 var _ blockbuster.Lane = (*DefaultLane)(nil)
 
 // DefaultLane defines a default lane implementation. The default lane orders
-// transactions by the sdk.Context priority. The default lane will accept any
-// transaction that is not a part of the lane's IgnoreList. By default, the IgnoreList
-// is empty and the default lane will accept any transaction. The default lane on its
-// own implements the same functionality as the pre v0.47.0 tendermint mempool and proposal
-// handlers.
+// transactions by the transaction fees. The default lane accepts any transaction
+// that is should not be ignored (as defined by the IgnoreList in the BaseLaneConfig).
+// The default lane builds and verifies blocks in a similiar fashion to how the
+// CometBFT/Tendermint consensus engine builds and verifies blocks pre SDK version
+// 0.47.0.
 type DefaultLane struct {
 	*constructor.LaneConstructor[string]
 }

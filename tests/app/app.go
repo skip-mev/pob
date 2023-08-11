@@ -67,6 +67,7 @@ import (
 	"github.com/skip-mev/pob/blockbuster/abci"
 	"github.com/skip-mev/pob/blockbuster/lanes/auction"
 	"github.com/skip-mev/pob/blockbuster/lanes/base"
+	"github.com/skip-mev/pob/blockbuster/lanes/constructor"
 	"github.com/skip-mev/pob/blockbuster/lanes/free"
 	buildermodule "github.com/skip-mev/pob/x/builder"
 	builderkeeper "github.com/skip-mev/pob/x/builder/keeper"
@@ -287,7 +288,8 @@ func New(
 	}
 	freeLane := free.NewFreeLane(
 		freeConfig,
-		free.NewDefaultFreeFactory(app.txConfig.TxDecoder()),
+		constructor.DefaultTxPriority(),
+		free.DefaultMatchHandler(),
 	)
 
 	// Default lane accepts all other transactions.
@@ -309,7 +311,7 @@ func New(
 		freeLane,
 		defaultLane,
 	}
-	mempool := blockbuster.NewMempool(app.Logger(), lanes...)
+	mempool := blockbuster.NewMempool(app.Logger(), true, lanes...)
 	app.App.SetMempool(mempool)
 
 	// Create a global ante handler that will be called on each transaction when

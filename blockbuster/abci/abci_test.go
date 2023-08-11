@@ -15,6 +15,7 @@ import (
 	"github.com/skip-mev/pob/blockbuster/abci"
 	"github.com/skip-mev/pob/blockbuster/lanes/auction"
 	"github.com/skip-mev/pob/blockbuster/lanes/base"
+	"github.com/skip-mev/pob/blockbuster/lanes/constructor"
 	"github.com/skip-mev/pob/blockbuster/lanes/free"
 	testutils "github.com/skip-mev/pob/testutils"
 	"github.com/skip-mev/pob/x/builder/ante"
@@ -99,11 +100,11 @@ func (suite *ABCITestSuite) SetupTest() {
 		TxDecoder:     suite.encodingConfig.TxConfig.TxDecoder(),
 		AnteHandler:   suite.anteHandler,
 		MaxBlockSpace: math.LegacyZeroDec(), // It can be as big as it wants (up to maxTxBytes)
-		IgnoreList:    []blockbuster.Lane{suite.tobLane},
 	}
 	suite.freeLane = free.NewFreeLane(
 		suite.freeConfig,
-		free.NewDefaultFreeFactory(suite.encodingConfig.TxConfig.TxDecoder()),
+		constructor.DefaultTxPriority(),
+		free.DefaultMatchHandler(),
 	)
 
 	// Base lane set up
@@ -113,13 +114,12 @@ func (suite *ABCITestSuite) SetupTest() {
 		TxDecoder:     suite.encodingConfig.TxConfig.TxDecoder(),
 		AnteHandler:   suite.anteHandler,
 		MaxBlockSpace: math.LegacyZeroDec(), // It can be as big as it wants (up to maxTxBytes)
-		IgnoreList:    []blockbuster.Lane{suite.tobLane, suite.freeLane},
 	}
 	suite.baseLane = base.NewDefaultLane(suite.baseConfig)
 
 	// Mempool set up
 	suite.lanes = []blockbuster.Lane{suite.tobLane, suite.freeLane, suite.baseLane}
-	suite.mempool = blockbuster.NewMempool(log.NewTestLogger(suite.T()), suite.lanes...)
+	suite.mempool = blockbuster.NewMempool(log.NewTestLogger(suite.T()), true, suite.lanes...)
 
 	// Accounts set up
 	suite.accounts = testutils.RandomAccounts(suite.random, 10)
@@ -156,7 +156,11 @@ func (suite *ABCITestSuite) SetupTest() {
 	suite.builderDecorator = ante.NewBuilderDecorator(suite.builderKeeper, suite.encodingConfig.TxConfig.TxEncoder(), suite.tobLane, suite.mempool)
 
 	// Proposal handler set up
-	suite.proposalHandler = abci.NewProposalHandler(log.NewTestLogger(suite.T()), suite.encodingConfig.TxConfig.TxDecoder(), suite.mempool)
+	suite.proposalHandler = abci.NewProposalHandler(
+		log.NewTestLogger(suite.T()),
+		suite.encodingConfig.TxConfig.TxDecoder(),
+		suite.mempool,
+	)
 }
 
 func (suite *ABCITestSuite) anteHandler(ctx sdk.Context, tx sdk.Tx, _ bool) (sdk.Context, error) {
@@ -181,7 +185,8 @@ func (suite *ABCITestSuite) resetLanesWithNewConfig() {
 	// Free lane set up
 	suite.freeLane = free.NewFreeLane(
 		suite.freeConfig,
-		free.NewDefaultFreeFactory(suite.encodingConfig.TxConfig.TxDecoder()),
+		constructor.DefaultTxPriority(),
+		free.DefaultMatchHandler(),
 	)
 
 	// Base lane set up
@@ -189,7 +194,7 @@ func (suite *ABCITestSuite) resetLanesWithNewConfig() {
 
 	suite.lanes = []blockbuster.Lane{suite.tobLane, suite.freeLane, suite.baseLane}
 
-	suite.mempool = blockbuster.NewMempool(log.NewTestLogger(suite.T()), suite.lanes...)
+	suite.mempool = blockbuster.NewMempool(log.NewTestLogger(suite.T()), true, suite.lanes...)
 }
 
 func (suite *ABCITestSuite) TestPrepareProposal() {
