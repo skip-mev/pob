@@ -9,7 +9,6 @@ replace (
 	github.com/ChainSafe/go-schnorrkel/1 => github.com/ChainSafe/go-schnorrkel v1.0.0
 	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.2 //indirect
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-	github.com/strangelove-ventures/interchaintest/v7 => github.com/skip-mev/interchaintest/v7 v7.0.0-20230809220605-62a93a2dd229
 
 	github.com/vedhavyas/go-subkey => github.com/strangelove-ventures/go-subkey v1.0.7
 
@@ -32,7 +31,7 @@ require (
 
 require (
 	github.com/cometbft/cometbft v0.37.2
-	github.com/strangelove-ventures/interchaintest/v7 v7.0.0-20230802153316-8e02aef8573a
+	github.com/strangelove-ventures/interchaintest/v7 v7.0.0-20230810233557-5fdb1e8a62e5
 )
 
 require (

@@ -960,8 +960,6 @@ github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6Mwd
 github.com/sirupsen/logrus v1.6.0/go.mod h1:7uNnSEd1DgxDLC74fIahvMZmmYsHGZGEOFrfsX/uA88=
 github.com/sirupsen/logrus v1.7.0/go.mod h1:yWOB1SBYBC5VeMP7gHvWumXLIWorT60ONWic61uBYv0=
 github.com/sirupsen/logrus v1.9.0 h1:trlNQbNUG3OdDrDil03MCb1H2o9nJ1x4/5LYw7byDE0=
-github.com/skip-mev/interchaintest/v7 v7.0.0-20230809220605-62a93a2dd229 h1:Jkd84h2C/ujNsN4MG4V9KCa6d2byKcEpEM76qU2dqfM=
-github.com/skip-mev/interchaintest/v7 v7.0.0-20230809220605-62a93a2dd229/go.mod h1:ewo5PTCpLZhhF2n22Msh54tE3Xy0An3OBmOe1ghvJyo=
 github.com/skip-mev/pob v1.0.3 h1:cipN/WUU+xfYbcfUQ4EefSvl3ItocsKgRn3tOtRF2OE=
 github.com/skip-mev/pob v1.0.3/go.mod h1:PMs/dqcWOQruSN6zLExU0TzlBfBmGA8iTy+FJhxn0T8=
 github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d/go.mod h1:OnSkiWE9lh6wB0YB77sQom3nweQdgAjqCqsofrRNTgc=
@@ -993,6 +991,8 @@ github.com/spf13/pflag v1.0.5/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An
 github.com/spf13/viper v1.3.2/go.mod h1:ZiWeW+zYFKm7srdB9IoDzzZXaJaI5eL9QjNiN/DMA2s=
 github.com/spf13/viper v1.16.0 h1:rGGH0XDZhdUOryiDWjmIvUSWpbNqisK8Wk0Vyefw8hc=
 github.com/spf13/viper v1.16.0/go.mod h1:yg78JgCJcbrQOvV9YLXgkLaZqUidkY9K+Dd1FofRzQg=
+github.com/strangelove-ventures/interchaintest/v7 v7.0.0-20230810233557-5fdb1e8a62e5 h1:CxxuOi9avhKixPG1zzgnC0RfPXr8FVtYeuiaymJY8cQ=
+github.com/strangelove-ventures/interchaintest/v7 v7.0.0-20230810233557-5fdb1e8a62e5/go.mod h1:SNOsTMsNsAzyeRgKS+kKwKCpg8R08WW0wSOiR32rb+E=
 github.com/streadway/amqp v0.0.0-20190404075320-75d898a42a94/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/amqp v0.0.0-20190827072141-edfb9018d271/go.mod h1:AZpEONHx3DKn8O/DFsRAY58/XVQiIPMTMB1SddzLXVw=
 github.com/streadway/handy v0.0.0-20190108123426-d5acb3125c2a/go.mod h1:qNTQ5P5JnDBl6z3cMAg/SywNDC5ABu5ApDIw6lUbRmI=
