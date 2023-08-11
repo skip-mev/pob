@@ -1075,7 +1075,7 @@ func (s *POBIntegrationTestSuite) TestLanes() {
 		user2BalanceBefore := QueryAccountBalance(s.T(), s.chain.(*cosmos.CosmosChain), s.user2.FormattedAddress(), s.denom)
 		user1Balance := QueryAccountBalance(s.T(), s.chain.(*cosmos.CosmosChain), s.user1.FormattedAddress(), s.denom)
 		// create free-tx, bid-tx, and normal-tx\
-		bid, bundledTxs := CreateAuctionBidMsg(
+		bid, _ := CreateAuctionBidMsg(
 			s.T(),
 			context.Background(),
 			s.user1,
@@ -1088,11 +1088,10 @@ func (s *POBIntegrationTestSuite) TestLanes() {
 						&banktypes.MsgSend{
 							FromAddress: s.user1.FormattedAddress(),
 							ToAddress:   s.user1.FormattedAddress(),
-							// transfer all tokens
-							Amount: sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(user1Balance))),
+							Amount:      sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(user1Balance))),
 						},
 					},
-					SequenceIncrement: 1,
+					SequenceIncrement: 2,
 				},
 				{
 					User: s.user1,
@@ -1100,8 +1099,7 @@ func (s *POBIntegrationTestSuite) TestLanes() {
 						&banktypes.MsgSend{
 							FromAddress: s.user1.FormattedAddress(),
 							ToAddress:   s.user1.FormattedAddress(),
-							// doing the same again will fail
-							Amount: sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(user1Balance))),
+							Amount:      sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(user1Balance))),
 						},
 					},
 					SequenceIncrement: 2,
@@ -1146,7 +1144,7 @@ func (s *POBIntegrationTestSuite) TestLanes() {
 		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+1)
 		block := Block(s.T(), s.chain.(*cosmos.CosmosChain), int64(height+1))
 
-		VerifyBlock(s.T(), block, 0, TxHash(txs[0]), append(bundledTxs, txs[1:]...))
+		VerifyBlock(s.T(), block, 0, "", txs[1:])
 
 		// check user2 balance expect no fee deduction
 		user2BalanceAfter := QueryAccountBalance(s.T(), s.chain.(*cosmos.CosmosChain), s.user2.FormattedAddress(), s.denom)
