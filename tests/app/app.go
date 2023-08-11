@@ -342,7 +342,7 @@ func New(
 	proposalHandler := abci.NewProposalHandler(
 		app.Logger(),
 		app.TxConfig().TxDecoder(),
-		mempool,
+		mempool.Registry(),
 	)
 	app.App.SetPrepareProposal(proposalHandler.PrepareProposalHandler())
 	app.App.SetProcessProposal(proposalHandler.ProcessProposalHandler())

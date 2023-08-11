@@ -30,7 +30,7 @@ func NewFreeLane(
 		cfg,
 		LaneName,
 		constructor.NewConstructorMempool[string](
-			constructor.DefaultTxPriority(),
+			txPriority,
 			cfg.TxEncoder,
 			cfg.MaxTxs,
 		),

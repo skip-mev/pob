@@ -392,7 +392,7 @@ func (s *ConstructorTestSuite) TestProcessLane() {
 	})
 }
 
-func (s *ConstructorTestSuite) TestProcessLaneBasic() {
+func (s *ConstructorTestSuite) TestCheckOrder() {
 	s.Run("should accept proposal with transactions in correct order", func() {
 		tx1, err := testutils.CreateRandomTx(
 			s.encodingConfig.TxConfig,

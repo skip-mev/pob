@@ -101,7 +101,14 @@ func (m *BBMempool) GetTxDistribution() map[string]int {
 
 // Insert will insert a transaction into the mempool. It inserts the transaction
 // into the first lane that it matches.
-func (m *BBMempool) Insert(ctx context.Context, tx sdk.Tx) error {
+func (m *BBMempool) Insert(ctx context.Context, tx sdk.Tx) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			m.logger.Error("panic in Insert", "err", r)
+			err = fmt.Errorf("panic in Insert: %v", r)
+		}
+	}()
+
 	var errors []string
 
 	unwrappedCtx := sdk.UnwrapSDKContext(ctx)
@@ -134,7 +141,14 @@ func (m *BBMempool) Select(_ context.Context, _ [][]byte) sdkmempool.Iterator {
 }
 
 // Remove removes a transaction from all of the lanes it is currently in.
-func (m *BBMempool) Remove(tx sdk.Tx) error {
+func (m *BBMempool) Remove(tx sdk.Tx) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			m.logger.Error("panic in Remove", "err", r)
+			err = fmt.Errorf("panic in Remove: %v", r)
+		}
+	}()
+
 	var errors []string
 
 	for _, lane := range m.registry {
@@ -165,7 +179,14 @@ func (m *BBMempool) Remove(tx sdk.Tx) error {
 }
 
 // Contains returns true if the transaction is contained in any of the lanes.
-func (m *BBMempool) Contains(tx sdk.Tx) bool {
+func (m *BBMempool) Contains(tx sdk.Tx) (contains bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			m.logger.Error("panic in Contains", "err", r)
+			contains = false
+		}
+	}()
+
 	for _, lane := range m.registry {
 		if lane.Contains(tx) {
 			return true

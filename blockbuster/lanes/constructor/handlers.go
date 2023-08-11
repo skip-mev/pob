@@ -34,6 +34,18 @@ func (l *LaneConstructor[C]) DefaultPrepareLaneHandler() blockbuster.PrepareLane
 				continue
 			}
 
+			// Double check that the transaction belongs to this lane.
+			if !l.Match(ctx, tx) {
+				l.Logger().Info(
+					"failed to select tx for lane; tx does not belong to lane",
+					"tx_hash", hash,
+					"lane", l.Name(),
+				)
+
+				txsToRemove = append(txsToRemove, tx)
+				continue
+			}
+
 			// if the transaction is already in the (partial) block proposal, we skip it.
 			if proposal.Contains(txBytes) {
 				l.Logger().Info(
@@ -42,14 +54,23 @@ func (l *LaneConstructor[C]) DefaultPrepareLaneHandler() blockbuster.PrepareLane
 					"lane", l.Name(),
 				)
 
+				txsToRemove = append(txsToRemove, tx)
 				continue
 			}
 
 			// If the transaction is too large, we break and do not attempt to include more txs.
 			txSize := int64(len(txBytes))
 			if updatedSize := totalSize + txSize; updatedSize > maxTxBytes {
-				l.Logger().Info("maximum tx bytes reached", "lane", l.Name())
-				break
+				l.Logger().Info(
+					"tx bytes above the maximum allowed",
+					"lane", l.Name(),
+					"tx_size", txSize,
+					"total_size", totalSize,
+					"max_tx_bytes", maxTxBytes,
+					"tx_hash", hash,
+				)
+
+				continue
 			}
 
 			// Verify the transaction.

@@ -21,12 +21,12 @@ type (
 )
 
 // NewProposalHandler returns a new abci++ proposal handler.
-func NewProposalHandler(logger log.Logger, txDecoder sdk.TxDecoder, mempool blockbuster.Mempool) *ProposalHandler {
+func NewProposalHandler(logger log.Logger, txDecoder sdk.TxDecoder, lanes []blockbuster.Lane) *ProposalHandler {
 	return &ProposalHandler{
 		logger:              logger,
 		txDecoder:           txDecoder,
-		prepareLanesHandler: ChainPrepareLanes(mempool.Registry()...),
-		processLanesHandler: ChainProcessLanes(mempool.Registry()...),
+		prepareLanesHandler: ChainPrepareLanes(lanes...),
+		processLanesHandler: ChainProcessLanes(lanes...),
 	}
 }
 
