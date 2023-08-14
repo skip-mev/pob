@@ -9,7 +9,7 @@ import (
 )
 
 type (
-	// MatchHandler should utilized to determine if a transaction should be included in the lane. This
+	// MatchHandler is utilized to determine if a transaction should be included in the lane. This
 	// function can be a stateless or stateful check on the transaction.
 	MatchHandler func(ctx sdk.Context, tx sdk.Tx) bool
 
@@ -28,25 +28,25 @@ type (
 	// respecting the ordering rules of mempool relative to the lanes it has.
 	ProcessLaneHandler func(ctx sdk.Context, txs []sdk.Tx) ([]sdk.Tx, error)
 
-	// The CheckOrderHandler is responsible for checking the order of transactions that should belong to
-	// the lane. This handler should be used to verify that the ordering of transactions passed into the
+	// CheckOrderHandler is responsible for checking the order of transactions that belong to a given
+	// lane. This handler should be used to verify that the ordering of transactions passed into the
 	// function respect the ordering logic of the lane (if any transactions from the lane are included).
 	// This function should also ensure that transactions that belong to this lane are contiguous and do
 	// not have any transactions from other lanes in between them.
 	CheckOrderHandler func(ctx sdk.Context, txs []sdk.Tx) error
 
-	// PrepareLanesHandler wraps all of the lanes Prepare function into a single chained
+	// PrepareLanesHandler wraps all of the lanes' PrepareLane function into a single chained
 	// function. You can think of it like an AnteHandler, but for preparing proposals in the
 	// context of lanes instead of modules.
 	PrepareLanesHandler func(ctx sdk.Context, proposal BlockProposal) (BlockProposal, error)
 
-	// ProcessLanesHandler wraps all of the lanes Process functions into a single chained
+	// ProcessLanesHandler wraps all of the lanes' ProcessLane functions into a single chained
 	// function. You can think of it like an AnteHandler, but for processing proposals in the
 	// context of lanes instead of modules.
 	ProcessLanesHandler func(ctx sdk.Context, txs []sdk.Tx) (sdk.Context, error)
 
-	// BaseLaneConfig defines the basic functionality needed for a lane.
-	BaseLaneConfig struct {
+	// LaneConfig defines the basic functionality needed for a lane.
+	LaneConfig struct {
 		Logger      log.Logger
 		TxEncoder   sdk.TxEncoder
 		TxDecoder   sdk.TxDecoder
@@ -84,8 +84,8 @@ func NewBaseLaneConfig(
 	txDecoder sdk.TxDecoder,
 	anteHandler sdk.AnteHandler,
 	maxBlockSpace math.LegacyDec,
-) BaseLaneConfig {
-	return BaseLaneConfig{
+) LaneConfig {
+	return LaneConfig{
 		Logger:        logger,
 		TxEncoder:     txEncoder,
 		TxDecoder:     txDecoder,
@@ -95,7 +95,7 @@ func NewBaseLaneConfig(
 }
 
 // ValidateBasic validates the lane configuration.
-func (c *BaseLaneConfig) ValidateBasic() error {
+func (c *LaneConfig) ValidateBasic() error {
 	if c.Logger == nil {
 		return fmt.Errorf("logger cannot be nil")
 	}

@@ -243,7 +243,7 @@ func (l *TOBLane) CheckOrderHandler() blockbuster.CheckOrderHandler {
 // are invalid.
 func (l *TOBLane) VerifyTx(ctx sdk.Context, bidTx sdk.Tx, bidInfo *types.BidInfo) (err error) {
 	if bidInfo == nil {
-		return fmt.Errorf("invalid bid tx; failed to get bid info")
+		return fmt.Errorf("bid info is nil")
 	}
 
 	// verify the top-level bid transaction
@@ -256,12 +256,6 @@ func (l *TOBLane) VerifyTx(ctx sdk.Context, bidTx sdk.Tx, bidInfo *types.BidInfo
 		bundledTx, err := l.WrapBundleTransaction(tx)
 		if err != nil {
 			return fmt.Errorf("invalid bid tx; failed to decode bundled tx: %w", err)
-		}
-
-		// bid txs cannot be included in bundled txs
-		bidInfo, _ := l.GetAuctionBidInfo(bundledTx)
-		if bidInfo != nil {
-			return fmt.Errorf("invalid bid tx; bundled tx cannot be a bid tx")
 		}
 
 		if ctx, err = l.AnteVerifyTx(ctx, bundledTx, false); err != nil {

@@ -83,7 +83,7 @@ func (suite *AnteTestSuite) SetupTest() {
 	// Lanes configuration
 	//
 	// TOB lane set up
-	tobConfig := blockbuster.BaseLaneConfig{
+	tobConfig := blockbuster.LaneConfig{
 		Logger:        suite.ctx.Logger(),
 		TxEncoder:     suite.encodingConfig.TxConfig.TxEncoder(),
 		TxDecoder:     suite.encodingConfig.TxConfig.TxDecoder(),
@@ -96,7 +96,7 @@ func (suite *AnteTestSuite) SetupTest() {
 	)
 
 	// Base lane set up
-	baseConfig := blockbuster.BaseLaneConfig{
+	baseConfig := blockbuster.LaneConfig{
 		Logger:        suite.ctx.Logger(),
 		TxEncoder:     suite.encodingConfig.TxConfig.TxEncoder(),
 		TxDecoder:     suite.encodingConfig.TxConfig.TxDecoder(),

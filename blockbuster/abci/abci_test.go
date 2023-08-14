@@ -772,7 +772,7 @@ func (s *ABCITestSuite) setUpAnteHandler(expectedExecution map[sdk.Tx]bool) sdk.
 }
 
 func (s *ABCITestSuite) setUpDefaultLane(maxBlockSpace math.LegacyDec, expectedExecution map[sdk.Tx]bool) *base.DefaultLane {
-	cfg := blockbuster.BaseLaneConfig{
+	cfg := blockbuster.LaneConfig{
 		Logger:        log.NewTestLogger(s.T()),
 		TxEncoder:     s.encodingConfig.TxConfig.TxEncoder(),
 		TxDecoder:     s.encodingConfig.TxConfig.TxDecoder(),
@@ -784,7 +784,7 @@ func (s *ABCITestSuite) setUpDefaultLane(maxBlockSpace math.LegacyDec, expectedE
 }
 
 func (s *ABCITestSuite) setUpTOBLane(maxBlockSpace math.LegacyDec, expectedExecution map[sdk.Tx]bool) *auction.TOBLane {
-	cfg := blockbuster.BaseLaneConfig{
+	cfg := blockbuster.LaneConfig{
 		Logger:        log.NewTestLogger(s.T()),
 		TxEncoder:     s.encodingConfig.TxConfig.TxEncoder(),
 		TxDecoder:     s.encodingConfig.TxConfig.TxDecoder(),
@@ -796,7 +796,7 @@ func (s *ABCITestSuite) setUpTOBLane(maxBlockSpace math.LegacyDec, expectedExecu
 }
 
 func (s *ABCITestSuite) setUpFreeLane(maxBlockSpace math.LegacyDec, expectedExecution map[sdk.Tx]bool) *free.FreeLane {
-	cfg := blockbuster.BaseLaneConfig{
+	cfg := blockbuster.LaneConfig{
 		Logger:        log.NewTestLogger(s.T()),
 		TxEncoder:     s.encodingConfig.TxConfig.TxEncoder(),
 		TxDecoder:     s.encodingConfig.TxConfig.TxDecoder(),
@@ -808,7 +808,7 @@ func (s *ABCITestSuite) setUpFreeLane(maxBlockSpace math.LegacyDec, expectedExec
 }
 
 func (s *ABCITestSuite) setUpPanicLane(maxBlockSpace math.LegacyDec) *constructor.LaneConstructor[string] {
-	cfg := blockbuster.BaseLaneConfig{
+	cfg := blockbuster.LaneConfig{
 		Logger:        log.NewTestLogger(s.T()),
 		TxEncoder:     s.encodingConfig.TxConfig.TxEncoder(),
 		TxDecoder:     s.encodingConfig.TxConfig.TxDecoder(),

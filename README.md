@@ -139,8 +139,8 @@ $ go install github.com/skip-mev/pob
         // lane and the last lane is the lowest priority lane.
         // Top of block lane allows transactions to bid for inclusion at the top of the next block.
         //
-        // blockbuster.BaseLaneConfig is utilized for basic encoding/decoding of transactions. 
-        tobConfig := blockbuster.BaseLaneConfig{
+        // blockbuster.LaneConfig is utilized for basic encoding/decoding of transactions. 
+        tobConfig := blockbuster.LaneConfig{
           Logger:        app.Logger(),
           TxEncoder:     app.txConfig.TxEncoder(),
           TxDecoder:     app.txConfig.TxDecoder(),
@@ -160,7 +160,7 @@ $ go install github.com/skip-mev/pob
         )
 
         // Free lane allows transactions to be included in the next block for free.
-        freeConfig := blockbuster.BaseLaneConfig{
+        freeConfig := blockbuster.LaneConfig{
           Logger:        app.Logger(),
           TxEncoder:     app.txConfig.TxEncoder(),
           TxDecoder:     app.txConfig.TxDecoder(),
@@ -178,7 +178,7 @@ $ go install github.com/skip-mev/pob
         )
 
         // Default lane accepts all other transactions.
-        defaultConfig := blockbuster.BaseLaneConfig{
+        defaultConfig := blockbuster.LaneConfig{
           Logger:        app.Logger(),
           TxEncoder:     app.txConfig.TxEncoder(),
           TxDecoder:     app.txConfig.TxDecoder(),

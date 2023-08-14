@@ -263,11 +263,12 @@ func New(
 	// NOTE: The lanes are ordered by priority. The first lane is the highest priority
 	// lane and the last lane is the lowest priority lane.
 	// Top of block lane allows transactions to bid for inclusion at the top of the next block.
-	tobConfig := blockbuster.BaseLaneConfig{
+	tobConfig := blockbuster.LaneConfig{
 		Logger:        app.Logger(),
 		TxEncoder:     app.txConfig.TxEncoder(),
 		TxDecoder:     app.txConfig.TxDecoder(),
-		MaxBlockSpace: math.LegacyZeroDec(),
+		MaxBlockSpace: math.LegacyZeroDec(), // This means the lane has no limit on block space.
+		MaxTxs:        0,                    // This means the lane has no limit on the number of transactions it can store.
 	}
 	tobLane := auction.NewTOBLane(
 		tobConfig,
@@ -275,11 +276,12 @@ func New(
 	)
 
 	// Free lane allows transactions to be included in the next block for free.
-	freeConfig := blockbuster.BaseLaneConfig{
+	freeConfig := blockbuster.LaneConfig{
 		Logger:        app.Logger(),
 		TxEncoder:     app.txConfig.TxEncoder(),
 		TxDecoder:     app.txConfig.TxDecoder(),
 		MaxBlockSpace: math.LegacyZeroDec(),
+		MaxTxs:        0,
 	}
 	freeLane := free.NewFreeLane(
 		freeConfig,
@@ -288,11 +290,12 @@ func New(
 	)
 
 	// Default lane accepts all other transactions.
-	defaultConfig := blockbuster.BaseLaneConfig{
+	defaultConfig := blockbuster.LaneConfig{
 		Logger:        app.Logger(),
 		TxEncoder:     app.txConfig.TxEncoder(),
 		TxDecoder:     app.txConfig.TxDecoder(),
 		MaxBlockSpace: math.LegacyZeroDec(),
+		MaxTxs:        0,
 	}
 	defaultLane := base.NewDefaultLane(defaultConfig)
 
@@ -335,7 +338,7 @@ func New(
 	proposalHandler := abci.NewProposalHandler(
 		app.Logger(),
 		app.TxConfig().TxDecoder(),
-		mempool.Registry(),
+		lanes,
 	)
 	app.App.SetPrepareProposal(proposalHandler.PrepareProposalHandler())
 	app.App.SetProcessProposal(proposalHandler.ProcessProposalHandler())

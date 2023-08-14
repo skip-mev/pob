@@ -31,7 +31,7 @@ type (
 		GetLane(name string) (Lane, error)
 	}
 
-	// BBMempool defines the Blockbuster mempool implement. It contains a registry
+	// BBMempool defines the Blockbuster mempool implementation. It contains a registry
 	// of lanes, which allows for customizable block proposal construction.
 	BBMempool struct {
 		logger log.Logger

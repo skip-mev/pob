@@ -43,8 +43,7 @@ type Lane interface {
 	) (BlockProposal, error)
 
 	// CheckOrder validates that transactions belonging to this lane are not misplaced
-	// in the block proposal and respect the ordering rules of the lane and the ordering
-	// rules of the lanes.
+	// in the block proposal and respect the ordering rules of the lane.
 	CheckOrder(ctx sdk.Context, txs []sdk.Tx) error
 
 	// ProcessLane verifies this lane's portion of a proposed block. It inputs the transactions

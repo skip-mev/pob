@@ -54,7 +54,6 @@ func (l *LaneConstructor[C]) DefaultPrepareLaneHandler() blockbuster.PrepareLane
 					"lane", l.Name(),
 				)
 
-				txsToRemove = append(txsToRemove, tx)
 				continue
 			}
 
@@ -70,7 +69,7 @@ func (l *LaneConstructor[C]) DefaultPrepareLaneHandler() blockbuster.PrepareLane
 					"tx_hash", hash,
 				)
 
-				continue
+				break
 			}
 
 			// Verify the transaction.
@@ -94,7 +93,7 @@ func (l *LaneConstructor[C]) DefaultPrepareLaneHandler() blockbuster.PrepareLane
 }
 
 // DefaultProcessLaneHandler returns a default implementation of the ProcessLaneHandler. It
-// verifies all transactions in the lane that match the lane's matcher. If any transaction
+// verifies all transactions in the lane that matches to the lane. If any transaction
 // fails to verify, the entire proposal is rejected. If the handler comes across a transaction
 // that does not match the lane's matcher, it will return the remaining transactions in the
 // proposal.

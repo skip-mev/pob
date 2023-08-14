@@ -18,12 +18,13 @@ type (
 	// transaction is already in the mempool and to compare the priority of two
 	// transactions.
 	ConstructorMempool[C comparable] struct {
-		// index defines an index transactions.
+		// index defines an index of transactions.
 		index sdkmempool.Mempool
 
 		// txPriority defines the transaction priority function. It is used to
 		// retrieve the priority of a given transaction and to compare the priority
-		// of two transactions.
+		// of two transactions. The index utilizes this struct to order transactions
+		// in the mempool.
 		txPriority blockbuster.TxPriority[C]
 
 		// txEncoder defines the sdk.Tx encoder that allows us to encode transactions
@@ -51,7 +52,7 @@ func NewConstructorMempool[C comparable](txPriority blockbuster.TxPriority[C], t
 	}
 }
 
-// Insert inserts a transaction into the mempool respecting the txPriority.
+// Insert inserts a transaction into the mempool.
 func (cm *ConstructorMempool[C]) Insert(ctx context.Context, tx sdk.Tx) error {
 	if err := cm.index.Insert(ctx, tx); err != nil {
 		return fmt.Errorf("failed to insert tx into auction index: %w", err)

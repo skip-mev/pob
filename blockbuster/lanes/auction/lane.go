@@ -24,6 +24,8 @@ var (
 // next block. The bundled transactions of the selected bid transaction are also
 // included in the next block.
 type (
+	// TOBLaneI defines the interface for the top-of-block auction lane. This interface
+	// is utilized by both the x/builder module and the checkTx handler.
 	TOBLaneI interface {
 		blockbuster.Lane
 		Factory
@@ -43,7 +45,7 @@ type (
 
 // NewTOBLane returns a new TOB lane.
 func NewTOBLane(
-	cfg blockbuster.BaseLaneConfig,
+	cfg blockbuster.LaneConfig,
 	factory Factory,
 ) *TOBLane {
 	lane := &TOBLane{

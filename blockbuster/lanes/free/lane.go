@@ -22,7 +22,7 @@ type FreeLane struct {
 
 // NewFreeLane returns a new free lane.
 func NewFreeLane(
-	cfg blockbuster.BaseLaneConfig,
+	cfg blockbuster.LaneConfig,
 	txPriority blockbuster.TxPriority[string],
 	matchFn blockbuster.MatchHandler,
 ) *FreeLane {
