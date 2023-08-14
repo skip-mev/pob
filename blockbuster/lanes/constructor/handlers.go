@@ -74,7 +74,7 @@ func (l *LaneConstructor[C]) DefaultPrepareLaneHandler() blockbuster.PrepareLane
 			}
 
 			// Verify the transaction.
-			if err := l.AnteVerifyTx(ctx, tx, false); err != nil {
+			if ctx, err = l.AnteVerifyTx(ctx, tx, false); err != nil {
 				l.Logger().Info(
 					"failed to verify tx",
 					"tx_hash", hash,
@@ -100,10 +100,12 @@ func (l *LaneConstructor[C]) DefaultPrepareLaneHandler() blockbuster.PrepareLane
 // proposal.
 func (l *LaneConstructor[C]) DefaultProcessLaneHandler() blockbuster.ProcessLaneHandler {
 	return func(ctx sdk.Context, txs []sdk.Tx) ([]sdk.Tx, error) {
+		var err error
+
 		// Process all transactions that match the lane's matcher.
 		for index, tx := range txs {
 			if l.Match(ctx, tx) {
-				if err := l.AnteVerifyTx(ctx, tx, false); err != nil {
+				if ctx, err = l.AnteVerifyTx(ctx, tx, false); err != nil {
 					return nil, fmt.Errorf("failed to verify tx: %w", err)
 				}
 			} else {

@@ -169,11 +169,11 @@ func CreateAuctionBidMsg(t *testing.T, ctx context.Context, searcher cosmos.User
 // BroadcastTxs broadcasts the given messages for each user. This function returns the broadcasted txs. If a message
 // is not expected to be included in a block, set SkipInclusionCheck to true and the method
 // will not block on the tx's inclusion in a block, otherwise this method will block on the tx's inclusion
-func BroadcastTxs(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, msgsPerUser []Tx) [][]byte {
-	txs := make([][]byte, len(msgsPerUser))
+func BroadcastTxs(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, userTxs []Tx) [][]byte {
+	txs := make([][]byte, len(userTxs))
 
-	for i, msg := range msgsPerUser {
-		txs[i] = CreateTx(t, ctx, chain, msg.User, msg.SequenceIncrement, msg.Height, msg.GasPrice, msg.Msgs...)
+	for i, tx := range userTxs {
+		txs[i] = CreateTx(t, ctx, chain, tx.User, tx.SequenceIncrement, tx.Height, tx.GasPrice, tx.Msgs...)
 	}
 
 	// broadcast each tx
@@ -185,11 +185,10 @@ func BroadcastTxs(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, 
 		_, err := client.BroadcastTxSync(ctx, tx)
 
 		// check execution was successful
-		if !msgsPerUser[i].ExpectFail {
+		if !userTxs[i].ExpectFail {
 			require.NoError(t, err)
 		} else {
 			require.Error(t, err)
-
 		}
 
 	}
@@ -198,7 +197,7 @@ func BroadcastTxs(t *testing.T, ctx context.Context, chain *cosmos.CosmosChain, 
 	eg := errgroup.Group{}
 	for i, tx := range txs {
 		// if we don't expect this tx to be included.. skip it
-		if msgsPerUser[i].SkipInclusionCheck || msgsPerUser[i].ExpectFail {
+		if userTxs[i].SkipInclusionCheck || userTxs[i].ExpectFail {
 			continue
 		}
 

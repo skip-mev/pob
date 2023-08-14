@@ -59,11 +59,10 @@ func (l *LaneConstructor[C]) ProcessLane(ctx sdk.Context, txs []sdk.Tx, next blo
 
 // AnteVerifyTx verifies that the transaction is valid respecting the ante verification logic of
 // of the antehandler chain.
-func (l *LaneConstructor[C]) AnteVerifyTx(ctx sdk.Context, tx sdk.Tx, simulate bool) error {
+func (l *LaneConstructor[C]) AnteVerifyTx(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
 	if l.cfg.AnteHandler != nil {
-		_, err := l.cfg.AnteHandler(ctx, tx, simulate)
-		return err
+		return l.cfg.AnteHandler(ctx, tx, simulate)
 	}
 
-	return nil
+	return ctx, nil
 }

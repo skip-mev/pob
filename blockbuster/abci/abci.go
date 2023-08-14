@@ -57,6 +57,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 			"prepared proposal",
 			"num_txs", proposal.GetNumTxs(),
 			"total_tx_bytes", proposal.GetTotalTxBytes(),
+			"height", req.Height,
 		)
 
 		return &abci.ResponsePrepareProposal{

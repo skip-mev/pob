@@ -53,7 +53,7 @@ func (l *TOBLane) PrepareLaneHandler() blockbuster.PrepareLaneHandler {
 				// Build the partial proposal by selecting the bid transaction and all of
 				// its bundled transactions.
 				bidInfo, err := l.GetAuctionBidInfo(tmpBidTx)
-				if bidInfo == nil || err != nil {
+				if err != nil {
 					l.Logger().Info(
 						"failed to get auction bid info",
 						"tx_hash", hash,
@@ -241,9 +241,13 @@ func (l *TOBLane) CheckOrderHandler() blockbuster.CheckOrderHandler {
 // VerifyTx will verify that the bid transaction and all of its bundled
 // transactions are valid. It will return an error if any of the transactions
 // are invalid.
-func (l *TOBLane) VerifyTx(ctx sdk.Context, bidTx sdk.Tx, bidInfo *types.BidInfo) error {
+func (l *TOBLane) VerifyTx(ctx sdk.Context, bidTx sdk.Tx, bidInfo *types.BidInfo) (err error) {
+	if bidInfo == nil {
+		return fmt.Errorf("invalid bid tx; failed to get bid info")
+	}
+
 	// verify the top-level bid transaction
-	if err := l.AnteVerifyTx(ctx, bidTx, false); err != nil {
+	if ctx, err = l.AnteVerifyTx(ctx, bidTx, false); err != nil {
 		return fmt.Errorf("invalid bid tx; failed to execute ante handler: %w", err)
 	}
 
@@ -260,7 +264,7 @@ func (l *TOBLane) VerifyTx(ctx sdk.Context, bidTx sdk.Tx, bidInfo *types.BidInfo
 			return fmt.Errorf("invalid bid tx; bundled tx cannot be a bid tx")
 		}
 
-		if err = l.AnteVerifyTx(ctx, bidTx, false); err != nil {
+		if ctx, err = l.AnteVerifyTx(ctx, bundledTx, false); err != nil {
 			return fmt.Errorf("invalid bid tx; failed to execute bundled transaction: %w", err)
 		}
 	}

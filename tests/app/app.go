@@ -280,9 +280,6 @@ func New(
 		TxEncoder:     app.txConfig.TxEncoder(),
 		TxDecoder:     app.txConfig.TxDecoder(),
 		MaxBlockSpace: math.LegacyZeroDec(),
-		IgnoreList: []blockbuster.Lane{
-			tobLane,
-		},
 	}
 	freeLane := free.NewFreeLane(
 		freeConfig,
@@ -296,10 +293,6 @@ func New(
 		TxEncoder:     app.txConfig.TxEncoder(),
 		TxDecoder:     app.txConfig.TxDecoder(),
 		MaxBlockSpace: math.LegacyZeroDec(),
-		IgnoreList: []blockbuster.Lane{
-			tobLane,
-			freeLane,
-		},
 	}
 	defaultLane := base.NewDefaultLane(defaultConfig)
 
