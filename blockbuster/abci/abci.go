@@ -22,7 +22,8 @@ type (
 	}
 )
 
-// NewProposalHandler returns a new abci++ proposal handler.
+// NewProposalHandler returns a new abci++ proposal handler. This proposal handler will
+// iteratively call each of the lanes in the chain to prepare and process the proposal.
 func NewProposalHandler(logger log.Logger, txDecoder sdk.TxDecoder, lanes []blockbuster.Lane) *ProposalHandler {
 	return &ProposalHandler{
 		logger:              logger,
@@ -130,6 +131,10 @@ func ChainPrepareLanes(chain ...blockbuster.Lane) blockbuster.PrepareLanesHandle
 		// Cache the context in the case where any of the lanes fail to prepare the proposal.
 		cacheCtx, write := ctx.CacheContext()
 
+		// We utilize a recover to handler any panics or errors that occur during the preparation
+		// of a lane's transactions. This defer will first check if there was a panic or error
+		// thrown from the lane's preparation logic. If there was, we log the error, skip the lane,
+		// and call the next lane in the chain to the prepare the proposal.
 		defer func() {
 			if rec := recover(); rec != nil || err != nil {
 				lane.Logger().Error("failed to prepare lane", "lane", lane.Name(), "err", err, "recover_error", rec)
@@ -143,11 +148,17 @@ func ChainPrepareLanes(chain ...blockbuster.Lane) blockbuster.PrepareLanesHandle
 					// chain is the terminator lane. We return the proposal as is.
 					finalProposal, err = partialProposal, nil
 				default:
+					// If there are more than two lanes remaining, then the first lane in the chain
+					// is the lane that failed to prepare the proposal but the second lane in the
+					// chain is not the terminator lane so there could potentially be more transactions
+					// added to the proposal
 					finalProposal, err = ChainPrepareLanes(chain[1:]...)(ctx, partialProposal)
 				}
 			} else {
 				// Write the cache to the context since we know that the lane successfully prepared
-				// the partial proposal.
+				// the partial proposal. State is written to in a backwards, cascading fashion. This means
+				// that the final context will only be updated after all other lanes have successfully
+				// prepared the partial proposal.
 				write()
 			}
 		}()
