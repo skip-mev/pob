@@ -143,25 +143,7 @@ func ChainPrepareLanes(chain ...blockbuster.Lane) blockbuster.PrepareLanesHandle
 					// chain is the terminator lane. We return the proposal as is.
 					finalProposal, err = partialProposal, nil
 				default:
-					lane := chain[1]
-					lane.Logger().Info("preparing lane", "lane", lane.Name())
-
-					// If there are more than two lanes remaining, then the first lane in the chain
-					// is the lane that failed to prepare the proposal but the second lane in the
-					// chain is not the terminator lane so there could potentially be more transactions
-					// added to the proposal
-					maxTxBytesForLane := utils.GetMaxTxBytesForLane(
-						partialProposal.GetMaxTxBytes(),
-						partialProposal.GetTotalTxBytes(),
-						lane.GetMaxBlockSpace(),
-					)
-
-					finalProposal, err = lane.PrepareLane(
-						ctx,
-						partialProposal,
-						maxTxBytesForLane,
-						ChainPrepareLanes(chain[2:]...),
-					)
+					finalProposal, err = ChainPrepareLanes(chain[1:]...)(ctx, partialProposal)
 				}
 			} else {
 				// Write the cache to the context since we know that the lane successfully prepared

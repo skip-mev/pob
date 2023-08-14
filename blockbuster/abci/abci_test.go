@@ -1,6 +1,8 @@
 package abci_test
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -17,9 +19,7 @@ import (
 	"github.com/skip-mev/pob/blockbuster/lanes/base"
 	"github.com/skip-mev/pob/blockbuster/lanes/constructor"
 	"github.com/skip-mev/pob/blockbuster/lanes/free"
-	"github.com/skip-mev/pob/blockbuster/utils/mocks"
 	testutils "github.com/skip-mev/pob/testutils"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -512,7 +512,7 @@ func (s *ABCITestSuite) TestPrepareProposalEdgeCases() {
 		s.Require().Equal(proposal, resp.Txs)
 	})
 
-	s.Run("can build a proposal if first lane panics", func() {
+	s.Run("can build a proposal if second lane panics", func() {
 		panicLane := s.setUpPanicLane(math.LegacyMustNewDecFromStr("0.25"))
 
 		tx, err := testutils.CreateRandomTx(
@@ -534,6 +534,74 @@ func (s *ABCITestSuite) TestPrepareProposalEdgeCases() {
 			log.NewTestLogger(s.T()),
 			s.encodingConfig.TxConfig.TxDecoder(),
 			[]blockbuster.Lane{defaultLane, panicLane},
+		).PrepareProposalHandler()
+
+		resp, err := proposalHandler(s.ctx, &cometabci.RequestPrepareProposal{MaxTxBytes: 1000000})
+		s.Require().NoError(err)
+		s.Require().NotNil(resp)
+
+		proposal := s.getTxBytes(tx)
+		s.Require().Equal(1, len(resp.Txs))
+		s.Require().Equal(proposal, resp.Txs)
+	})
+
+	s.Run("can build a proposal if multiple consecutive lanes panic", func() {
+		panicLane := s.setUpPanicLane(math.LegacyMustNewDecFromStr("0.25"))
+		panicLane2 := s.setUpPanicLane(math.LegacyMustNewDecFromStr("0.25"))
+
+		tx, err := testutils.CreateRandomTx(
+			s.encodingConfig.TxConfig,
+			s.accounts[0],
+			0,
+			0,
+			0,
+			sdk.NewCoin(s.gasTokenDenom, math.NewInt(1000000)),
+		)
+		s.Require().NoError(err)
+
+		defaultLane := s.setUpDefaultLane(math.LegacyMustNewDecFromStr("0.0"), map[sdk.Tx]bool{
+			tx: true,
+		})
+		s.Require().NoError(defaultLane.Insert(sdk.Context{}, tx))
+
+		proposalHandler := abci.NewProposalHandler(
+			log.NewTestLogger(s.T()),
+			s.encodingConfig.TxConfig.TxDecoder(),
+			[]blockbuster.Lane{panicLane, panicLane2, defaultLane},
+		).PrepareProposalHandler()
+
+		resp, err := proposalHandler(s.ctx, &cometabci.RequestPrepareProposal{MaxTxBytes: 1000000})
+		s.Require().NoError(err)
+		s.Require().NotNil(resp)
+
+		proposal := s.getTxBytes(tx)
+		s.Require().Equal(1, len(resp.Txs))
+		s.Require().Equal(proposal, resp.Txs)
+	})
+
+	s.Run("can build a proposal if the last few lanes panic", func() {
+		panicLane := s.setUpPanicLane(math.LegacyMustNewDecFromStr("0.25"))
+		panicLane2 := s.setUpPanicLane(math.LegacyMustNewDecFromStr("0.25"))
+
+		tx, err := testutils.CreateRandomTx(
+			s.encodingConfig.TxConfig,
+			s.accounts[0],
+			0,
+			0,
+			0,
+			sdk.NewCoin(s.gasTokenDenom, math.NewInt(1000000)),
+		)
+		s.Require().NoError(err)
+
+		defaultLane := s.setUpDefaultLane(math.LegacyMustNewDecFromStr("0.0"), map[sdk.Tx]bool{
+			tx: true,
+		})
+		s.Require().NoError(defaultLane.Insert(sdk.Context{}, tx))
+
+		proposalHandler := abci.NewProposalHandler(
+			log.NewTestLogger(s.T()),
+			s.encodingConfig.TxConfig.TxDecoder(),
+			[]blockbuster.Lane{defaultLane, panicLane, panicLane2},
 		).PrepareProposalHandler()
 
 		resp, err := proposalHandler(s.ctx, &cometabci.RequestPrepareProposal{MaxTxBytes: 1000000})
@@ -670,21 +738,34 @@ func (s *ABCITestSuite) TestProcessProposal() {
 	})
 }
 
-func (s *ABCITestSuite) setUpAnteHandler(expectedExecution map[sdk.Tx]bool) *mocks.AnteHandler {
-	anteHandler := mocks.NewAnteHandler(s.T())
-
+func (s *ABCITestSuite) setUpAnteHandler(expectedExecution map[sdk.Tx]bool) sdk.AnteHandler {
+	txCache := make(map[string]bool)
 	for tx, pass := range expectedExecution {
-		var err error
-		if !pass {
-			err = fmt.Errorf("transaction predetermined to fail")
+		bz, err := s.encodingConfig.TxConfig.TxEncoder()(tx)
+		s.Require().NoError(err)
+
+		hash := sha256.Sum256(bz)
+		hashStr := hex.EncodeToString(hash[:])
+		txCache[hashStr] = pass
+	}
+
+	anteHandler := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (newCtx sdk.Context, err error) {
+		bz, err := s.encodingConfig.TxConfig.TxEncoder()(tx)
+		s.Require().NoError(err)
+
+		hash := sha256.Sum256(bz)
+		hashStr := hex.EncodeToString(hash[:])
+
+		pass, found := txCache[hashStr]
+		if !found {
+			return ctx, fmt.Errorf("tx not found")
 		}
 
-		anteHandler.On("AnteHandler", mock.Anything, tx, mock.Anything).
-			Maybe().
-			Return(
-				s.ctx,
-				err,
-			)
+		if pass {
+			return ctx, nil
+		}
+
+		return ctx, fmt.Errorf("tx failed")
 	}
 
 	return anteHandler
@@ -695,7 +776,7 @@ func (s *ABCITestSuite) setUpDefaultLane(maxBlockSpace math.LegacyDec, expectedE
 		Logger:        log.NewTestLogger(s.T()),
 		TxEncoder:     s.encodingConfig.TxConfig.TxEncoder(),
 		TxDecoder:     s.encodingConfig.TxConfig.TxDecoder(),
-		AnteHandler:   s.setUpAnteHandler(expectedExecution).AnteHandler,
+		AnteHandler:   s.setUpAnteHandler(expectedExecution),
 		MaxBlockSpace: maxBlockSpace,
 	}
 
@@ -707,7 +788,7 @@ func (s *ABCITestSuite) setUpTOBLane(maxBlockSpace math.LegacyDec, expectedExecu
 		Logger:        log.NewTestLogger(s.T()),
 		TxEncoder:     s.encodingConfig.TxConfig.TxEncoder(),
 		TxDecoder:     s.encodingConfig.TxConfig.TxDecoder(),
-		AnteHandler:   s.setUpAnteHandler(expectedExecution).AnteHandler,
+		AnteHandler:   s.setUpAnteHandler(expectedExecution),
 		MaxBlockSpace: maxBlockSpace,
 	}
 
@@ -719,7 +800,7 @@ func (s *ABCITestSuite) setUpFreeLane(maxBlockSpace math.LegacyDec, expectedExec
 		Logger:        log.NewTestLogger(s.T()),
 		TxEncoder:     s.encodingConfig.TxConfig.TxEncoder(),
 		TxDecoder:     s.encodingConfig.TxConfig.TxDecoder(),
-		AnteHandler:   s.setUpAnteHandler(expectedExecution).AnteHandler,
+		AnteHandler:   s.setUpAnteHandler(expectedExecution),
 		MaxBlockSpace: maxBlockSpace,
 	}
 
