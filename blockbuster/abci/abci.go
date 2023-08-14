@@ -1,6 +1,8 @@
 package abci
 
 import (
+	"fmt"
+
 	"cosmossdk.io/log"
 	abci "github.com/cometbft/cometbft/abci/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -71,9 +73,11 @@ func (h *ProposalHandler) ProcessProposalHandler() sdk.ProcessProposalHandler {
 	return func(ctx sdk.Context, req *abci.RequestProcessProposal) (resp *abci.ResponseProcessProposal, err error) {
 		// In the case where any of the lanes panic, we recover here and return a reject status.
 		defer func() {
-			if err := recover(); err != nil {
-				h.logger.Error("failed to process proposal", "err", err)
+			if rec := recover(); rec != nil {
+				h.logger.Error("failed to process proposal", "recover_err", rec)
+
 				resp = &abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
+				err = fmt.Errorf("failed to process proposal: %v", rec)
 			}
 		}()
 
@@ -128,6 +132,7 @@ func ChainPrepareLanes(chain ...blockbuster.Lane) blockbuster.PrepareLanesHandle
 		defer func() {
 			if rec := recover(); rec != nil || err != nil {
 				lane.Logger().Error("failed to prepare lane", "lane", lane.Name(), "err", err, "recover_error", rec)
+				lane.Logger().Info("skipping lane", "lane", lane.Name())
 
 				lanesRemaining := len(chain)
 				switch {
@@ -137,6 +142,9 @@ func ChainPrepareLanes(chain ...blockbuster.Lane) blockbuster.PrepareLanesHandle
 					// chain is the terminator lane. We return the proposal as is.
 					finalProposal, err = partialProposal, nil
 				default:
+					lane := chain[1]
+					lane.Logger().Info("preparing lane", "lane", lane.Name())
+
 					// If there are more than two lanes remaining, then the first lane in the chain
 					// is the lane that failed to prepare the proposal but the second lane in the
 					// chain is not the terminator lane so there could potentially be more transactions
@@ -144,10 +152,10 @@ func ChainPrepareLanes(chain ...blockbuster.Lane) blockbuster.PrepareLanesHandle
 					maxTxBytesForLane := utils.GetMaxTxBytesForLane(
 						partialProposal.GetMaxTxBytes(),
 						partialProposal.GetTotalTxBytes(),
-						chain[1].GetMaxBlockSpace(),
+						lane.GetMaxBlockSpace(),
 					)
 
-					finalProposal, err = chain[1].PrepareLane(
+					finalProposal, err = lane.PrepareLane(
 						ctx,
 						partialProposal,
 						maxTxBytesForLane,

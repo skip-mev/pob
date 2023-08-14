@@ -123,10 +123,42 @@ func NoOpPrepareLanesHandler() PrepareLanesHandler {
 	}
 }
 
+// NoOpPrepareLaneHandler returns a no-op prepare lane handler.
+// This should only be used for testing.
+func NoOpPrepareLaneHandler() PrepareLaneHandler {
+	return func(ctx sdk.Context, proposal BlockProposal, maxTxBytes int64) (txsToInclude [][]byte, txsToRemove []sdk.Tx, err error) {
+		return nil, nil, nil
+	}
+}
+
+// PanicPrepareLaneHandler returns a prepare lane handler that panics.
+// This should only be used for testing.
+func PanicPrepareLaneHandler() PrepareLaneHandler {
+	return func(sdk.Context, BlockProposal, int64) (txsToInclude [][]byte, txsToRemove []sdk.Tx, err error) {
+		panic("panic prepare lanes handler")
+	}
+}
+
 // NoOpProcessLanesHandler returns a no-op process lanes handler.
 // This should only be used for testing.
 func NoOpProcessLanesHandler() ProcessLanesHandler {
 	return func(ctx sdk.Context, txs []sdk.Tx) (sdk.Context, error) {
 		return ctx, nil
+	}
+}
+
+// NoOpProcessLaneHandler returns a no-op process lane handler.
+// This should only be used for testing.
+func NoOpProcessLaneHandler() ProcessLaneHandler {
+	return func(ctx sdk.Context, txs []sdk.Tx) ([]sdk.Tx, error) {
+		return txs, nil
+	}
+}
+
+// PanicProcessLanesHandler returns a process lanes handler that panics.
+// This should only be used for testing.
+func PanicProcessLaneHandler() ProcessLaneHandler {
+	return func(sdk.Context, []sdk.Tx) ([]sdk.Tx, error) {
+		panic("panic process lanes handler")
 	}
 }

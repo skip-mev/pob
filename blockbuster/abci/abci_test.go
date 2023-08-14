@@ -478,6 +478,198 @@ func (s *ABCITestSuite) TestPrepareProposal() {
 	})
 }
 
+func (s *ABCITestSuite) TestPrepareProposalEdgeCases() {
+	s.Run("can build a proposal if a lane panics first", func() {
+		panicLane := s.setUpPanicLane(math.LegacyMustNewDecFromStr("0.25"))
+
+		tx, err := testutils.CreateRandomTx(
+			s.encodingConfig.TxConfig,
+			s.accounts[0],
+			0,
+			0,
+			0,
+			sdk.NewCoin(s.gasTokenDenom, math.NewInt(1000000)),
+		)
+		s.Require().NoError(err)
+
+		defaultLane := s.setUpDefaultLane(math.LegacyMustNewDecFromStr("0.0"), map[sdk.Tx]bool{
+			tx: true,
+		})
+		s.Require().NoError(defaultLane.Insert(sdk.Context{}, tx))
+
+		proposalHandler := abci.NewProposalHandler(
+			log.NewTestLogger(s.T()),
+			s.encodingConfig.TxConfig.TxDecoder(),
+			[]blockbuster.Lane{panicLane, defaultLane},
+		).PrepareProposalHandler()
+
+		resp, err := proposalHandler(s.ctx, &cometabci.RequestPrepareProposal{MaxTxBytes: 1000000})
+		s.Require().NoError(err)
+		s.Require().NotNil(resp)
+
+		proposal := s.getTxBytes(tx)
+		s.Require().Equal(1, len(resp.Txs))
+		s.Require().Equal(proposal, resp.Txs)
+	})
+
+	s.Run("can build a proposal if first lane panics", func() {
+		panicLane := s.setUpPanicLane(math.LegacyMustNewDecFromStr("0.25"))
+
+		tx, err := testutils.CreateRandomTx(
+			s.encodingConfig.TxConfig,
+			s.accounts[0],
+			0,
+			0,
+			0,
+			sdk.NewCoin(s.gasTokenDenom, math.NewInt(1000000)),
+		)
+		s.Require().NoError(err)
+
+		defaultLane := s.setUpDefaultLane(math.LegacyMustNewDecFromStr("0.0"), map[sdk.Tx]bool{
+			tx: true,
+		})
+		s.Require().NoError(defaultLane.Insert(sdk.Context{}, tx))
+
+		proposalHandler := abci.NewProposalHandler(
+			log.NewTestLogger(s.T()),
+			s.encodingConfig.TxConfig.TxDecoder(),
+			[]blockbuster.Lane{defaultLane, panicLane},
+		).PrepareProposalHandler()
+
+		resp, err := proposalHandler(s.ctx, &cometabci.RequestPrepareProposal{MaxTxBytes: 1000000})
+		s.Require().NoError(err)
+		s.Require().NotNil(resp)
+
+		proposal := s.getTxBytes(tx)
+		s.Require().Equal(1, len(resp.Txs))
+		s.Require().Equal(proposal, resp.Txs)
+	})
+}
+
+func (s *ABCITestSuite) TestProcessProposal() {
+	s.Run("can process a valid empty proposal", func() {
+		tobLane := s.setUpTOBLane(math.LegacyMustNewDecFromStr("0.25"), map[sdk.Tx]bool{})
+		freeLane := s.setUpFreeLane(math.LegacyMustNewDecFromStr("0.25"), map[sdk.Tx]bool{})
+		defaultLane := s.setUpDefaultLane(math.LegacyMustNewDecFromStr("0.0"), map[sdk.Tx]bool{})
+
+		proposalHandler := s.setUpProposalHandlers([]blockbuster.Lane{tobLane, freeLane, defaultLane}).ProcessProposalHandler()
+
+		resp, err := proposalHandler(s.ctx, &cometabci.RequestProcessProposal{Txs: nil})
+		s.Require().NoError(err)
+		s.Require().NotNil(resp)
+		s.Require().Equal(&cometabci.ResponseProcessProposal{Status: cometabci.ResponseProcessProposal_ACCEPT}, resp)
+	})
+
+	s.Run("rejects a proposal with bad txs", func() {
+		tobLane := s.setUpTOBLane(math.LegacyMustNewDecFromStr("0.25"), map[sdk.Tx]bool{})
+		freeLane := s.setUpFreeLane(math.LegacyMustNewDecFromStr("0.25"), map[sdk.Tx]bool{})
+		defaultLane := s.setUpDefaultLane(math.LegacyMustNewDecFromStr("0.0"), map[sdk.Tx]bool{})
+
+		proposalHandler := s.setUpProposalHandlers([]blockbuster.Lane{tobLane, freeLane, defaultLane}).ProcessProposalHandler()
+
+		resp, err := proposalHandler(s.ctx, &cometabci.RequestProcessProposal{Txs: [][]byte{{0x01, 0x02, 0x03}}})
+		s.Require().Error(err)
+		s.Require().Equal(&cometabci.ResponseProcessProposal{Status: cometabci.ResponseProcessProposal_REJECT}, resp)
+	})
+
+	s.Run("rejects a proposal when a lane panics", func() {
+		tobLane := s.setUpTOBLane(math.LegacyMustNewDecFromStr("0.25"), map[sdk.Tx]bool{})
+		panicLane := s.setUpPanicLane(math.LegacyMustNewDecFromStr("0.0"))
+
+		txbz, err := testutils.CreateRandomTxBz(
+			s.encodingConfig.TxConfig,
+			s.accounts[0],
+			0,
+			0,
+			0,
+		)
+		s.Require().NoError(err)
+
+		proposalHandler := s.setUpProposalHandlers([]blockbuster.Lane{tobLane, panicLane}).ProcessProposalHandler()
+		resp, err := proposalHandler(s.ctx, &cometabci.RequestProcessProposal{Txs: [][]byte{txbz}})
+		s.Require().Error(err)
+		s.Require().Equal(&cometabci.ResponseProcessProposal{Status: cometabci.ResponseProcessProposal_REJECT}, resp)
+	})
+
+	s.Run("can process a invalid proposal (out of order)", func() {
+		// Create a random transaction that will be inserted into the default lane
+		tx, err := testutils.CreateRandomTx(
+			s.encodingConfig.TxConfig,
+			s.accounts[0],
+			0,
+			1,
+			0,
+			sdk.NewCoin(s.gasTokenDenom, math.NewInt(1000000)),
+		)
+		s.Require().NoError(err)
+
+		// Create a random transaction that will be inserted into the default lane
+		tx2, err := testutils.CreateRandomTx(
+			s.encodingConfig.TxConfig,
+			s.accounts[2],
+			0,
+			1,
+			0,
+			sdk.NewCoin(s.gasTokenDenom, math.NewInt(2000000)),
+		)
+		s.Require().NoError(err)
+
+		// Set up the default lane
+		defaultLane := s.setUpDefaultLane(math.LegacyMustNewDecFromStr("1"), map[sdk.Tx]bool{tx: true})
+		s.Require().NoError(defaultLane.Insert(sdk.Context{}, tx))
+
+		proposalHandler := s.setUpProposalHandlers([]blockbuster.Lane{defaultLane}).ProcessProposalHandler()
+		resp, err := proposalHandler(s.ctx, &cometabci.RequestProcessProposal{Txs: s.getTxBytes(tx, tx2)})
+		s.Require().NotNil(resp)
+		s.Require().Error(err)
+	})
+
+	s.Run("can process a invalid proposal where first lane is valid second is not", func() {
+		bidTx, bundle, err := testutils.CreateAuctionTx(
+			s.encodingConfig.TxConfig,
+			s.accounts[0],
+			sdk.NewCoin(s.gasTokenDenom, math.NewInt(1000000)),
+			0,
+			1,
+			s.accounts[0:2],
+		)
+		s.Require().NoError(err)
+
+		normalTx, err := testutils.CreateRandomTx(
+			s.encodingConfig.TxConfig,
+			s.accounts[1],
+			0,
+			1,
+			0,
+			sdk.NewCoin(s.gasTokenDenom, math.NewInt(2000000)),
+		)
+		s.Require().NoError(err)
+
+		normalTx2, err := testutils.CreateRandomTx(
+			s.encodingConfig.TxConfig,
+			s.accounts[2],
+			0,
+			1,
+			0,
+			sdk.NewCoin(s.gasTokenDenom, math.NewInt(3000000)),
+		)
+		s.Require().NoError(err)
+
+		// Set up the default lane
+		defaultLane := s.setUpDefaultLane(math.LegacyMustNewDecFromStr("0.5"), nil)
+		defaultLane.SetProcessLaneHandler(blockbuster.NoOpProcessLaneHandler())
+
+		// Set up the TOB lane
+		tobLane := s.setUpTOBLane(math.LegacyMustNewDecFromStr("0.5"), nil)
+		tobLane.SetProcessLaneHandler(blockbuster.NoOpProcessLaneHandler())
+
+		proposalHandler := s.setUpProposalHandlers([]blockbuster.Lane{tobLane, defaultLane}).ProcessProposalHandler()
+		resp, err := proposalHandler(s.ctx, &cometabci.RequestProcessProposal{Txs: s.getTxBytes(bidTx, bundle[0], bundle[1], normalTx, normalTx2)})
+		s.Require().NotNil(resp)
+		s.Require().Error(err)
+	})
+}
+
 func (s *ABCITestSuite) setUpAnteHandler(expectedExecution map[sdk.Tx]bool) *mocks.AnteHandler {
 	anteHandler := mocks.NewAnteHandler(s.T())
 
@@ -532,6 +724,27 @@ func (s *ABCITestSuite) setUpFreeLane(maxBlockSpace math.LegacyDec, expectedExec
 	}
 
 	return free.NewFreeLane(cfg, constructor.DefaultTxPriority(), free.DefaultMatchHandler())
+}
+
+func (s *ABCITestSuite) setUpPanicLane(maxBlockSpace math.LegacyDec) *constructor.LaneConstructor[string] {
+	cfg := blockbuster.BaseLaneConfig{
+		Logger:        log.NewTestLogger(s.T()),
+		TxEncoder:     s.encodingConfig.TxConfig.TxEncoder(),
+		TxDecoder:     s.encodingConfig.TxConfig.TxDecoder(),
+		MaxBlockSpace: maxBlockSpace,
+	}
+
+	lane := constructor.NewLaneConstructor[string](
+		cfg,
+		"panic",
+		constructor.NewConstructorMempool[string](constructor.DefaultTxPriority(), cfg.TxEncoder, 0),
+		constructor.DefaultMatchHandler(),
+	)
+
+	lane.SetPrepareLaneHandler(blockbuster.PanicPrepareLaneHandler())
+	lane.SetProcessLaneHandler(blockbuster.PanicProcessLaneHandler())
+
+	return lane
 }
 
 func (s *ABCITestSuite) setUpProposalHandlers(lanes []blockbuster.Lane) *abci.ProposalHandler {

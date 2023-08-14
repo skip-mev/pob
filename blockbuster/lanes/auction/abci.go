@@ -7,6 +7,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/skip-mev/pob/blockbuster"
 	"github.com/skip-mev/pob/blockbuster/utils"
+	"github.com/skip-mev/pob/x/builder/types"
 )
 
 // PrepareLaneHandler will attempt to select the highest bid transaction that is valid
@@ -49,18 +50,6 @@ func (l *TOBLane) PrepareLaneHandler() blockbuster.PrepareLaneHandler {
 
 			bidTxSize := int64(len(bidTxBz))
 			if bidTxSize <= maxTxBytes {
-				// Verify the bid transaction and all of its bundled transactions.
-				if err := l.VerifyTx(cacheCtx, tmpBidTx); err != nil {
-					l.Logger().Info(
-						"failed to verify auction bid tx",
-						"tx_hash", hash,
-						"err", err,
-					)
-
-					txsToRemove = append(txsToRemove, tmpBidTx)
-					continue selectBidTxLoop
-				}
-
 				// Build the partial proposal by selecting the bid transaction and all of
 				// its bundled transactions.
 				bidInfo, err := l.GetAuctionBidInfo(tmpBidTx)
@@ -73,6 +62,18 @@ func (l *TOBLane) PrepareLaneHandler() blockbuster.PrepareLaneHandler {
 
 					// Some transactions in the bundle may be malformed or invalid, so we
 					// remove the bid transaction and try the next top bid.
+					txsToRemove = append(txsToRemove, tmpBidTx)
+					continue selectBidTxLoop
+				}
+
+				// Verify the bid transaction and all of its bundled transactions.
+				if err := l.VerifyTx(cacheCtx, tmpBidTx, bidInfo); err != nil {
+					l.Logger().Info(
+						"failed to verify auction bid tx",
+						"tx_hash", hash,
+						"err", err,
+					)
+
 					txsToRemove = append(txsToRemove, tmpBidTx)
 					continue selectBidTxLoop
 				}
@@ -162,7 +163,7 @@ func (l *TOBLane) ProcessLaneHandler() blockbuster.ProcessLaneHandler {
 			return nil, fmt.Errorf("failed to get bid info for lane %s: %w", l.Name(), err)
 		}
 
-		if err := l.VerifyTx(ctx, bidTx); err != nil {
+		if err := l.VerifyTx(ctx, bidTx, bidInfo); err != nil {
 			return nil, fmt.Errorf("invalid bid tx: %w", err)
 		}
 
@@ -240,14 +241,9 @@ func (l *TOBLane) CheckOrderHandler() blockbuster.CheckOrderHandler {
 // VerifyTx will verify that the bid transaction and all of its bundled
 // transactions are valid. It will return an error if any of the transactions
 // are invalid.
-func (l *TOBLane) VerifyTx(ctx sdk.Context, bidTx sdk.Tx) error {
-	bidInfo, err := l.GetAuctionBidInfo(bidTx)
-	if err != nil {
-		return fmt.Errorf("failed to get auction bid info: %w", err)
-	}
-
+func (l *TOBLane) VerifyTx(ctx sdk.Context, bidTx sdk.Tx, bidInfo *types.BidInfo) error {
 	// verify the top-level bid transaction
-	if err = l.AnteVerifyTx(ctx, bidTx, false); err != nil {
+	if err := l.AnteVerifyTx(ctx, bidTx, false); err != nil {
 		return fmt.Errorf("invalid bid tx; failed to execute ante handler: %w", err)
 	}
 
