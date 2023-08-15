@@ -33,7 +33,7 @@ type (
 
 	TOBLane struct {
 		// LaneConfig defines the base lane configuration.
-		*blockbuster.LaneConstructor[string]
+		*blockbuster.LaneConstructor
 
 		// Factory defines the API/functionality which is responsible for determining
 		// if a transaction is a bid transaction and how to extract relevant
@@ -48,7 +48,7 @@ func NewTOBLane(
 	factory Factory,
 ) *TOBLane {
 	lane := &TOBLane{
-		LaneConstructor: blockbuster.NewLaneConstructor[string](
+		LaneConstructor: blockbuster.NewLaneConstructor(
 			cfg,
 			LaneName,
 			blockbuster.NewConstructorMempool[string](
