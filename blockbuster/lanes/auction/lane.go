@@ -12,9 +12,7 @@ const (
 	LaneName = "top-of-block"
 )
 
-var (
-	_ TOBLaneI = (*TOBLane)(nil)
-)
+var _ TOBLaneI = (*TOBLane)(nil)
 
 // TOBLane defines a top-of-block auction lane. The top of block auction lane
 // hosts transactions that want to bid for inclusion at the top of the next block.

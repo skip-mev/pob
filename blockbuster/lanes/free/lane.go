@@ -15,7 +15,7 @@ var _ blockbuster.Lane = (*FreeLane)(nil)
 
 // FreeLane defines the lane that is responsible for processing free transactions.
 // By default, transactions that are staking related are considered free.
-type FreeLane struct {
+type FreeLane struct { //nolint
 	*blockbuster.LaneConstructor
 }
 
