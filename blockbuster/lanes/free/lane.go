@@ -16,7 +16,7 @@ var _ blockbuster.Lane = (*FreeLane)(nil)
 // FreeLane defines the lane that is responsible for processing free transactions.
 // By default, transactions that are staking related are considered free.
 type FreeLane struct {
-	*blockbuster.LaneConstructor[string]
+	*blockbuster.LaneConstructor
 }
 
 // NewFreeLane returns a new free lane.
@@ -25,7 +25,7 @@ func NewFreeLane(
 	txPriority blockbuster.TxPriority[string],
 	matchFn blockbuster.MatchHandler,
 ) *FreeLane {
-	lane := blockbuster.NewLaneConstructor[string](
+	lane := blockbuster.NewLaneConstructor(
 		cfg,
 		LaneName,
 		blockbuster.NewConstructorMempool[string](
