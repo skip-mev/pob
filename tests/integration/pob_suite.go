@@ -5,12 +5,12 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
 	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v7/ibc"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
 const (
@@ -34,7 +34,7 @@ type POBIntegrationTestSuite struct {
 
 func NewPOBIntegrationTestSuiteFromSpec(spec *interchaintest.ChainSpec) *POBIntegrationTestSuite {
 	return &POBIntegrationTestSuite{
-		spec: spec,
+		spec:  spec,
 		denom: "stake",
 	}
 }
@@ -897,7 +897,7 @@ func (s *POBIntegrationTestSuite) TestFreeLane() {
 	s.Run("valid free lane transaction", func() {
 		// query balance of account before tx submission
 		balanceBefore := QueryAccountBalance(s.T(), s.chain.(*cosmos.CosmosChain), s.user1.FormattedAddress(), s.denom)
-		
+
 		// create a free tx (MsgDelegate), broadcast and wait for commit
 		BroadcastTxs(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []Tx{
 			{
@@ -915,7 +915,7 @@ func (s *POBIntegrationTestSuite) TestFreeLane() {
 
 		// check balance of account
 		balanceAfter := QueryAccountBalance(s.T(), s.chain.(*cosmos.CosmosChain), s.user1.FormattedAddress(), s.denom)
-		require.Equal(s.T(), balanceBefore, balanceAfter + delegation.Amount.Int64())
+		require.Equal(s.T(), balanceBefore, balanceAfter+delegation.Amount.Int64())
 	})
 
 	s.Run("normal tx with free tx in same block", func() {
@@ -952,9 +952,9 @@ func (s *POBIntegrationTestSuite) TestFreeLane() {
 		user1BalanceAfter := QueryAccountBalance(s.T(), s.chain.(*cosmos.CosmosChain), s.user1.FormattedAddress(), s.denom)
 		user2BalanceAfter := QueryAccountBalance(s.T(), s.chain.(*cosmos.CosmosChain), s.user2.FormattedAddress(), s.denom)
 
-		require.Equal(s.T(), user1BalanceBefore, user1BalanceAfter + delegation.Amount.Int64())
+		require.Equal(s.T(), user1BalanceBefore, user1BalanceAfter+delegation.Amount.Int64())
 
-		require.Less(s.T(), user2BalanceAfter + 100, user2BalanceBefore)
+		require.Less(s.T(), user2BalanceAfter+100, user2BalanceBefore)
 	})
 
 	s.Run("multiple free transactions in same block", func() {
@@ -989,8 +989,8 @@ func (s *POBIntegrationTestSuite) TestFreeLane() {
 		user1BalanceAfter := QueryAccountBalance(s.T(), s.chain.(*cosmos.CosmosChain), s.user1.FormattedAddress(), s.denom)
 		user2BalanceAfter := QueryAccountBalance(s.T(), s.chain.(*cosmos.CosmosChain), s.user2.FormattedAddress(), s.denom)
 
-		require.Equal(s.T(), user1BalanceBefore, user1BalanceAfter + delegation.Amount.Int64())
-		require.Equal(s.T(), user2BalanceBefore, user2BalanceAfter + delegation.Amount.Int64())
+		require.Equal(s.T(), user1BalanceBefore, user1BalanceAfter+delegation.Amount.Int64())
+		require.Equal(s.T(), user2BalanceBefore, user2BalanceAfter+delegation.Amount.Int64())
 	})
 }
 
@@ -1007,11 +1007,11 @@ func (s *POBIntegrationTestSuite) TestLanes() {
 
 		// create free-tx, bid-tx, and normal-tx\
 		bid, bundledTx := CreateAuctionBidMsg(
-			s.T(), 
-			context.Background(), 
-			s.user1, 
-			s.chain.(*cosmos.CosmosChain), 
-			params.ReserveFee, 
+			s.T(),
+			context.Background(),
+			s.user1,
+			s.chain.(*cosmos.CosmosChain),
+			params.ReserveFee,
 			[]Tx{
 				{
 					User: s.user1,
@@ -1026,14 +1026,14 @@ func (s *POBIntegrationTestSuite) TestLanes() {
 				},
 			},
 		)
-		
+
 		height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
 		require.NoError(s.T(), err)
 
 		txs := BroadcastTxs(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []Tx{
 			{
-				User: s.user1,
-				Msgs: []sdk.Msg{bid},
+				User:   s.user1,
+				Msgs:   []sdk.Msg{bid},
 				Height: height + 1,
 			},
 			{
@@ -1043,7 +1043,7 @@ func (s *POBIntegrationTestSuite) TestLanes() {
 						sdk.AccAddress(s.user2.Address()),
 						sdk.ValAddress(validators[0]),
 						delegation,
-					),	
+					),
 				},
 				GasPrice: 10,
 			},
@@ -1052,8 +1052,8 @@ func (s *POBIntegrationTestSuite) TestLanes() {
 				Msgs: []sdk.Msg{
 					&banktypes.MsgSend{
 						FromAddress: s.user3.FormattedAddress(),
-						ToAddress: s.user3.FormattedAddress(),
-						Amount: sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))),
+						ToAddress:   s.user3.FormattedAddress(),
+						Amount:      sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))),
 					},
 				},
 			},
@@ -1067,7 +1067,7 @@ func (s *POBIntegrationTestSuite) TestLanes() {
 
 		// check user2 balance expect no fee deduction
 		user2BalanceAfter := QueryAccountBalance(s.T(), s.chain.(*cosmos.CosmosChain), s.user2.FormattedAddress(), s.denom)
-		require.Equal(s.T(), user2BalanceBefore, user2BalanceAfter + delegation.Amount.Int64())
+		require.Equal(s.T(), user2BalanceBefore, user2BalanceAfter+delegation.Amount.Int64())
 	})
 
 	s.Run("failing top of block transaction, free, and normal tx", func() {
@@ -1075,11 +1075,11 @@ func (s *POBIntegrationTestSuite) TestLanes() {
 		user1Balance := QueryAccountBalance(s.T(), s.chain.(*cosmos.CosmosChain), s.user1.FormattedAddress(), s.denom)
 		// create free-tx, bid-tx, and normal-tx\
 		bid, bundledTxs := CreateAuctionBidMsg(
-			s.T(), 
-			context.Background(), 
-			s.user1, 
-			s.chain.(*cosmos.CosmosChain), 
-			params.ReserveFee, 
+			s.T(),
+			context.Background(),
+			s.user1,
+			s.chain.(*cosmos.CosmosChain),
+			params.ReserveFee,
 			[]Tx{
 				{
 					User: s.user1,
@@ -1088,7 +1088,7 @@ func (s *POBIntegrationTestSuite) TestLanes() {
 							FromAddress: s.user1.FormattedAddress(),
 							ToAddress:   s.user1.FormattedAddress(),
 							// transfer all tokens
-							Amount:      sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(user1Balance))),
+							Amount: sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(user1Balance))),
 						},
 					},
 					SequenceIncrement: 1,
@@ -1100,22 +1100,22 @@ func (s *POBIntegrationTestSuite) TestLanes() {
 							FromAddress: s.user1.FormattedAddress(),
 							ToAddress:   s.user1.FormattedAddress(),
 							// doing the same again will fail
-							Amount:      sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(user1Balance))),
+							Amount: sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(user1Balance))),
 						},
 					},
-					SequenceIncrement: 2,	
+					SequenceIncrement: 2,
 				},
 			},
 		)
-		
+
 		height, err := s.chain.(*cosmos.CosmosChain).Height(context.Background())
 		require.NoError(s.T(), err)
 
 		txs := BroadcastTxs(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []Tx{
 			{
-				User: s.user1,
-				Msgs: []sdk.Msg{bid},
-				Height: height + 1,
+				User:       s.user1,
+				Msgs:       []sdk.Msg{bid},
+				Height:     height + 1,
 				ExpectFail: true,
 			},
 			{
@@ -1125,7 +1125,7 @@ func (s *POBIntegrationTestSuite) TestLanes() {
 						sdk.AccAddress(s.user2.Address()),
 						sdk.ValAddress(validators[0]),
 						delegation,
-					),	
+					),
 				},
 				GasPrice: 10,
 			},
@@ -1134,8 +1134,8 @@ func (s *POBIntegrationTestSuite) TestLanes() {
 				Msgs: []sdk.Msg{
 					&banktypes.MsgSend{
 						FromAddress: s.user3.FormattedAddress(),
-						ToAddress: s.user3.FormattedAddress(),
-						Amount: sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))),
+						ToAddress:   s.user3.FormattedAddress(),
+						Amount:      sdk.NewCoins(sdk.NewCoin(s.denom, sdk.NewInt(100))),
 					},
 				},
 			},
@@ -1149,7 +1149,7 @@ func (s *POBIntegrationTestSuite) TestLanes() {
 
 		// check user2 balance expect no fee deduction
 		user2BalanceAfter := QueryAccountBalance(s.T(), s.chain.(*cosmos.CosmosChain), s.user2.FormattedAddress(), s.denom)
-		require.Equal(s.T(), user2BalanceBefore, user2BalanceAfter + delegation.Amount.Int64())	
+		require.Equal(s.T(), user2BalanceBefore, user2BalanceAfter+delegation.Amount.Int64())
 	})
 
 	s.Run("top of block transaction that includes transactions from the free lane", func() {
@@ -1194,8 +1194,8 @@ func (s *POBIntegrationTestSuite) TestLanes() {
 
 		txs := BroadcastTxs(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []Tx{
 			{
-				User: s.user3,
-				Msgs: []sdk.Msg{bid},
+				User:   s.user3,
+				Msgs:   []sdk.Msg{bid},
 				Height: height + 1,
 			},
 			delegateTx,
@@ -1203,7 +1203,7 @@ func (s *POBIntegrationTestSuite) TestLanes() {
 
 		// query balance after, expect no fees paid
 		user2BalanceAfter := QueryAccountBalance(s.T(), s.chain.(*cosmos.CosmosChain), s.user2.FormattedAddress(), s.denom)
-		s.Require().Equal(user2BalanceBefore, user2BalanceAfter + delegation.Amount.Int64())
+		s.Require().Equal(user2BalanceBefore, user2BalanceAfter+delegation.Amount.Int64())
 
 		// check block
 		WaitForHeight(s.T(), s.chain.(*cosmos.CosmosChain), height+1)
@@ -1238,7 +1238,7 @@ func (s *POBIntegrationTestSuite) TestLanes() {
 					Amount:           delegation,
 				},
 			},
-			GasPrice: 10,
+			GasPrice:          10,
 			SequenceIncrement: 1,
 		}
 
@@ -1271,8 +1271,8 @@ func (s *POBIntegrationTestSuite) TestLanes() {
 
 		txs := BroadcastTxs(s.T(), context.Background(), s.chain.(*cosmos.CosmosChain), []Tx{
 			{
-				User: s.user3,
-				Msgs: []sdk.Msg{bid},
+				User:   s.user3,
+				Msgs:   []sdk.Msg{bid},
 				Height: height + 1,
 			},
 			// already included above
@@ -1286,6 +1286,6 @@ func (s *POBIntegrationTestSuite) TestLanes() {
 
 		// check user2 balance expect no fee deduction
 		user2BalanceAfter := QueryAccountBalance(s.T(), s.chain.(*cosmos.CosmosChain), s.user2.FormattedAddress(), s.denom)
-		require.Equal(s.T(), user2BalanceBefore, user2BalanceAfter + delegation.Amount.Int64())
+		require.Equal(s.T(), user2BalanceBefore, user2BalanceAfter+delegation.Amount.Int64())
 	})
 }

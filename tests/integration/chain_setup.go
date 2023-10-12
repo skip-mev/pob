@@ -271,7 +271,7 @@ func QueryAccountBalance(t *testing.T, chain ibc.Chain, address, denom string) i
 	// get nodes
 	balance, err := cosmosChain.GetBalance(context.Background(), address, denom)
 	require.NoError(t, err)
-	return balance
+	return balance.Int64()
 }
 
 // QueryAccountSequence
