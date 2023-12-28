@@ -206,9 +206,9 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 			}
 
 			txSize := int64(len(txBz))
-			if totalTxBytes += txSize; totalTxBytes <= req.MaxTxBytes {
-				// more transactions.
+			if totalTxBytes += txSize; totalTxBytes > req.MaxTxBytes {
 				// We've reached capacity per req.MaxTxBytes so we cannot select any
+				// more transactions.
 				break selectTxLoop
 			}
 
