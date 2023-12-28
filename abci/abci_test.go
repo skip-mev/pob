@@ -6,11 +6,13 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/rand"
+	"os"
 	"testing"
 	"time"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/libs/log"
+	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	storetypes "github.com/cosmos/cosmos-sdk/store/types"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -68,6 +70,13 @@ func (suite *ABCITestSuite) SetupTest() {
 	suite.key = storetypes.NewKVStoreKey(buildertypes.StoreKey)
 	testCtx := testutil.DefaultContextWithDB(suite.T(), suite.key, storetypes.NewTransientStoreKey("transient_test"))
 	suite.ctx = testCtx.Ctx.WithBlockHeight(1)
+
+	cp := tmproto.ConsensusParams{
+		Block: &tmproto.BlockParams{
+			MaxGas: int64(1000000000000000000),
+		},
+	}
+	suite.ctx = suite.ctx.WithConsensusParams(&cp)
 
 	// Mempool set up
 	suite.config = mempool.NewDefaultAuctionFactory(suite.encodingConfig.TxConfig.TxDecoder())
@@ -767,4 +776,153 @@ func (suite *ABCITestSuite) isTopBidValid() bool {
 	// check if the top bid is valid
 	_, err := suite.anteHandler(suite.ctx, iterator.Tx(), true)
 	return err == nil
+}
+
+func (suite *ABCITestSuite) TestPrepareProposalLimits() {
+	suite.Run("rejects a single tx that is over the limit", func() {
+		gasLimit := uint64(1000)
+		tx1, err := testutils.CreateTxWithLimit(suite.encodingConfig.TxConfig, suite.accounts[0], 0, 1000, testutils.CreateRandomMsgs(suite.accounts[0].Address, 1), gasLimit)
+		suite.Require().NoError(err)
+
+		mempool := mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), 0, suite.config)
+		err = mempool.Insert(suite.ctx, tx1)
+		suite.Require().NoError(err)
+
+		suite.proposalHandler = abci.NewProposalHandler(
+			mempool,
+			log.NewTMLogger(os.Stdout),
+			suite.anteHandler,
+			suite.encodingConfig.TxConfig.TxEncoder(),
+			suite.encodingConfig.TxConfig.TxDecoder(),
+		)
+
+		// Update the consensus params to have a lower gas limit
+		cp := tmproto.ConsensusParams{
+			Block: &tmproto.BlockParams{
+				MaxGas: int64(1000) - 1,
+			},
+		}
+		ctx := suite.ctx.WithConsensusParams(&cp)
+
+		res := suite.proposalHandler.PrepareProposalHandler()(ctx, abcitypes.RequestPrepareProposal{
+			MaxTxBytes: 1000000000000000000,
+		})
+		suite.Require().Len(res.Txs, 0)
+	})
+
+	suite.Run("accepts a single tx that is at the limit", func() {
+		gasLimit := uint64(1000)
+		tx1, err := testutils.CreateTxWithLimit(suite.encodingConfig.TxConfig, suite.accounts[0], 0, 1000, testutils.CreateRandomMsgs(suite.accounts[0].Address, 1), gasLimit)
+		suite.Require().NoError(err)
+
+		mempool := mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), 0, suite.config)
+		err = mempool.Insert(suite.ctx, tx1)
+		suite.Require().NoError(err)
+
+		suite.proposalHandler = abci.NewProposalHandler(
+			mempool,
+			log.NewTMLogger(os.Stdout),
+			suite.anteHandler,
+			suite.encodingConfig.TxConfig.TxEncoder(),
+			suite.encodingConfig.TxConfig.TxDecoder(),
+		)
+
+		// Update the consensus params to have a lower gas limit
+		cp := tmproto.ConsensusParams{
+			Block: &tmproto.BlockParams{
+				MaxGas: int64(1000),
+			},
+		}
+		ctx := suite.ctx.WithConsensusParams(&cp)
+
+		req := abcitypes.RequestPrepareProposal{
+			MaxTxBytes: 1000000000000000000,
+		}
+		res := suite.proposalHandler.PrepareProposalHandler()(ctx, req)
+
+		suite.Require().Len(res.Txs, 1)
+
+		decodedTx, err := suite.encodingConfig.TxConfig.TxEncoder()(tx1)
+		suite.Require().NoError(err)
+		suite.Require().Equal(res.Txs[0], decodedTx)
+	})
+
+	suite.Run("rejects a bid that is over the limit", func() {
+		gasLimit := uint64(1000)
+		tx1, err := testutils.CreateAuctionTxWithSignersAndLimit(
+			suite.encodingConfig.TxConfig,
+			suite.accounts[0],
+			sdk.NewCoin("foo", sdk.NewInt(1000000000000000000)),
+			0,
+			1000,
+			suite.accounts[0:10],
+			gasLimit,
+		)
+		suite.Require().NoError(err)
+
+		mempool := mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), 0, suite.config)
+		err = mempool.Insert(suite.ctx, tx1)
+		suite.Require().NoError(err)
+
+		suite.proposalHandler = abci.NewProposalHandler(
+			mempool,
+			log.NewTMLogger(os.Stdout),
+			suite.anteHandler,
+			suite.encodingConfig.TxConfig.TxEncoder(),
+			suite.encodingConfig.TxConfig.TxDecoder(),
+		)
+
+		// Update the consensus params to have a lower gas limit
+		cp := tmproto.ConsensusParams{
+			Block: &tmproto.BlockParams{
+				MaxGas: int64(1000) - 1,
+			},
+		}
+		ctx := suite.ctx.WithConsensusParams(&cp)
+
+		res := suite.proposalHandler.PrepareProposalHandler()(ctx, abcitypes.RequestPrepareProposal{
+			MaxTxBytes: 1000000000000000000,
+		})
+		suite.Require().Len(res.Txs, 0)
+	})
+
+	suite.Run("rejects a tx that is too large but accepts a smaller one", func() {
+		gasLimit := uint64(1000)
+		tx1, err := testutils.CreateTxWithLimit(suite.encodingConfig.TxConfig, suite.accounts[0], 0, 1000, testutils.CreateRandomMsgs(suite.accounts[0].Address, 1), gasLimit)
+		suite.Require().NoError(err)
+
+		tx2, err := testutils.CreateTxWithLimit(suite.encodingConfig.TxConfig, suite.accounts[0], 0, 1000, testutils.CreateRandomMsgs(suite.accounts[0].Address, 1), gasLimit-1)
+		suite.Require().NoError(err)
+
+		mempool := mempool.NewAuctionMempool(suite.encodingConfig.TxConfig.TxDecoder(), suite.encodingConfig.TxConfig.TxEncoder(), 0, suite.config)
+		err = mempool.Insert(suite.ctx, tx1)
+		suite.Require().NoError(err)
+		err = mempool.Insert(suite.ctx, tx2)
+		suite.Require().NoError(err)
+
+		suite.proposalHandler = abci.NewProposalHandler(
+			mempool,
+			log.NewTMLogger(os.Stdout),
+			suite.anteHandler,
+			suite.encodingConfig.TxConfig.TxEncoder(),
+			suite.encodingConfig.TxConfig.TxDecoder(),
+		)
+
+		// Update the consensus params to have a lower gas limit
+		cp := tmproto.ConsensusParams{
+			Block: &tmproto.BlockParams{
+				MaxGas: int64(1000) - 1,
+			},
+		}
+		ctx := suite.ctx.WithConsensusParams(&cp)
+
+		res := suite.proposalHandler.PrepareProposalHandler()(ctx, abcitypes.RequestPrepareProposal{
+			MaxTxBytes: 1000000000000000000,
+		})
+		suite.Require().Len(res.Txs, 1)
+
+		decodedTx, err := suite.encodingConfig.TxConfig.TxEncoder()(tx2)
+		suite.Require().NoError(err)
+		suite.Require().Equal(res.Txs[0], decodedTx)
+	})
 }

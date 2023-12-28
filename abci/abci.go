@@ -58,13 +58,17 @@ func NewProposalHandler(
 func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 	return func(ctx sdk.Context, req abci.RequestPrepareProposal) abci.ResponsePrepareProposal {
 		var (
-			selectedTxs  [][]byte
-			totalTxBytes int64
+			selectedTxs   [][]byte
+			totalTxBytes  int64
+			totalGasLimit int64
 		)
 
 		bidTxIterator := h.mempool.AuctionBidSelect(ctx)
 		txsToRemove := make(map[sdk.Tx]struct{}, 0)
 		seenTxs := make(map[string]struct{}, 0)
+
+		// Do we need to deduct some from here since begin block gas gets carried over?
+		maxGasLimit := ctx.ConsensusParams().Block.MaxGas
 
 		// Attempt to select the highest bid transaction that is valid and whose
 		// bundled transactions are valid.
@@ -72,6 +76,14 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		for ; bidTxIterator != nil; bidTxIterator = bidTxIterator.Next() {
 			cacheCtx, write := ctx.CacheContext()
 			tmpBidTx := bidTxIterator.Tx()
+
+			// Retrieve the gas limit of the transaction
+			feeTx, ok := tmpBidTx.(sdk.FeeTx)
+			if !ok {
+				txsToRemove[tmpBidTx] = struct{}{}
+				continue selectBidTxLoop
+			}
+			gasLimit := feeTx.GetGas()
 
 			bidTxBz, err := h.PrepareProposalVerifyTx(cacheCtx, tmpBidTx)
 			if err != nil {
@@ -103,6 +115,15 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 						continue selectBidTxLoop
 					}
 
+					feeTx, ok := refTx.(sdk.FeeTx)
+					if !ok {
+						// Malformed bundled transaction, so we remove the bid transaction
+						// and try the next top bid.
+						txsToRemove[tmpBidTx] = struct{}{}
+						continue selectBidTxLoop
+					}
+					gasLimit += feeTx.GetGas()
+
 					txBz, err := h.PrepareProposalVerifyTx(cacheCtx, refTx)
 					if err != nil {
 						// Invalid bundled transaction, so we remove the bid transaction
@@ -113,6 +134,15 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 
 					sdkTxBytes[index] = txBz
 				}
+
+				if int64(gasLimit) > maxGasLimit {
+					// The gas limit of the bundled transactions exceeds the maximum gas
+					// limit of the block, so we remove the bid transaction and try the
+					// next top bid.
+					txsToRemove[tmpBidTx] = struct{}{}
+					continue selectBidTxLoop
+				}
+				totalGasLimit += int64(gasLimit)
 
 				// At this point, both the bid transaction itself and all the bundled
 				// transactions are valid. So we select the bid transaction along with
@@ -157,6 +187,20 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		for ; iterator != nil; iterator = iterator.Next() {
 			memTx := iterator.Tx()
 
+			// Gas Limit check
+			feeTx, ok := memTx.(sdk.FeeTx)
+			if !ok {
+				txsToRemove[memTx] = struct{}{}
+				continue selectTxLoop
+			}
+
+			gasLimit := feeTx.GetGas()
+			if updatedGasLimit := int64(gasLimit) + totalGasLimit; updatedGasLimit > maxGasLimit {
+				continue selectTxLoop
+			} else {
+				totalGasLimit = updatedGasLimit
+			}
+
 			// If the transaction is already included in the proposal, then we skip it.
 			txBz, err := h.txEncoder(memTx)
 			if err != nil {
@@ -190,6 +234,8 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		for tx := range txsToRemove {
 			h.RemoveTx(tx)
 		}
+
+		h.logger.Info("build proposal with transactions", "num_txs", len(selectedTxs), "total_tx_bytes", totalTxBytes, "total_gas_limit", totalGasLimit)
 
 		return abci.ResponsePrepareProposal{Txs: selectedTxs}
 	}

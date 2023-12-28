@@ -94,6 +94,30 @@ func CreateTx(txCfg client.TxConfig, account Account, nonce, timeout uint64, msg
 	return txBuilder.GetTx(), nil
 }
 
+func CreateTxWithLimit(txCfg client.TxConfig, account Account, nonce, timeout uint64, msgs []sdk.Msg, limit uint64) (authsigning.Tx, error) {
+	txBuilder := txCfg.NewTxBuilder()
+	if err := txBuilder.SetMsgs(msgs...); err != nil {
+		return nil, err
+	}
+
+	sigV2 := signing.SignatureV2{
+		PubKey: account.PrivKey.PubKey(),
+		Data: &signing.SingleSignatureData{
+			SignMode:  txCfg.SignModeHandler().DefaultMode(),
+			Signature: nil,
+		},
+		Sequence: nonce,
+	}
+	if err := txBuilder.SetSignatures(sigV2); err != nil {
+		return nil, err
+	}
+
+	txBuilder.SetTimeoutHeight(timeout)
+	txBuilder.SetGasLimit(limit)
+
+	return txBuilder.GetTx(), nil
+}
+
 func CreateRandomTx(txCfg client.TxConfig, account Account, nonce, numberMsgs, timeout uint64) (authsigning.Tx, error) {
 	msgs := make([]sdk.Msg, numberMsgs)
 	for i := 0; i < int(numberMsgs); i++ {
@@ -121,6 +145,38 @@ func CreateRandomTx(txCfg client.TxConfig, account Account, nonce, numberMsgs, t
 	}
 
 	txBuilder.SetTimeoutHeight(timeout)
+
+	return txBuilder.GetTx(), nil
+}
+
+func CreateRandomTxWithLimit(txCfg client.TxConfig, account Account, nonce, numberMsgs, timeout uint64, limit uint64) (authsigning.Tx, error) {
+	msgs := make([]sdk.Msg, numberMsgs)
+	for i := 0; i < int(numberMsgs); i++ {
+		msgs[i] = &banktypes.MsgSend{
+			FromAddress: account.Address.String(),
+			ToAddress:   account.Address.String(),
+		}
+	}
+
+	txBuilder := txCfg.NewTxBuilder()
+	if err := txBuilder.SetMsgs(msgs...); err != nil {
+		return nil, err
+	}
+
+	sigV2 := signing.SignatureV2{
+		PubKey: account.PrivKey.PubKey(),
+		Data: &signing.SingleSignatureData{
+			SignMode:  txCfg.SignModeHandler().DefaultMode(),
+			Signature: nil,
+		},
+		Sequence: nonce,
+	}
+	if err := txBuilder.SetSignatures(sigV2); err != nil {
+		return nil, err
+	}
+
+	txBuilder.SetTimeoutHeight(timeout)
+	txBuilder.SetGasLimit(limit)
 
 	return txBuilder.GetTx(), nil
 }
@@ -195,6 +251,51 @@ func CreateAuctionTxWithSigners(txCfg client.TxConfig, bidder Account, bid sdk.C
 	}
 
 	txBuilder.SetTimeoutHeight(timeout)
+
+	return txBuilder.GetTx(), nil
+}
+
+func CreateAuctionTxWithSignersAndLimit(txCfg client.TxConfig, bidder Account, bid sdk.Coin, nonce, timeout uint64, signers []Account, limit uint64) (authsigning.Tx, error) {
+	bidMsg := &buildertypes.MsgAuctionBid{
+		Bidder:       bidder.Address.String(),
+		Bid:          bid,
+		Transactions: make([][]byte, len(signers)),
+	}
+
+	for i := 0; i < len(signers); i++ {
+		randomMsg := CreateRandomMsgs(signers[i].Address, 1)
+		randomTx, err := CreateTx(txCfg, signers[i], 0, timeout, randomMsg)
+		if err != nil {
+			return nil, err
+		}
+
+		bz, err := txCfg.TxEncoder()(randomTx)
+		if err != nil {
+			return nil, err
+		}
+
+		bidMsg.Transactions[i] = bz
+	}
+
+	txBuilder := txCfg.NewTxBuilder()
+	if err := txBuilder.SetMsgs(bidMsg); err != nil {
+		return nil, err
+	}
+
+	sigV2 := signing.SignatureV2{
+		PubKey: bidder.PrivKey.PubKey(),
+		Data: &signing.SingleSignatureData{
+			SignMode:  txCfg.SignModeHandler().DefaultMode(),
+			Signature: nil,
+		},
+		Sequence: nonce,
+	}
+	if err := txBuilder.SetSignatures(sigV2); err != nil {
+		return nil, err
+	}
+
+	txBuilder.SetTimeoutHeight(timeout)
+	txBuilder.SetGasLimit(limit)
 
 	return txBuilder.GetTx(), nil
 }
