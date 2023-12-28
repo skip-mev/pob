@@ -780,6 +780,7 @@ func (suite *ABCITestSuite) isTopBidValid() bool {
 
 func (suite *ABCITestSuite) TestPrepareProposalLimits() {
 	suite.Run("rejects a single tx that is over the limit", func() {
+		suite.SetupTest() // reset
 		gasLimit := uint64(1000)
 		tx1, err := testutils.CreateTxWithLimit(suite.encodingConfig.TxConfig, suite.accounts[0], 0, 1000, testutils.CreateRandomMsgs(suite.accounts[0].Address, 1), gasLimit)
 		suite.Require().NoError(err)
@@ -811,6 +812,7 @@ func (suite *ABCITestSuite) TestPrepareProposalLimits() {
 	})
 
 	suite.Run("accepts a single tx that is at the limit", func() {
+		suite.SetupTest() // reset
 		gasLimit := uint64(1000)
 		tx1, err := testutils.CreateTxWithLimit(suite.encodingConfig.TxConfig, suite.accounts[0], 0, 1000, testutils.CreateRandomMsgs(suite.accounts[0].Address, 1), gasLimit)
 		suite.Require().NoError(err)
@@ -848,6 +850,7 @@ func (suite *ABCITestSuite) TestPrepareProposalLimits() {
 	})
 
 	suite.Run("rejects a bid that is over the limit", func() {
+		suite.SetupTest() // reset
 		gasLimit := uint64(1000)
 		tx1, err := testutils.CreateAuctionTxWithSignersAndLimit(
 			suite.encodingConfig.TxConfig,
@@ -887,6 +890,7 @@ func (suite *ABCITestSuite) TestPrepareProposalLimits() {
 	})
 
 	suite.Run("rejects a tx that is too large but accepts a smaller one", func() {
+		suite.SetupTest() // reset
 		gasLimit := uint64(1000)
 		tx1, err := testutils.CreateTxWithLimit(suite.encodingConfig.TxConfig, suite.accounts[0], 0, 1000, testutils.CreateRandomMsgs(suite.accounts[0].Address, 1), gasLimit)
 		suite.Require().NoError(err)
