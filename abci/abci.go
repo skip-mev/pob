@@ -134,14 +134,14 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 					sdkTxBytes[index] = txBz
 				}
 
-				if int64(gasLimit) > maxGasLimit {
+				if maxGasLimit > 0 && int64(gasLimit) > maxGasLimit {
 					// The gas limit of the bundled transactions exceeds the maximum gas
 					// limit of the block, so we remove the bid transaction and try the
 					// next top bid.
 					txsToRemove[tmpBidTx] = struct{}{}
 					continue selectBidTxLoop
 				}
-				totalGasLimit += int64(gasLimit)
+				totalGasLimit = int64(gasLimit)
 
 				// At this point, both the bid transaction itself and all the bundled
 				// transactions are valid. So we select the bid transaction along with
@@ -219,7 +219,7 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 				continue selectTxLoop
 			}
 			gasLimit := feeTx.GetGas()
-			if totalGasLimit += int64(gasLimit); totalGasLimit > maxGasLimit {
+			if totalGasLimit += int64(gasLimit); maxGasLimit > 0 && totalGasLimit > maxGasLimit {
 				// We've reached capacity per maxGasLimit so we cannot select any more
 				// transactions.
 				break selectTxLoop
