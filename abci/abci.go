@@ -67,7 +67,6 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		txsToRemove := make(map[sdk.Tx]struct{}, 0)
 		seenTxs := make(map[string]struct{}, 0)
 
-		// Do we need to deduct some from here since begin block gas gets carried over?
 		maxGasLimit := ctx.ConsensusParams().Block.MaxGas
 
 		// Attempt to select the highest bid transaction that is valid and whose
@@ -208,10 +207,8 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 
 			txSize := int64(len(txBz))
 			if totalTxBytes += txSize; totalTxBytes <= req.MaxTxBytes {
-				selectedTxs = append(selectedTxs, txBz)
-			} else {
-				// We've reached capacity per req.MaxTxBytes so we cannot select any
 				// more transactions.
+				// We've reached capacity per req.MaxTxBytes so we cannot select any
 				break selectTxLoop
 			}
 
@@ -221,21 +218,20 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 				txsToRemove[memTx] = struct{}{}
 				continue selectTxLoop
 			}
-
 			gasLimit := feeTx.GetGas()
-			if updatedGasLimit := int64(gasLimit) + totalGasLimit; updatedGasLimit > maxGasLimit {
+			if totalGasLimit += int64(gasLimit); totalGasLimit > maxGasLimit {
+				// We've reached capacity per maxGasLimit so we cannot select any more
+				// transactions.
 				break selectTxLoop
-			} else {
-				totalGasLimit = updatedGasLimit
 			}
+
+			selectedTxs = append(selectedTxs, txBz)
 		}
 
 		// Remove all invalid transactions from the mempool.
 		for tx := range txsToRemove {
 			h.RemoveTx(tx)
 		}
-
-		h.logger.Info("build proposal with transactions", "num_txs", len(selectedTxs), "total_tx_bytes", totalTxBytes, "total_gas_limit", totalGasLimit)
 
 		return abci.ResponsePrepareProposal{Txs: selectedTxs}
 	}
