@@ -187,20 +187,6 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 		for ; iterator != nil; iterator = iterator.Next() {
 			memTx := iterator.Tx()
 
-			// Gas Limit check
-			feeTx, ok := memTx.(sdk.FeeTx)
-			if !ok {
-				txsToRemove[memTx] = struct{}{}
-				continue selectTxLoop
-			}
-
-			gasLimit := feeTx.GetGas()
-			if updatedGasLimit := int64(gasLimit) + totalGasLimit; updatedGasLimit > maxGasLimit {
-				continue selectTxLoop
-			} else {
-				totalGasLimit = updatedGasLimit
-			}
-
 			// If the transaction is already included in the proposal, then we skip it.
 			txBz, err := h.txEncoder(memTx)
 			if err != nil {
@@ -227,6 +213,20 @@ func (h *ProposalHandler) PrepareProposalHandler() sdk.PrepareProposalHandler {
 				// We've reached capacity per req.MaxTxBytes so we cannot select any
 				// more transactions.
 				break selectTxLoop
+			}
+
+			// Gas Limit check
+			feeTx, ok := memTx.(sdk.FeeTx)
+			if !ok {
+				txsToRemove[memTx] = struct{}{}
+				continue selectTxLoop
+			}
+
+			gasLimit := feeTx.GetGas()
+			if updatedGasLimit := int64(gasLimit) + totalGasLimit; updatedGasLimit > maxGasLimit {
+				break selectTxLoop
+			} else {
+				totalGasLimit = updatedGasLimit
 			}
 		}
 
