@@ -88,7 +88,7 @@ $ go install github.com/skip-mev/pob
    )
    ```
 
-2. Add your module to the the `AppModuleBasic` manager. This manager is in
+2. Add your module to the `AppModuleBasic` manager. This manager is in
    charge of setting up basic, non-dependent module elements such as codec
    registration and genesis verification. This will register the special
    `MsgAuctionBid` message. When users want to bid for top of block execution,

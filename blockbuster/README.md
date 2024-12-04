@@ -222,7 +222,7 @@ defined on the lane’s mempool. Developers can define their own custom ordering
 by implementing a custom `TxPriority` struct that allows the lane’s mempool to 
 determine the priority of a transaction `GetTxPriority` and relatively order 
 two transactions given the priority `Compare`. The top of block lane includes 
-an custom `TxPriority` that orders transactions in the mempool based on their 
+a custom `TxPriority` that orders transactions in the mempool based on their 
 bid. 
 
 ```go
