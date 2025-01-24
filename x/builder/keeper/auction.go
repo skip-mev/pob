@@ -96,7 +96,7 @@ func (k Keeper) ValidateAuctionBid(ctx sdk.Context, bidder sdk.AccAddress, bid, 
 
 // ValidateAuctionBundle validates the ordering of the referenced transactions. Bundles are valid if
 //  1. all of the transactions are signed by the signer.
-//  2. some subset of contiguous transactions starting from the first tx are signed by the same signer, and all other tranasctions
+//  2. some subset of contiguous transactions starting from the first tx are signed by the same signer, and all other transactions
 //     are signed by the bidder.
 //
 // example:
