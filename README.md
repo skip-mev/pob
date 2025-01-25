@@ -282,7 +282,7 @@ $ go install github.com/skip-mev/pob
       )
       ```
 
-    e. With Cosmos SDK version 0.47.0, the process of building blocks has been
+    f. With Cosmos SDK version 0.47.0, the process of building blocks has been
     updated and moved from the consensus layer, CometBFT, to the application layer.
     When a new block is requested, the proposer for that height will utilize the
     `PrepareProposal` handler to build a block while the `ProcessProposal` handler
@@ -337,7 +337,7 @@ $ go install github.com/skip-mev/pob
     }
     ```
 
-    f. Finally, update the app's `InitGenesis` order and ante-handler chain.
+    g. Finally, update the app's `InitGenesis` order and ante-handler chain.
 
     ```go
     genesisModuleOrder := []string{
